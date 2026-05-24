@@ -25,7 +25,7 @@ export default function Home() {
         playsInline
         style={videoBg}
       >
-        <source src="/home-video-fixed.mp4" type="video/mp4" />
+        <source src="/home-bg.mp4" type="video/mp4" />
       </video>
 
       <div style={overlay} />

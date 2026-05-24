@@ -18,7 +18,7 @@ type Profile = {
   main_realm?: string;
   raider_io?: string;
   application_note?: string;
-  applied_at?: string;
+  applied_at?: string | null;
 };
 
 export default function AdminUsersPage() {
@@ -265,17 +265,32 @@ if (activeTab === "applicants") {
                         Revoke Access
                       </button>
                     ) : (
-                      <button
-                        onClick={() =>
-                          updateUser(user.user_id, {
-                            signup_approved: true,
-                            site_role: "booster",
-                          })
-                        }
-                        style={approveBtn}
-                      >
-                        Approve Signup
-                      </button>
+<>
+  <button
+    onClick={() =>
+      updateUser(user.user_id, {
+        signup_approved: true,
+        site_role: "booster",
+      })
+    }
+    style={approveBtn}
+  >
+    Approve Signup
+  </button>
+
+  <button
+    onClick={() =>
+      updateUser(user.user_id, {
+        signup_approved: false,
+        applied_at: null,
+        application_note: "",
+      })
+    }
+    style={revokeBtn}
+  >
+    Decline
+  </button>
+</>
                     )}
                   </div>
                 </div>
