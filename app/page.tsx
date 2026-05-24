@@ -17,16 +17,15 @@ export default function Home() {
         }
       `}</style>
 
-      <video
-        id="homeVideo"
-        autoPlay
-        muted
-        loop
-        playsInline
-        style={videoBg}
-      >
-        <source src="/home-bg-small.mp4" type="video/mp4" />
-      </video>
+<video
+  autoPlay
+  muted
+  loop
+  playsInline
+  style={videoBg}
+>
+  <source src="/home.webm" type="video/webm" />
+</video>
 
       <div style={overlay} />
 
