@@ -194,7 +194,27 @@ style={{
       "0 0 14px rgba(168,85,247,0.45)";
   }}
 >
-  Sign-Up
+ Sign for Runs
+</a>
+<a
+  href="/runs?apply=true"
+  style={link}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.transform = "scale(1.06)";
+    e.currentTarget.style.background =
+      "linear-gradient(90deg,#9333ea,#e879f9)";
+    e.currentTarget.style.boxShadow =
+      "0 0 22px rgba(217,70,239,0.9)";
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.transform = "scale(1)";
+    e.currentTarget.style.background =
+      "linear-gradient(90deg,#6d28d9,#c026d3)";
+    e.currentTarget.style.boxShadow =
+      "0 0 14px rgba(168,85,247,0.45)";
+  }}
+>
+  Apply
 </a>
 <a
   href="/my-signups"
@@ -257,6 +277,7 @@ style={{
   Bank
 </a>
 <a
+
   href="/profile"
   style={link}
   onMouseEnter={(e) => {
@@ -274,7 +295,7 @@ style={{
       "0 0 14px rgba(168,85,247,0.45)";
   }}
 >
-  My Characters
+  My Garrison
 </a>
 
 <OnlineUsers />

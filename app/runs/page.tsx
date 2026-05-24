@@ -13,7 +13,7 @@ import {
   pointerWithin,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 type Run = {
   id: number;
   title: string;
@@ -199,6 +199,7 @@ const [newRunDps, setNewRunDps] = useState("10");
 const [adminAddClass, setAdminAddClass] = useState("Druid");
 const [adminAddSpec, setAdminAddSpec] = useState("Guardian");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const ADMIN_IDS = ["207929624888344576"];
 
   const discordId =
@@ -402,7 +403,11 @@ useEffect(() => {
   useEffect(() => {
     loadRuns();
   }, [selectedWeek]);
-
+useEffect(() => {
+  if (searchParams.get("apply") === "true") {
+    setShowAccessPopup(true);
+  }
+}, [searchParams]);
   function getSignupName() {
     if (!selectedCharacter) return null;
     return `${selectedCharacter.name} - ${selectedCharacter.spec} ${selectedCharacter.class}`;
