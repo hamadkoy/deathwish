@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
 
@@ -23,10 +24,13 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Missing discordId" }, { status: 400 });
   }
 
-  const auth = new google.auth.GoogleAuth({
-    keyFile: "credentials.json",
-    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-  });
+const auth = new google.auth.GoogleAuth({
+  credentials: {
+    client_email: process.env.GOOGLE_CLIENT_EMAIL,
+    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+  },
+  scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+});
 
 const authClient = await auth.getClient();
 
