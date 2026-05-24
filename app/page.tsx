@@ -1,7 +1,11 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
 
 export default function Home() {
+
+  const [soundOn, setSoundOn] = useState(false);
+
   return (
     <main style={page}>
       <style jsx global>{`
@@ -18,8 +22,9 @@ export default function Home() {
       `}</style>
 
 <video
+  id="homeVideo"
   autoPlay
-  muted
+  muted={!soundOn}
   loop
   playsInline
   style={videoBg}
@@ -50,28 +55,25 @@ export default function Home() {
         ))}
       </div>
 
-      <button
-        id="soundButton"
-        style={soundBtn}
-        onClick={() => {
-          const video = document.getElementById("homeVideo") as HTMLVideoElement;
-          const button = document.getElementById("soundButton");
+<button
+  id="soundButton"
+  style={soundBtn}
+  onClick={() => {
+    const video = document.getElementById("homeVideo") as HTMLVideoElement;
 
-          video.muted = !video.muted;
-          video.volume = 0.5;
-          video.play();
+    if (!video) return;
 
-          localStorage.setItem("videoMuted", video.muted ? "true" : "false");
+    const newMuted = !soundOn;
 
-          if (button) {
-            button.innerText = video.muted
-              ? "🔇 Unmute Sound"
-              : "🔊 Mute Sound";
-          }
-        }}
-      >
-        🔇 Unmute Sound
-      </button>
+    video.muted = newMuted;
+    video.volume = 0.5;
+    video.play();
+
+    setSoundOn(!newMuted);
+  }}
+>
+  {soundOn ? "🔊 Mute Sound" : "🔇 Unmute Sound"}
+</button>
 
       <section style={hero}>
         <p style={smallTitle}>WORLD OF WARCRAFT</p>
