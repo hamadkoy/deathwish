@@ -274,7 +274,15 @@ const [editRunSignupOpenAt, setEditRunSignupOpenAt] = useState("");
     }
 
     setUser(data.user);
-
+await supabase.from("profiles").upsert({
+  user_id: data.user.id,
+  discord_name:
+    data.user.user_metadata?.full_name ||
+    data.user.user_metadata?.name ||
+    data.user.user_metadata?.preferred_username ||
+    "Unknown",
+  avatar_url: data.user.user_metadata?.avatar_url || "",
+});
     const { data: profileData } = await supabase
       .from("profiles")
       .select("*")
