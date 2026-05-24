@@ -60,16 +60,15 @@ export default function Home() {
   style={soundBtn}
   onClick={() => {
     const video = document.getElementById("homeVideo") as HTMLVideoElement;
-
     if (!video) return;
 
-    const newMuted = !soundOn;
+    const nextSoundOn = !soundOn;
 
-    video.muted = newMuted;
-    video.volume = 0.5;
+    video.muted = !nextSoundOn;
+    video.volume = 0.6;
     video.play();
 
-    setSoundOn(!newMuted);
+    setSoundOn(nextSoundOn);
   }}
 >
   {soundOn ? "🔊 Mute Sound" : "🔇 Unmute Sound"}

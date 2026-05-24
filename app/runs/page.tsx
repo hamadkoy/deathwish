@@ -1805,6 +1805,7 @@ const signupLocked =
   signupLocked && run.signup_open_at
     ? formatCountdown(run.signup_open_at)
     : null;
+    const visitorLocked = !user;
                   return (
                   <div
                   key={run.id}
@@ -2006,7 +2007,13 @@ setEditRunSignupOpenAt(run.signup_open_at ? run.signup_open_at.slice(0, 16) : ""
 </div>
                 </div>
 
-{signupLocked ? (
+{visitorLocked ? (
+  <div style={lockedVisitorBox}>
+    <div style={chainText}>⛓️ LOCKED ⛓️</div>
+    <div style={lockBig}>🔒</div>
+    <div style={lockMessage}>Login with Discord to sign up for this run.</div>
+  </div>
+) : signupLocked ? (
   <div
     style={{
       padding: 22,
@@ -3750,4 +3757,36 @@ const dayButtonActive: React.CSSProperties = {
   border: "1px solid #facc15",
   background: "linear-gradient(90deg,#6b21a8,#d946ef)",
   boxShadow: "0 0 20px rgba(250,204,21,.75)",
+};
+const lockedVisitorBox: React.CSSProperties = {
+  minHeight: 300,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
+  background:
+    "linear-gradient(rgba(0,0,0,.72), rgba(0,0,0,.82))",
+  borderTop: "1px solid rgba(168,85,247,.35)",
+  boxShadow: "inset 0 0 45px rgba(168,85,247,.22)",
+};
+
+const chainText: React.CSSProperties = {
+  color: "#c084fc",
+  fontSize: 28,
+  fontWeight: 900,
+  letterSpacing: 2,
+  textShadow: "0 0 18px rgba(192,132,252,.9)",
+};
+
+const lockBig: React.CSSProperties = {
+  fontSize: 72,
+  margin: "18px 0",
+  filter: "drop-shadow(0 0 18px rgba(250,204,21,.8))",
+};
+
+const lockMessage: React.CSSProperties = {
+  color: "#e9d5ff",
+  fontSize: 18,
+  fontWeight: 800,
 };
