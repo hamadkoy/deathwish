@@ -2008,10 +2008,82 @@ setEditRunSignupOpenAt(run.signup_open_at ? run.signup_open_at.slice(0, 16) : ""
                 </div>
 
 {visitorLocked ? (
-  <div style={lockedVisitorBox}>
-    <div style={chainText}>⛓️ LOCKED ⛓️</div>
-    <div style={lockBig}>🔒</div>
-    <div style={lockMessage}>Login with Discord to sign up for this run.</div>
+  <div
+    style={{
+      position: "absolute",
+      inset: 0,
+      zIndex: 20,
+      background: "rgba(0,0,0,.72)",
+      backdropFilter: "blur(4px)",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      alignItems: "center",
+      overflow: "hidden",
+    }}
+  >
+    {/* CHAINS */}
+    <div
+      style={{
+        position: "absolute",
+        top: "48%",
+        left: -120,
+        width: "140%",
+        height: 10,
+        background:
+          "repeating-linear-gradient(90deg,#888 0px,#888 18px,#444 18px,#444 36px)",
+        transform: "rotate(-18deg)",
+        opacity: 0.7,
+      }}
+    />
+
+    <div
+      style={{
+        position: "absolute",
+        top: "48%",
+        left: -120,
+        width: "140%",
+        height: 10,
+        background:
+          "repeating-linear-gradient(90deg,#888 0px,#888 18px,#444 18px,#444 36px)",
+        transform: "rotate(18deg)",
+        opacity: 0.7,
+      }}
+    />
+
+    {/* LOCK */}
+    <div
+      style={{
+        fontSize: 90,
+        filter: "drop-shadow(0 0 18px rgba(168,85,247,.95))",
+      }}
+    >
+      🔒
+    </div>
+
+    <div
+      style={{
+        marginTop: 12,
+        fontSize: 34,
+        fontWeight: 900,
+        color: "#facc15",
+        textShadow: "0 0 18px rgba(250,204,21,.85)",
+        letterSpacing: 2,
+      }}
+    >
+      SIGNUPS LOCKED
+    </div>
+
+    <div
+      style={{
+        marginTop: 10,
+        color: "#d8b4fe",
+        fontWeight: 700,
+        fontSize: 16,
+      }}
+    >
+      Login with Discord to unlock this raid
+    </div>
   </div>
 ) : signupLocked ? (
   <div
