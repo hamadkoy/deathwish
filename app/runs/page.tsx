@@ -1813,7 +1813,7 @@ const signupLocked =
                   key={run.id}
 style={{
   ...runCard,
-  minHeight: signupLocked ? 340 : 560,
+ minHeight: !canUseRunCards ? 560 : signupLocked ? 340 : 560,
                   background: `linear-gradient(rgba(0,0,0,.18), rgba(0,0,0,.28)), url(${theme.bg}) center/cover`,
                   boxShadow: run.finished
   ? "0 0 26px rgba(255,255,255,.18), inset 0 0 20px rgba(255,255,255,.10)"
@@ -2008,41 +2008,92 @@ setEditRunSignupOpenAt(run.signup_open_at ? run.signup_open_at.slice(0, 16) : ""
   )}
 </div>
                 </div>
-
 {!canUseRunCards ? (
   <div
     style={{
-      padding: 22,
-      textAlign: "center",
-      borderTop: "1px solid rgba(168,85,247,.25)",
-      background: "rgba(0,0,0,.55)",
-      minHeight: 180,
-      pointerEvents: "none",
+      minHeight: 390,
+      position: "relative",
+      overflow: "hidden",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      alignItems: "center",
+      background: "rgba(0,0,0,.68)",
+      borderTop: "1px solid rgba(168,85,247,.35)",
     }}
   >
+    {/* Left chain */}
     <div
       style={{
-        color: "#facc15",
-        fontSize: 26,
-        fontWeight: 900,
-        textShadow: "0 0 18px rgba(250,204,21,.8)",
+        position: "absolute",
+        width: "130%",
+        height: 18,
+        background:
+          "repeating-linear-gradient(90deg,#222 0px,#888 14px,#111 28px,#999 42px)",
+        transform: "rotate(-14deg)",
+        boxShadow: "0 0 14px rgba(255,255,255,.25)",
+        opacity: 0.78,
+      }}
+    />
+
+    {/* Right chain */}
+    <div
+      style={{
+        position: "absolute",
+        width: "130%",
+        height: 18,
+        background:
+          "repeating-linear-gradient(90deg,#222 0px,#888 14px,#111 28px,#999 42px)",
+        transform: "rotate(14deg)",
+        boxShadow: "0 0 14px rgba(255,255,255,.25)",
+        opacity: 0.78,
+      }}
+    />
+
+    {/* Lock */}
+    <div
+      style={{
+        fontSize: 92,
+        zIndex: 3,
+        filter:
+          "drop-shadow(0 0 20px rgba(250,204,21,.9))",
       }}
     >
-      🔒 RUN LOCKED
+      🔒
     </div>
 
+    {/* Title */}
     <div
       style={{
-        marginTop: 10,
-        color: "#ffffff",
-        fontSize: 24,
+        marginTop: 18,
+        fontSize: 34,
         fontWeight: 900,
+        color: "#f87171",
+        letterSpacing: 2,
+        textShadow:
+          "0 0 18px rgba(248,113,113,.9)",
+        zIndex: 3,
       }}
     >
-      Apply for access to sign-up
+      RUN LOCKED
+    </div>
+
+    {/* Text */}
+    <div
+      style={{
+        marginTop: 8,
+        color: "#ffffff",
+        fontSize: 20,
+        fontWeight: 800,
+        textAlign: "center",
+        zIndex: 3,
+      }}
+    >
+      Booster / Officer / Admin access required
     </div>
   </div>
 ) : signupLocked ? (
+
   <div
     style={{
       padding: 22,
@@ -3786,4 +3837,50 @@ const dayButtonActive: React.CSSProperties = {
   border: "1px solid #facc15",
   background: "linear-gradient(90deg,#6b21a8,#d946ef)",
   boxShadow: "0 0 20px rgba(250,204,21,.75)",
+};
+const lockedOverlay: React.CSSProperties = {
+  minHeight: 390,
+  position: "relative",
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  alignItems: "center",
+  background: "rgba(0,0,0,.68)",
+  borderTop: "1px solid rgba(168,85,247,.35)",
+};
+
+const chainStyle: React.CSSProperties = {
+  position: "absolute",
+  width: "130%",
+  height: 22,
+  background:
+    "repeating-linear-gradient(90deg, #222 0px, #777 14px, #111 28px, #999 42px)",
+  boxShadow: "0 0 16px rgba(255,255,255,.25)",
+  opacity: 0.78,
+};
+
+const bigPadlock: React.CSSProperties = {
+  fontSize: 92,
+  zIndex: 3,
+  filter: "drop-shadow(0 0 20px rgba(250,204,21,.9))",
+};
+
+const lockedTitle: React.CSSProperties = {
+  zIndex: 3,
+  marginTop: 18,
+  fontSize: 34,
+  fontWeight: 900,
+  color: "#f87171",
+  letterSpacing: 2,
+  textShadow: "0 0 18px rgba(248,113,113,.9)",
+};
+
+const lockedSub: React.CSSProperties = {
+  zIndex: 3,
+  marginTop: 8,
+  fontSize: 19,
+  fontWeight: 900,
+  color: "#ffffff",
+  textShadow: "0 0 12px rgba(255,255,255,.7)",
 };
