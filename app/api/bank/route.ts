@@ -59,10 +59,10 @@ const sheets = google.sheets({
     });
   }
 
-const balanceIndex = 24;
+const balanceIndex = 22;
 const payoutCharacterIndex = 20;
 const payoutTypeIndex = 21;
-const statusIndex = 25;
+const statusIndex = 23;
 
   const ignored = new Set([
     0,
