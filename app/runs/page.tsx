@@ -2039,7 +2039,7 @@ setEditRunSignupOpenAt(run.signup_open_at ? run.signup_open_at.slice(0, 16) : ""
         fontWeight: 900,
       }}
     >
-      Booster / Officer / Admin access required
+      Apply for access to sign-up
     </div>
   </div>
 ) : signupLocked ? (
