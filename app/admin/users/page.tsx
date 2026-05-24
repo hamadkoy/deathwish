@@ -86,9 +86,9 @@ export default function AdminUsersPage() {
       });
     }
 
-    if (activeTab === "applicants") {
-      list = list.filter((u) => !u.signup_approved);
-    }
+if (activeTab === "applicants") {
+  list = list.filter((u) => u.applied_at && !u.signup_approved);
+}
 
     return list.filter((u) =>
       (u.discord_name || "").toLowerCase().includes(search.toLowerCase())
