@@ -210,6 +210,9 @@ const [adminAddSpec, setAdminAddSpec] = useState("Guardian");
 const isOfficer = profile?.site_role === "officer";
 
 const canFinishRun = isAdmin || isOfficer;
+const canUseRunCards =
+  signupApproved &&
+  ["booster", "officer", "admin"].includes(profile?.site_role || "");
   const [editingRun, setEditingRun] = useState<Run | null>(null);
   const [editRunTitle, setEditRunTitle] = useState("");
   const [editRunDay, setEditRunDay] = useState("");
@@ -432,7 +435,7 @@ if (run?.finished) {
   });
   return;
 }
-  if (!signupApproved) {
+  if (!canUseRunCards) {
     setShowAccessPopup(true);
     return;
   }
@@ -1805,7 +1808,6 @@ const signupLocked =
   signupLocked && run.signup_open_at
     ? formatCountdown(run.signup_open_at)
     : null;
-    const visitorLocked = !user;
                   return (
                   <div
                   key={run.id}
@@ -2007,82 +2009,37 @@ setEditRunSignupOpenAt(run.signup_open_at ? run.signup_open_at.slice(0, 16) : ""
 </div>
                 </div>
 
-{visitorLocked ? (
+{!canUseRunCards ? (
   <div
     style={{
-      position: "absolute",
-      inset: 0,
-      zIndex: 20,
-      background: "rgba(0,0,0,.72)",
-      backdropFilter: "blur(4px)",
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "center",
-      alignItems: "center",
-      overflow: "hidden",
+      padding: 22,
+      textAlign: "center",
+      borderTop: "1px solid rgba(168,85,247,.25)",
+      background: "rgba(0,0,0,.55)",
+      minHeight: 180,
+      pointerEvents: "none",
     }}
   >
-    {/* CHAINS */}
     <div
       style={{
-        position: "absolute",
-        top: "48%",
-        left: -120,
-        width: "140%",
-        height: 10,
-        background:
-          "repeating-linear-gradient(90deg,#888 0px,#888 18px,#444 18px,#444 36px)",
-        transform: "rotate(-18deg)",
-        opacity: 0.7,
-      }}
-    />
-
-    <div
-      style={{
-        position: "absolute",
-        top: "48%",
-        left: -120,
-        width: "140%",
-        height: 10,
-        background:
-          "repeating-linear-gradient(90deg,#888 0px,#888 18px,#444 18px,#444 36px)",
-        transform: "rotate(18deg)",
-        opacity: 0.7,
-      }}
-    />
-
-    {/* LOCK */}
-    <div
-      style={{
-        fontSize: 90,
-        filter: "drop-shadow(0 0 18px rgba(168,85,247,.95))",
-      }}
-    >
-      🔒
-    </div>
-
-    <div
-      style={{
-        marginTop: 12,
-        fontSize: 34,
-        fontWeight: 900,
         color: "#facc15",
-        textShadow: "0 0 18px rgba(250,204,21,.85)",
-        letterSpacing: 2,
+        fontSize: 26,
+        fontWeight: 900,
+        textShadow: "0 0 18px rgba(250,204,21,.8)",
       }}
     >
-      SIGNUPS LOCKED
+      🔒 RUN LOCKED
     </div>
 
     <div
       style={{
         marginTop: 10,
-        color: "#d8b4fe",
-        fontWeight: 700,
-        fontSize: 16,
+        color: "#ffffff",
+        fontSize: 24,
+        fontWeight: 900,
       }}
     >
-      Login with Discord to unlock this raid
+      Booster / Officer / Admin access required
     </div>
   </div>
 ) : signupLocked ? (
@@ -3829,36 +3786,4 @@ const dayButtonActive: React.CSSProperties = {
   border: "1px solid #facc15",
   background: "linear-gradient(90deg,#6b21a8,#d946ef)",
   boxShadow: "0 0 20px rgba(250,204,21,.75)",
-};
-const lockedVisitorBox: React.CSSProperties = {
-  minHeight: 300,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-  background:
-    "linear-gradient(rgba(0,0,0,.72), rgba(0,0,0,.82))",
-  borderTop: "1px solid rgba(168,85,247,.35)",
-  boxShadow: "inset 0 0 45px rgba(168,85,247,.22)",
-};
-
-const chainText: React.CSSProperties = {
-  color: "#c084fc",
-  fontSize: 28,
-  fontWeight: 900,
-  letterSpacing: 2,
-  textShadow: "0 0 18px rgba(192,132,252,.9)",
-};
-
-const lockBig: React.CSSProperties = {
-  fontSize: 72,
-  margin: "18px 0",
-  filter: "drop-shadow(0 0 18px rgba(250,204,21,.8))",
-};
-
-const lockMessage: React.CSSProperties = {
-  color: "#e9d5ff",
-  fontSize: 18,
-  fontWeight: 800,
 };
