@@ -8,6 +8,8 @@ import OnlineUsers from "./OnlineUsers";
 type Profile = {
   discord_name?: string;
   avatar_url?: string;
+  site_role?: "viewer" | "booster" | "officer" | "admin";
+  signup_approved?: boolean;
 };
 
 export default function Navbar() {
@@ -15,7 +17,11 @@ export default function Navbar() {
   const pathname = usePathname();
 const hideNavbar =
   pathname === "/" || pathname === "/login";
-  const [profile, setProfile] = useState<Profile | null>(null);
+const [profile, setProfile] = useState<Profile | null>(null);
+
+const canUseRunCards =
+  profile?.signup_approved &&
+  ["booster", "officer", "admin"].includes(profile?.site_role || "");
 
   useEffect(() => {
     loadUser();
@@ -35,13 +41,28 @@ const hideNavbar =
     if (session?.user) {
       const discordData = session.user.user_metadata;
 
-      setProfile({
-        discord_name:
-          discordData?.full_name ||
-          discordData?.name ||
-          discordData?.preferred_username,
-        avatar_url: discordData?.avatar_url,
-      });
+const { data: profileData } = await supabase
+  .from("profiles")
+  .select("discord_name, avatar_url, site_role, signup_approved")
+  .eq("user_id", session.user.id)
+  .single();
+
+setProfile({
+  discord_name:
+    profileData?.discord_name ||
+    discordData?.full_name ||
+    discordData?.name ||
+    discordData?.preferred_username,
+
+  avatar_url:
+    profileData?.avatar_url ||
+    discordData?.avatar_url,
+
+  site_role: profileData?.site_role || "viewer",
+
+  signup_approved:
+    profileData?.signup_approved || false,
+});
     }
   }
 
@@ -196,6 +217,7 @@ style={{
 >
  Sign for Runs
 </a>
+{!canUseRunCards && (
 <a
   href="/runs?apply=true"
   style={link}
@@ -216,7 +238,9 @@ style={{
 >
   Apply
 </a>
+)}
 <a
+
   href="/my-signups"
   style={link}
   onMouseEnter={(e) => {
@@ -236,6 +260,7 @@ style={{
 >
   My runs
 </a>
+{canUseRunCards && (
 <a
   href="/booking"
   style={link}
@@ -256,6 +281,7 @@ style={{
 >
   Booking
 </a>
+)}
 <a
   href="/bank"
   style={link}
