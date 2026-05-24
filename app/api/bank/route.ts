@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { google } from "googleapis";
 
 const MAIN_SPREADSHEET_ID = "1B8xawLZIGElNneqfOpUW6MZAURIb_F9n36NSZJL5sz8";
-const MAIN_RANGE = "Sheet1!A3:AZ1000";
+const MAIN_RANGE = "Sheet1!A4:AZ1000";
 
 function normalize(text: any) {
   return (text || "").toString().trim().toLowerCase();
@@ -23,13 +23,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Missing discordId" }, { status: 400 });
   }
 
-const auth = new google.auth.GoogleAuth({
-  credentials: {
-    client_email: process.env.GOOGLE_CLIENT_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-  },
-  scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-});
+  const auth = new google.auth.GoogleAuth({
+    keyFile: "credentials.json",
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  });
 
 const authClient = await auth.getClient();
 
@@ -59,10 +56,21 @@ const sheets = google.sheets({
     });
   }
 
-const balanceIndex = 22;
-const payoutCharacterIndex = 20;
-const payoutTypeIndex = 21;
-const statusIndex = 23;
+  const balanceIndex = headers.findIndex((h) =>
+    normalize(h).includes("balance")
+  );
+
+  const statusIndex = headers.findIndex(
+    (h) => normalize(h).includes("mailed") || normalize(h).includes("status")
+  );
+
+  const payoutCharacterIndex = headers.findIndex(
+    (h) => normalize(h) === "payout character"
+  );
+
+  const payoutTypeIndex = headers.findIndex(
+    (h) => normalize(h) === "payout type"
+  );
 
   const ignored = new Set([
     0,
