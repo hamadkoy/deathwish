@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { google } from "googleapis";
 
 const MAIN_SPREADSHEET_ID = "1B8xawLZIGElNneqfOpUW6MZAURIb_F9n36NSZJL5sz8";
-const MAIN_RANGE = "Sheet1!A4:AZ1000";
+const MAIN_RANGE = "Sheet1!A3:AZ1000";
 
 function normalize(text: any) {
   return (text || "").toString().trim().toLowerCase();
@@ -43,10 +43,11 @@ const sheets = google.sheets({
     range: MAIN_RANGE,
   });
 
-  const rows = res.data.values || [];
-  const headers = rows[0] || [];
-  const players = rows.slice(1);
+const rows = res.data.values || [];
 
+const typeHeaders = rows[0] || []; // 4/9M, 9/9HC
+const headers = rows[1] || [];     // Thursday 15:00, Payout Character, Balance
+const players = rows.slice(2);     // actual player rows
   const player = players.find((row) => row[0]?.toString().trim() === discordId);
 
   if (!player) {
@@ -83,15 +84,18 @@ const sheets = google.sheets({
     payoutTypeIndex,
   ]);
 
-  const cuts = headers
-    .map((header, index) => {
-      const raw = player[index] || "";
-      const amount = parseNumber(raw);
+const cuts = headers
+  .map((header, index) => {
+    const raw = player[index] || "";
+    const amount = parseNumber(raw);
 
-      return {
-        id: index,
-        date: header,
-        run: header,
+const runText = typeHeaders[index]?.toString() || "";
+const dayText = headers[index]?.toString() || "";
+
+    return {
+      id: index,
+      date: dayText,
+      run: runText,
         character: player[payoutCharacterIndex] || "Not set",
         cut: amount,
         status:

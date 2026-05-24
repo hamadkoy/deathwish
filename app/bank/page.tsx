@@ -189,8 +189,10 @@ function formatRunType(run: string) {
   filteredCuts.map((cut) => (
               <div key={cut.id} style={tableRow}>
                 <div>{cut.date}</div>
-                <div>
-  {formatRunType(cut.run)}
+<div>
+  <span style={runBadge(formatRunType(cut.run))}>
+    {formatRunType(cut.run)}
+  </span>
 </div>
                 <div style={charText}>{cut.character}</div>
                 <div style={goldText}>{cut.cut.toLocaleString()}g</div>
@@ -743,4 +745,27 @@ const historyEmpty: React.CSSProperties = {
   color: "#d8b4fe",
   fontSize: 22,
   fontWeight: 900,
+};
+const runBadge = (type: string): React.CSSProperties => {
+  const isHeroic = type === "HEROIC";
+
+  return {
+    display: "inline-block",
+    minWidth: 96,
+    textAlign: "center",
+    padding: "9px 18px",
+    borderRadius: 999,
+    fontSize: 15,
+    fontWeight: 900,
+    color: isHeroic ? "#22d3ee" : "#d8b4fe",
+    background: isHeroic
+      ? "rgba(8,145,178,0.12)"
+      : "rgba(126,34,206,0.16)",
+    border: isHeroic
+      ? "1px solid rgba(34,211,238,0.8)"
+      : "1px solid rgba(216,180,254,0.75)",
+    boxShadow: isHeroic
+      ? "0 0 18px rgba(34,211,238,0.65)"
+      : "0 0 18px rgba(168,85,247,0.65)",
+  };
 };

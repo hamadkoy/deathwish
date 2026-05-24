@@ -140,21 +140,33 @@ const [signupApproved, setSignupApproved] = useState(false);
   const [selectedCharacter, setSelectedCharacter] =
     useState<Character | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<number>(getCurrentWeek());
-const [weeks, setWeeks] = useState<number[]>(() => {
-  if (typeof window !== "undefined") {
-    const saved = localStorage.getItem("weeks");
+const [weeks, setWeeks] = useState<number[]>([]);
 
-    if (saved) {
-      return JSON.parse(saved);
+useEffect(() => {
+  async function loadWeeks() {
+    const { data, error } = await supabase
+      .from("runs")
+      .select("week");
+
+    if (error) return;
+
+    const uniqueWeeks = Array.from(
+      new Set(
+        (data || [])
+          .map((r) => r.week)
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a - b);
+
+    if (uniqueWeeks.length > 0) {
+      setWeeks(uniqueWeeks);
+    } else {
+      setWeeks([1]);
     }
   }
 
-  return Array.from({ length: getCurrentWeek() }, (_, i) => i + 1);
-});
-
-useEffect(() => {
-  localStorage.setItem("weeks", JSON.stringify(weeks));
-}, [weeks]);
+  loadWeeks();
+}, []);
   const [europeTime, setEuropeTime] = useState("");
   const [europeDay, setEuropeDay] = useState("");
   const [showCreateRun, setShowCreateRun] = useState(false);
@@ -1132,7 +1144,7 @@ if (nextWeeks.length > 0) {
   weeks.length > 0
     ? Math.max(...weeks) + 1
     : 1;
-  setWeeks([...weeks, nextWeek]);
+ setSelectedWeek(nextWeek);
 }}
   style={addWeekButton}
   onMouseEnter={(e) => {
