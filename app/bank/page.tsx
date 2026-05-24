@@ -58,7 +58,14 @@ export default function BankPage() {
         .reduce((sum, cut) => sum + cut.cut, 0),
     [cuts]
   );
+function formatRunType(run: string) {
+  const text = (run || "").toUpperCase();
 
+  if (text.includes("HC")) return "HEROIC";
+  if (text.includes("M")) return "MYTHIC";
+
+  return run || "-";
+}
   const paid = useMemo(
     () =>
       cuts
@@ -165,8 +172,8 @@ export default function BankPage() {
 
           <div style={table}>
             <div style={tableHead}>
-              <div>RUN DATE</div>
-              <div>RUN / RAID</div>
+              <div>RUN Day</div>
+              <div>TYPE OF RUN</div>
               <div>CHARACTER</div>
               <div>CUT</div>
               <div>STATUS</div>
@@ -182,7 +189,9 @@ export default function BankPage() {
   filteredCuts.map((cut) => (
               <div key={cut.id} style={tableRow}>
                 <div>{cut.date}</div>
-                <div>{cut.run}</div>
+                <div>
+  {formatRunType(cut.run)}
+</div>
                 <div style={charText}>{cut.character}</div>
                 <div style={goldText}>{cut.cut.toLocaleString()}g</div>
                 <div>
