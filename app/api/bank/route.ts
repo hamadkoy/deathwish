@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
 
-const MAIN_SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID!;
-const MAIN_RANGE = "Sheet1!A4:AZ1000";
+const MAIN_SPREADSHEET_ID = "1B8xawLZIGElNneqfOpUW6MZAURIb_F9n36NSZJL5sz8";
+const MAIN_RANGE = "Sheet1!A3:AZ1000";
 
 function normalize(text: any) {
   return (text || "").toString().trim().toLowerCase();
