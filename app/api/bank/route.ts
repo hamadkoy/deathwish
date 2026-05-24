@@ -59,21 +59,10 @@ const sheets = google.sheets({
     });
   }
 
-  const balanceIndex = headers.findIndex((h) =>
-    normalize(h).includes("balance")
-  );
-
-  const statusIndex = headers.findIndex(
-    (h) => normalize(h).includes("mailed") || normalize(h).includes("status")
-  );
-
-  const payoutCharacterIndex = headers.findIndex(
-    (h) => normalize(h) === "payout character"
-  );
-
-  const payoutTypeIndex = headers.findIndex(
-    (h) => normalize(h) === "payout type"
-  );
+const balanceIndex = 24;
+const payoutCharacterIndex = 20;
+const payoutTypeIndex = 21;
+const statusIndex = 25;
 
   const ignored = new Set([
     0,
