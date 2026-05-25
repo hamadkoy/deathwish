@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Coins, CalendarDays, Hourglass, BadgeCheck } from "lucide-react";
 import SideNav from "@/app/components/SideNav";
+import { supabase } from "@/lib/supabase";
 
 type Cut = {
   id: number;
@@ -22,7 +23,7 @@ export default function BankPage() {
  const [activeTab, setActiveTab] = useState("This Week");
 const [history, setHistory] = useState<any[]>([]);
  const filteredCuts = useMemo(() => {
-  if (activeTab === "History") return [];
+  if (activeTab === "Midnight Season 1 History") return [];
   return cuts;
 }, [cuts, activeTab]);
 
@@ -30,24 +31,34 @@ const [history, setHistory] = useState<any[]>([]);
     loadBalance();
   }, []);
 
-  async function loadBalance() {
-    try {
-      const discordId = "207929624888344576";
+async function loadBalance() {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      const res = await fetch(`/api/bank?discordId=${discordId}`);
-      const data = await res.json();
+    const discordId = user?.user_metadata?.provider_id;
 
-      console.log("BANK DATA:", data);
-
-      setBalance(data.balance || 0);
-      setCuts(data.cuts || []);
-      setHistory(data.history || []);
-    } catch (err) {
-      console.error(err);
-      setBalance(0);
-      setCuts([]);
+    if (!discordId) {
+      console.error("No Discord ID found");
+      return;
     }
+
+    const res = await fetch(`/api/bank?discordId=${discordId}`);
+    const data = await res.json();
+
+    console.log("BANK DATA:", data);
+
+    setBalance(data.balance || 0);
+    setCuts(data.cuts || []);
+    setHistory(data.history || []);
+  } catch (err) {
+    console.error(err);
+    setBalance(0);
+    setCuts([]);
+    setHistory([]);
   }
+}
 
   const totalCuts = useMemo(
     () => cuts.reduce((sum, cut) => sum + cut.cut, 0),
@@ -203,7 +214,7 @@ function formatRunType(run: string) {
             <PaymentStatusCard cuts={cuts} />
           </div>
 <div style={tabs}>
- {["This Week", "History"].map((tabName) => (
+ {["This Week", "Midnight Season 1 History"].map((tabName) => (
     <button
       key={tabName}
       onClick={() => setActiveTab(tabName)}
@@ -244,7 +255,7 @@ function formatRunType(run: string) {
               <div>NOTES</div>
             </div>
 
-{activeTab === "History" ? (
+{activeTab === "Midnight Season 1 History" ? (
   <div
     style={{
       padding: 24,
