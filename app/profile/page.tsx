@@ -218,10 +218,10 @@ bosses.forEach((boss: any) => {
   }
 });
 });
-      if (data.statusCode) {
-        alert("Character not found on Raider.IO");
-        return;
-      }
+if (data.statusCode) {
+  alert("Character not found on Raider.IO");
+  return;
+}
 
       const ilvl = Math.floor(
         data.gear?.item_level_equipped ||
