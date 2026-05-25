@@ -466,7 +466,7 @@ if (role !== "Loot Body") {
     (s) =>
       s.run_id === runId &&
       s.role !== "Loot Body" &&
-      s.player !== signupName
+      s.discord_id === discordId
   );
 
   if (alreadyInRun) {
