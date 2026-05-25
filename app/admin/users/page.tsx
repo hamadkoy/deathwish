@@ -26,10 +26,27 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"team" | "applicants">("team");
+const [currentUserRole, setCurrentUserRole] = useState<SiteRole>("viewer");
+useEffect(() => {
+  loadCurrentUser();
+  loadUsers();
+}, []);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+async function loadCurrentUser() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("site_role")
+    .eq("user_id", user.id)
+    .single();
+
+  setCurrentUserRole((data?.site_role as SiteRole) || "viewer");
+}
 
   async function loadUsers() {
     setLoading(true);
@@ -49,19 +66,24 @@ export default function AdminUsersPage() {
     setLoading(false);
   }
 
-  async function updateUser(userId: string, updates: Partial<Profile>) {
-    const { error } = await supabase
-      .from("profiles")
-      .update(updates)
-      .eq("user_id", userId);
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    await loadUsers();
+async function updateUser(userId: string, updates: Partial<Profile>) {
+  if (currentUserRole !== "admin") {
+    alert("Only Admins can manage user access.");
+    return;
   }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update(updates)
+    .eq("user_id", userId);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  await loadUsers();
+}
 
   const filteredUsers = useMemo(() => {
     let list = [...users];
@@ -101,7 +123,7 @@ if (activeTab === "applicants") {
   const officers = users.filter((u) => u.site_role === "officer").length;
   const admins = users.filter((u) => u.site_role === "admin").length;
   const applicants = users.filter((u) => !u.signup_approved).length;
-
+  const isAdmin = currentUserRole === "admin";
   return (
     <div style={page}>
       <div style={layout}>
@@ -226,7 +248,7 @@ if (activeTab === "applicants") {
                         })
                       }
                       style={select}
-                      disabled={isOwner(user)}
+                      disabled={!isAdmin || isOwner(user)}
                     >
                       <option value="viewer">Viewer</option>
                       <option value="booster">Booster</option>
@@ -244,7 +266,10 @@ if (activeTab === "applicants") {
                   </div>
 
                   <div style={actions}>
-                    {isOwner(user) ? (
+                    {!isAdmin ? (
+  <span style={muted}>Admin only</span>
+) : isOwner(user) ? (
+                   
                       <button style={ownerBtn} disabled>
                         👑 Owner
                       </button>
