@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
-
+const TOTAL_SPREADSHEET_ID =
+  "1rXKtKuuEJj8ORkQ_LclEJGc0v1ccbuguj5u8v46yeuU";
 const MAIN_SPREADSHEET_ID = "1B8xawLZIGElNneqfOpUW6MZAURIb_F9n36NSZJL5sz8";
 const MAIN_RANGE = "Sheet1!A3:AZ1000";
 
@@ -144,8 +145,47 @@ if (historyPlayer) {
     }
   }
 }
+// TOTAL BALANCE FROM ALL TABS
+let combinedTotalBalance = 0;
+
+const totalMeta = await sheets.spreadsheets.get({
+  spreadsheetId: TOTAL_SPREADSHEET_ID,
+});
+
+const totalSheetNames =
+  totalMeta.data.sheets
+    ?.map((s) => s.properties?.title)
+    .filter(Boolean) || [];
+
+for (const sheetName of totalSheetNames) {
+  const totalRes = await sheets.spreadsheets.values.get({
+    spreadsheetId: TOTAL_SPREADSHEET_ID,
+    range: `'${sheetName}'!A1:AZ1000`,
+  });
+
+  const totalRows = totalRes.data.values || [];
+
+  const headerRow = totalRows.find((row) =>
+    row.some((cell) => normalize(cell) === "total")
+  );
+
+  if (!headerRow) continue;
+
+  const totalIndex = headerRow.findIndex(
+    (h) => normalize(h) === "total"
+  );
+
+  const userRow = totalRows.find((row) =>
+    row.some((cell) => cell?.toString().trim() === discordId)
+  );
+
+  if (!userRow) continue;
+
+  combinedTotalBalance += parseNumber(userRow[totalIndex]);
+
+}
   return NextResponse.json({
-    balance: parseNumber(player[balanceIndex]),
+    balance: combinedTotalBalance,
     status: player[statusIndex] || "Unknown",
     payoutCharacter: player[payoutCharacterIndex] || "Not set",
     payoutType: player[payoutTypeIndex] || "Not set",
