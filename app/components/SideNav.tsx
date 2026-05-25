@@ -27,7 +27,6 @@ export default function SideNav({ active }: { active: string }) {
     { name: "Leaderboard", href: "#" },
     { name: "👑 Users", href: "/admin/users", badge: pendingCount },
     { name: "My Characters", href: "/profile" },
-    { name: "Booking", href: "/booking" },
     { name: "Bank", href: "/bank" },
   ];
 

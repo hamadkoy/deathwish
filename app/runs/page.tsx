@@ -1722,58 +1722,60 @@ style={{
             <div style={createRunTitle}>
               Edit Run #{editingRun.id}
             </div>
-
+<div style={fieldLabel}>Run Title</div>
             <input
               value={editRunTitle}
               onChange={(e) => setEditRunTitle(e.target.value)}
               style={createInput}
             />
+            <div style={fieldLabel}>Required iLvl</div>
 <input
   placeholder="Required ilvl"
   value={editRunIlvl}
   onChange={(e) => setEditRunIlvl(e.target.value)}
   style={createInput}
 />
-
+<div style={fieldLabel}>Healer Spots</div>
 <input
   placeholder="Healer spots"
   value={editRunHealers}
   onChange={(e) => setEditRunHealers(e.target.value)}
   style={createInput}
 />
-
+<div style={fieldLabel}>DPS Spots</div>
 <input
   placeholder="DPS spots"
   value={editRunDps}
   onChange={(e) => setEditRunDps(e.target.value)}
   style={createInput}
 />
-
+<div style={fieldLabel}>Signup Opens</div>
 <input
   type="datetime-local"
   value={editRunSignupOpenAt}
   onChange={(e) => setEditRunSignupOpenAt(e.target.value)}
   style={createInput}
 />
+<div style={fieldLabel}>Run Day</div>
             <input
               value={editRunDay}
               onChange={(e) => setEditRunDay(e.target.value)}
               style={createInput}
             />
-
+<div style={fieldLabel}>Run Date</div>
             <input
               type="date"
               value={editRunDate}
               onChange={(e) => setEditRunDate(e.target.value)}
               style={createInput}
             />
-
+<div style={fieldLabel}>Run Time</div>
             <input
               value={editRunTime}
               onChange={(e) => setEditRunTime(e.target.value)}
               style={createInput}
             />
-
+<div style={fieldLabel}>Notes</div>
             <input
               value={editRunNotes}
               onChange={(e) => setEditRunNotes(e.target.value)}
@@ -3791,4 +3793,13 @@ const dayButtonActive: React.CSSProperties = {
   border: "1px solid #facc15",
   background: "linear-gradient(90deg,#6b21a8,#d946ef)",
   boxShadow: "0 0 20px rgba(250,204,21,.75)",
+};
+const fieldLabel: React.CSSProperties = {
+  color: "#c084fc",
+  fontSize: 13,
+  fontWeight: 900,
+  marginBottom: 6,
+  marginTop: 10,
+  textTransform: "uppercase",
+  letterSpacing: 1,
 };
