@@ -19,7 +19,13 @@ type Cut = {
 export default function BankPage() {
   const [balance, setBalance] = useState(0);
   const [cuts, setCuts] = useState<Cut[]>([]);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(() => {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("bankVideoMuted") === "true";
+  }
+
+  return true;
+});
  const [activeTab, setActiveTab] = useState("This Week");
 const [history, setHistory] = useState<any[]>([]);
  const filteredCuts = useMemo(() => {

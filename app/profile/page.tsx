@@ -52,7 +52,13 @@ const [updatingAll, setUpdatingAll] = useState(false);
 const [viewMode, setViewMode] = useState<"table" | "showcase">("table");
 const [selectedCharacterIndex, setSelectedCharacterIndex] = useState(0);
 const [hoveredItem, setHoveredItem] = useState<any>(null);
-const [muted, setMuted] = useState(true);
+const [muted, setMuted] = useState(() => {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("charactersVideoMuted") === "true";
+  }
+
+  return true;
+});
 const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 useEffect(() => {
   loadUserAndProfile();
@@ -64,7 +70,9 @@ useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
-
+useEffect(() => {
+  localStorage.setItem("charactersVideoMuted", String(muted));
+}, [muted]);
   async function loadUserAndProfile() {
     const { data } = await supabase.auth.getUser();
 console.log(data.user);
