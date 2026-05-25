@@ -8,6 +8,7 @@ type OnlineUser = {
   name: string;
   avatar: string;
   page: string;
+  discordId?: string;
 };
 
 export default function OnlineUsers() {
@@ -67,6 +68,10 @@ setOnlineUsers(uniqueUsers as OnlineUser[]);
               user.user_metadata?.avatar_url ||
               "",
             page: window.location.pathname,
+discordId:
+  user.identities?.find(
+    (i: any) => i.provider === "discord"
+  )?.id || "",
           },
         });
       });
@@ -105,7 +110,19 @@ setOnlineUsers(uniqueUsers as OnlineUser[]);
             <div style={empty}>No one online</div>
           ) : (
             onlineUsers.map((u) => (
-              <div key={u.id} style={userRow}>
+              <div
+  key={u.id}
+  style={{
+    ...userRow,
+    cursor: "pointer",
+  }}
+  onClick={() => {
+    if (u.discordId) {
+window.location.href =
+  `discord://-/users/${u.discordId}`;
+    }
+  }}
+>
                 <div style={{ position: "relative" }}>
                   <img src={u.avatar || "/logo.png"} style={avatar} alt="" />
                   <span style={miniDot}></span>
