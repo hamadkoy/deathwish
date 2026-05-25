@@ -18,7 +18,9 @@ type Cut = {
 export default function BankPage() {
   const [balance, setBalance] = useState(0);
   const [cuts, setCuts] = useState<Cut[]>([]);
+  const [muted, setMuted] = useState(true);
  const [activeTab, setActiveTab] = useState("This Week");
+const [history, setHistory] = useState<any[]>([]);
  const filteredCuts = useMemo(() => {
   if (activeTab === "History") return [];
   return cuts;
@@ -39,6 +41,7 @@ export default function BankPage() {
 
       setBalance(data.balance || 0);
       setCuts(data.cuts || []);
+      setHistory(data.history || []);
     } catch (err) {
       console.error(err);
       setBalance(0);
@@ -73,8 +76,68 @@ function formatRunType(run: string) {
         .reduce((sum, cut) => sum + cut.cut, 0),
     [cuts]
   );
+    return (
+  <div
+    style={{
+      position: "relative",
+      minHeight: "100vh",
+      overflow: "hidden",
+    }}
+  >
+<video
+  autoPlay
+  muted={muted}
+  loop
+      playsInline
+      style={{
+        position: "fixed",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        zIndex: -2,
+        filter: "brightness(.65)",
+      }}
+    >
+      <source src="/Bankpage.webm" type="video/webm" />
+    </video>
 
-  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background:
+          "linear-gradient(rgba(2,6,16,.45), rgba(0,0,0,.72))",
+        zIndex: -1,
+      }}
+    />
+<div
+  style={{
+    position: "fixed",
+    bottom: 24,
+    right: 24,
+    zIndex: 9999,
+  }}
+>
+  <button
+    onClick={() => setMuted(!muted)}
+    style={{
+      padding: "12px 18px",
+      borderRadius: 14,
+      border: "1px solid rgba(168,85,247,.45)",
+      background:
+        "linear-gradient(180deg,#c026d3,#7e22ce)",
+      color: "white",
+      fontWeight: 900,
+      cursor: "pointer",
+      boxShadow:
+        "0 0 22px rgba(168,85,247,.55)",
+      fontSize: 14,
+    }}
+  >
+    {muted ? "🔇 Unmute Sound" : "🔊 Mute Sound"}
+  </button>
+</div>
     <div style={page}>
       <div style={layout}>
         <aside style={sidebar}>
@@ -181,9 +244,56 @@ function formatRunType(run: string) {
               <div>NOTES</div>
             </div>
 
-            {activeTab === "History" ? (
-  <div style={historyEmpty}>
-    History will be enabled in Season 2.
+{activeTab === "History" ? (
+  <div
+    style={{
+      padding: 24,
+      display: "grid",
+      gap: 14,
+    }}
+  >
+
+
+    {history.map((week: any, index: number) => (
+      <div
+        key={index}
+style={{
+  background:
+    "linear-gradient(90deg, rgba(88,28,135,.28), rgba(5,10,20,.92))",
+  border: "1px solid rgba(168,85,247,.32)",
+  borderRadius: 18,
+  padding: "22px 28px",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  boxShadow: "0 0 22px rgba(168,85,247,.16)",
+  transition: "all .2s ease",
+  backdropFilter: "blur(6px)",
+}}
+      >
+        <div
+          style={{
+            fontWeight: 900,
+            color: "#d8b4fe",
+            fontSize: 24,
+letterSpacing: .5,
+          }}
+        >
+          {week.week}
+        </div>
+
+        <div
+          style={{
+            color: "#facc15",
+            fontWeight: 900,
+            fontSize: 28,
+textShadow: "0 0 14px rgba(250,204,21,.35)",
+          }}
+        >
+          {Number(week.amount || 0).toLocaleString()}g
+        </div>
+      </div>
+    ))}
   </div>
 ) : (
   filteredCuts.map((cut) => (
@@ -227,9 +337,9 @@ function formatRunType(run: string) {
         </aside>
       </div>
     </div>
-  );
+    </div>
+);
 }
-
 function StatCard({
   title,
   value,
@@ -443,8 +553,9 @@ const page: React.CSSProperties = {
   minHeight: "100vh",
   color: "white",
   fontFamily: "Arial, sans-serif",
-  background:
-    "linear-gradient(rgba(2,6,16,0.55), rgba(0,0,0,0.72)), url('/bg.png') center top / cover no-repeat fixed",
+  background: "transparent",
+  position: "relative",
+  zIndex: 1,
 };
 
 const layout: React.CSSProperties = {

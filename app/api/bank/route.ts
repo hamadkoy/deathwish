@@ -4,6 +4,11 @@ import { google } from "googleapis";
 const MAIN_SPREADSHEET_ID = "1B8xawLZIGElNneqfOpUW6MZAURIb_F9n36NSZJL5sz8";
 const MAIN_RANGE = "Sheet1!A3:AZ1000";
 
+const HISTORY_SPREADSHEET_ID =
+  "1FzmX_mZWl2Ho7TfRJDn-UYSo9rehTwuB6Au5Zu32Juc";
+
+const HISTORY_RANGE = "Extern!A1:Z500";
+
 function normalize(text: any) {
   return (text || "").toString().trim().toLowerCase();
 }
@@ -42,9 +47,12 @@ const sheets = google.sheets({
     spreadsheetId: MAIN_SPREADSHEET_ID,
     range: MAIN_RANGE,
   });
-
+const historyRes = await sheets.spreadsheets.values.get({
+  spreadsheetId: HISTORY_SPREADSHEET_ID,
+  range: HISTORY_RANGE,
+});
 const rows = res.data.values || [];
-
+const historyRows = historyRes.data.values || [];
 const typeHeaders = rows[0] || []; // 4/9M, 9/9HC
 const headers = rows[1] || [];     // Thursday 15:00, Payout Character, Balance
 const players = rows.slice(2);     // actual player rows
@@ -108,12 +116,40 @@ const dayText = headers[index]?.toString() || "";
       };
     })
     .filter((cut) => !ignored.has(cut.id) && cut.cut > 0);
+// HISTORY SHEET
 
+const historyHeaders = historyRows.find((row) =>
+  row.some((cell) => normalize(cell).includes("week 1"))
+) || [];
+
+const historyPlayer = historyRows.find(
+  (row) => row[0]?.toString().trim() === discordId
+);
+
+const history: { week: string; amount: number }[] = [];
+
+if (historyPlayer) {
+  for (let i = 0; i < historyHeaders.length; i++) {
+    const header = historyHeaders[i]?.toString().trim() || "";
+    const amount = parseNumber(historyPlayer[i]);
+
+    if (
+      header.toLowerCase().startsWith("week") &&
+      amount > 0
+    ) {
+      history.push({
+        week: header,
+        amount,
+      });
+    }
+  }
+}
   return NextResponse.json({
     balance: parseNumber(player[balanceIndex]),
     status: player[statusIndex] || "Unknown",
     payoutCharacter: player[payoutCharacterIndex] || "Not set",
     payoutType: player[payoutTypeIndex] || "Not set",
     cuts,
+    history,
   });
 }

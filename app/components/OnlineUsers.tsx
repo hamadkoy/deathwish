@@ -39,30 +39,32 @@ export default function OnlineUsers() {
         },
       });
 
-      channel.on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState();
+    
+channel.on("presence", { event: "sync" }, () => {
+  const state = channel.presenceState();
 
-const users = Object.values(state)
-  .flat()
-  .map((p: any) => p.user);
+  const users = Object.values(state)
+    .flat()
+    .map((p: any) => p.user);
 
-const uniqueUsers = Array.from(
-  new Map(users.map((u: any) => [u.id, u])).values()
-);
+  const uniqueUsers = Array.from(
+    new Map(users.map((u: any) => [u.id, u])).values()
+  );
 
-setOnlineUsers(uniqueUsers as OnlineUser[]);
-      });
+  setOnlineUsers(uniqueUsers as OnlineUser[]);
+});
 
-      await channel.subscribe(async (status: string) => {
+await channel.subscribe(async (status: string) => {
         if (status !== "SUBSCRIBED") return;
 
         await channel.track({
           user: {
             id: user.id,
-            name:
-              profile?.discord_name ||
-              user.user_metadata?.full_name ||
-              "Unknown",
+name:
+  user.user_metadata?.full_name ||
+  profile?.discord_name ||
+  user.user_metadata?.preferred_username ||
+  "Unknown",
             avatar:
               profile?.avatar_url ||
               user.user_metadata?.avatar_url ||
@@ -143,11 +145,28 @@ window.location.href =
 
 function formatPage(page: string) {
   if (page === "/") return "Home";
-  if (page.includes("raid-logs")) return "Viewing Logs";
-  if (page.includes("profile")) return "My Characters";
-  if (page.includes("my-signups")) return "My Runs";
-  if (page.includes("booking")) return "Booking";
-  if (page.includes("bank")) return "Bank";
+
+  if (page.includes("runs"))
+    return "Sign for Runs";
+
+  if (page.includes("raid-logs"))
+    return "Raid Logs";
+
+  if (page.includes("profile"))
+    return "My Garrison";
+
+  if (page.includes("my-signups"))
+    return "My Runs";
+
+  if (page.includes("booking"))
+    return "Booking";
+
+  if (page.includes("bank"))
+    return "Bank";
+
+  if (page.includes("users"))
+    return "Users";
+
   return "Online";
 }
 

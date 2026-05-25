@@ -52,6 +52,7 @@ const [updatingAll, setUpdatingAll] = useState(false);
 const [viewMode, setViewMode] = useState<"table" | "showcase">("table");
 const [selectedCharacterIndex, setSelectedCharacterIndex] = useState(0);
 const [hoveredItem, setHoveredItem] = useState<any>(null);
+const [muted, setMuted] = useState(true);
 const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 useEffect(() => {
   loadUserAndProfile();
@@ -448,8 +449,66 @@ const totalExperience = useMemo(() => {
 
   return `${best}/9M`;
 }, [characters]);
-  return (
-  <div style={page}>
+return (
+  <div style={{ position: "relative", minHeight: "100vh", overflow: "hidden" }}>
+
+<video
+  autoPlay
+  muted={muted}
+  loop
+  playsInline
+      style={{
+        position: "fixed",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        zIndex: -2,
+        filter: "brightness(.8)",
+      }}
+    >
+      <source src="/home2.webm" type="video/webm" />
+    </video>
+
+    {/* DARK OVERLAY */}
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background:
+  "linear-gradient(rgba(5,5,15,.35), rgba(0,0,0,.45))",
+        zIndex: -1,
+      }}
+    />
+
+    <div style={page}>
+      <div
+  style={{
+    position: "fixed",
+    bottom: 24,
+    right: 24,
+    zIndex: 999,
+  }}
+>
+  <button
+    onClick={() => setMuted(!muted)}
+    style={{
+      padding: "12px 18px",
+      borderRadius: 14,
+      border: "1px solid rgba(168,85,247,.45)",
+      background:
+        "linear-gradient(180deg,#c026d3,#7e22ce)",
+      color: "white",
+      fontWeight: 900,
+      cursor: "pointer",
+      boxShadow:
+        "0 0 22px rgba(168,85,247,.55)",
+      fontSize: 14,
+    }}
+  >
+    {muted ? "🔇 Unmute Sound" : "🔊 Mute Sound"}
+  </button>
+</div>
   <div style={layout}>
         <aside style={sidebar}>
 <SideNav active="My Characters" />
@@ -603,19 +662,116 @@ const totalExperience = useMemo(() => {
 </button>
           </div>
 
-<div style={tabs}>
+<div
+  style={{
+    display: "flex",
+    gap: 18,
+    marginBottom: 28,
+    alignItems: "center",
+  }}
+>
   <button
     onClick={() => setViewMode("table")}
-    style={viewMode === "table" ? tabActive : tab}
+    style={{
+      padding: "14px 34px",
+      borderRadius: 18,
+      border:
+        viewMode === "table"
+          ? "1px solid #facc15"
+          : "1px solid rgba(168,85,247,.35)",
+
+      background:
+        viewMode === "table"
+          ? "linear-gradient(180deg,#6d28d9,#2e1065)"
+          : "rgba(8,5,20,.82)",
+
+      color:
+        viewMode === "table"
+          ? "#fff"
+          : "#d8b4fe",
+
+      fontWeight: 900,
+      fontSize: 16,
+      letterSpacing: 1,
+
+      boxShadow:
+        viewMode === "table"
+          ? "0 0 30px rgba(250,204,21,.55), inset 0 0 20px rgba(255,255,255,.12)"
+          : "0 0 18px rgba(168,85,247,.18)",
+
+      cursor: "pointer",
+      transition: ".25s",
+      position: "relative",
+      overflow: "hidden",
+      textTransform: "uppercase",
+      minWidth: 210,
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = "translateY(-3px) scale(1.03)";
+      e.currentTarget.style.boxShadow =
+        "0 0 32px rgba(168,85,247,.65)";
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = "scale(1)";
+      e.currentTarget.style.boxShadow =
+        viewMode === "table"
+          ? "0 0 30px rgba(250,204,21,.55)"
+          : "0 0 18px rgba(168,85,247,.18)";
+    }}
   >
-    Table View
+    🛡 TABLE VIEW
   </button>
 
   <button
     onClick={() => setViewMode("showcase")}
-    style={viewMode === "showcase" ? tabActive : tab}
+    style={{
+      padding: "14px 34px",
+      borderRadius: 18,
+      border:
+        viewMode === "showcase"
+          ? "1px solid #facc15"
+          : "1px solid rgba(168,85,247,.35)",
+
+      background:
+        viewMode === "showcase"
+          ? "linear-gradient(180deg,#6d28d9,#2e1065)"
+          : "rgba(8,5,20,.82)",
+
+      color:
+        viewMode === "showcase"
+          ? "#fff"
+          : "#d8b4fe",
+
+      fontWeight: 900,
+      fontSize: 16,
+      letterSpacing: 1,
+
+      boxShadow:
+        viewMode === "showcase"
+          ? "0 0 30px rgba(250,204,21,.55), inset 0 0 20px rgba(255,255,255,.12)"
+          : "0 0 18px rgba(168,85,247,.18)",
+
+      cursor: "pointer",
+      transition: ".25s",
+      position: "relative",
+      overflow: "hidden",
+      textTransform: "uppercase",
+      minWidth: 210,
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = "translateY(-3px) scale(1.03)";
+      e.currentTarget.style.boxShadow =
+        "0 0 32px rgba(168,85,247,.65)";
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = "scale(1)";
+      e.currentTarget.style.boxShadow =
+        viewMode === "showcase"
+          ? "0 0 30px rgba(250,204,21,.55)"
+          : "0 0 18px rgba(168,85,247,.18)";
+    }}
   >
-    Character View
+    ⚔ CHARACTER VIEW
   </button>
 </div>
 
@@ -849,6 +1005,18 @@ textShadow: `0 0 10px ${getClassColor(char.class)}55`,
               }}
             >
               {char.name}
+              <div
+  style={{
+    color: "#e879f9",
+    fontSize: 12,
+    fontWeight: 900,
+    marginTop: 2,
+    textShadow:
+      "0 0 8px rgba(232,121,249,.8)",
+  }}
+>
+  {char.ilvl}
+</div>
             </div>
 
             <div
@@ -1363,7 +1531,7 @@ style={{
     second: "2-digit",
   })}
 </div>
-            <p style={muted}>Server Time</p>
+            <p style={mutedText}>Server Time</p>
             <div style={{ marginTop: 12, color: "#d946ef", fontWeight: 900 }}>
               Reset: Wednesday 5:00 AM ST
             </div>
@@ -1478,6 +1646,7 @@ top: tooltipPos.y,
         </div>
       )}
     </div>
+  </div>
   );
 }
 
@@ -1520,7 +1689,7 @@ function Legend({ color, title, text }: { color: string; title: string; text: st
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ color, fontSize: 20, fontWeight: 900 }}>• {title}</div>
-      <p style={muted}>{text}</p>
+      <p style={mutedText}>{text}</p>
     </div>
   );
 }
@@ -1625,12 +1794,12 @@ function getClassIcon(className: string, spec?: string) {
 }
 
 const page: React.CSSProperties = {
-
   minHeight: "100vh",
   color: "white",
   fontFamily: "Arial, sans-serif",
-  background:
-  "linear-gradient(rgba(2,6,16,0.55), rgba(0,0,0,0.72)), url('/bg.png') center top / cover no-repeat fixed",
+  background: "transparent",
+  position: "relative",
+  zIndex: 1,
 };
 
 const topbar: React.CSSProperties = {
@@ -1969,7 +2138,7 @@ const infoTitle: React.CSSProperties = {
   margin: "0 0 18px",
 };
 
-const muted: React.CSSProperties = {
+const mutedText: React.CSSProperties = {
   marginTop: 8,
   color: "#bcbcbc",
   lineHeight: 1.5,

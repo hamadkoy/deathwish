@@ -26,7 +26,7 @@ export default function SideNav({ active }: { active: string }) {
     { name: "Raid Logs", href: "/raid-logs" },
     { name: "Leaderboard", href: "#" },
     { name: "👑 Users", href: "/admin/users", badge: pendingCount },
-    { name: "My Characters", href: "/profile" },
+    { name: "My Garrison", href: "/profile" },
     { name: "Bank", href: "/bank" },
   ];
 
