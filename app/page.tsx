@@ -1,11 +1,19 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 export default function Home() {
 
-  const [soundOn, setSoundOn] = useState(false);
+const [soundOn, setSoundOn] = useState(() => {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("homeVideoSound") === "true";
+  }
 
+  return false;
+});
+useEffect(() => {
+  localStorage.setItem("homeVideoSound", String(soundOn));
+}, [soundOn]);
   return (
     <main style={page}>
       <style jsx global>{`
