@@ -26,6 +26,9 @@ export default function BankPage() {
 
   return true;
 });
+useEffect(() => {
+  localStorage.setItem("bankVideoMuted", muted.toString());
+}, [muted]);
  const [activeTab, setActiveTab] = useState("This Week");
 const [history, setHistory] = useState<any[]>([]);
  const filteredCuts = useMemo(() => {
