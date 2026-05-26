@@ -560,11 +560,7 @@ if (role !== "Loot Body" && run) {
 
 if (
   requiredExp &&
-  (
-    (requiredExp.difficulty === "M" &&
-      characterExp.difficulty !== "M") ||
-    characterExp.bosses < requiredExp.bosses
-  )
+  characterExp.bosses < requiredExp.bosses
 )
   {
     setPopup({
@@ -576,28 +572,7 @@ if (
   }
 }
   const signupName = `${selectedCharacter.name} - ${selectedCharacter.spec} ${selectedCharacter.class}`;
-  if (role !== "Loot Body" && run) {
-  const requiredExp = getRequiredBossExp(run.title);
-  const characterExp =
-  characters
-    .map((char) => getCharacterBossExp(char.progress))
-    .sort((a, b) => b.bosses - a.bosses)[0] ||
-  getCharacterBossExp(selectedCharacter.progress);
 
-if (
-  requiredExp &&
-  requiredExp.difficulty === "M" &&
-  characterExp.bosses < requiredExp.bosses
-) {
-    setPopup({
-      title: "Boss Experience Too Low",
-      message: `This run requires ${requiredExp.bosses}/9${requiredExp.difficulty} experience. ${selectedCharacter.name} has ${selectedCharacter.progress || "0/9"}.`,
-      type: "error",
-    });
-
-    return;
-  }
-}
 if (role !== "Loot Body") {
   const alreadyInRun = signups.find(
     (s) =>
