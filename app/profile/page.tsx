@@ -2024,7 +2024,7 @@ function getIlvlColor(ilvl: number) {
 function getSpecsByClass(className: string) {
   const specs: Record<string, string[]> = {
     "Death Knight": ["Blood", "Frost", "Unholy"],
-    "Demon Hunter": ["Havoc", "Vengeance"],
+    "Demon Hunter": ["Havoc", "Vengeance", "devourer"],
     "Druid": ["Balance", "Feral", "Guardian", "Restoration"],
     "Evoker": ["Devastation", "Preservation", "Augmentation"],
     "Hunter": ["Beast Mastery", "Marksmanship", "Survival"],
@@ -2049,6 +2049,7 @@ function getClassIcon(className: string, spec?: string) {
     "unholy death knight": "/icons/deathknight-unholy.png",
     "havoc demon hunter": "/icons/demonhunter-havoc.png",
     "vengeance demon hunter": "/icons/demonhunter-vengeance.png",
+    "devourer demon hunter": "/icons/demonhunter-devourer.png",
     "balance druid": "/icons/druid-balance.png",
     "feral druid": "/icons/druid-feral.png",
     "guardian druid": "/icons/druid-guardian.png",
