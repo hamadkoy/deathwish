@@ -499,27 +499,15 @@ const highestRioScore = useMemo(() => {
 }, [characters]);
 
 const totalExperience = useMemo(() => {
-  const has7 = characters.some((char) => {
-    const killed = Number((char.progress || "0/9").split("/")[0]) || 0;
-    return killed >= 7;
+  const uniqueBosses = new Set<string>();
+
+  characters.forEach((char) => {
+    (char.mythic_bosses || []).forEach((boss) => {
+      uniqueBosses.add(boss.toLowerCase().trim());
+    });
   });
 
-  const hasMarchKill = characters.some((char) => {
-    const name = char.name.toLowerCase();
-    return name === "koyjin" || name === "ikoy";
-  });
-
-  if (has7 && hasMarchKill) return "8/9M";
-  if (has7) return "7/9M";
-
-  const best = Math.max(
-    0,
-    ...characters.map(
-      (char) => Number((char.progress || "0/9").split("/")[0]) || 0
-    )
-  );
-
-  return `${best}/9M`;
+  return `${uniqueBosses.size}/9M`;
 }, [characters]);
 return (
   <div style={{ position: "relative", minHeight: "100vh", overflow: "hidden" }}>
@@ -1611,9 +1599,28 @@ style={{
 
           <InfoCard title="CHARACTER SUMMARY">
             <Summary label="Total Characters" value={characters.length} />
-            <Summary label="Available" value={characters.length} color="#22c55e" />
-            <Summary label="Saved (HC)" value={0} color="#ef4444" />
-            <Summary label="Saved (Mythic)" value={0} color="#ef4444" />
+         <Summary
+  label="Available"
+  value={
+    characters.filter(
+      (char) =>
+        !savedStatus[char.id]?.hc &&
+        !savedStatus[char.id]?.mythic
+    ).length
+  }
+  color="#22c55e"
+/>
+<Summary
+  label="Saved (HC)"
+  value={Object.values(savedStatus).filter((s) => s.hc).length}
+  color="#ef4444"
+/>
+
+<Summary
+  label="Saved (Mythic)"
+  value={Object.values(savedStatus).filter((s) => s.mythic).length}
+  color="#ef4444"
+/>
             <Summary
               label="Total Item Level"
               value={characters.reduce((a, b) => a + b.ilvl, 0)}
