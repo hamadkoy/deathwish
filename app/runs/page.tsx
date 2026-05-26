@@ -371,14 +371,22 @@ await supabase.from("profiles").upsert({
     loadSignups();
     loadUserAndProfile();
 
-    const channel = supabase
-      .channel("realtime-signups")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "signups" },
-        () => loadSignups()
-      )
-      .subscribe();
+const channel = supabase
+  .channel("realtime-runs-and-signups")
+  .on(
+    "postgres_changes",
+    { event: "*", schema: "public", table: "signups" },
+    () => loadSignups()
+  )
+  .on(
+    "postgres_changes",
+    { event: "*", schema: "public", table: "runs" },
+    () => {
+      loadRuns();
+      loadSignups();
+    }
+  )
+  .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
