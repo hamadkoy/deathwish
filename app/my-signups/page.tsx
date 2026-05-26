@@ -170,34 +170,51 @@ const filteredSignups = useMemo(() => {
 
       return matchesWeek && matchesDay;
     })
-    .sort((a, b) => {
-      const aPast = isRunPast(a);
-      const bPast = isRunPast(b);
+.sort((a, b) => {
+  const dayOrder: Record<string, number> = {
+    Wednesday: 0,
+    Thursday: 1,
+    Friday: 2,
+    Saturday: 3,
+    Sunday: 4,
+    Monday: 5,
+    Tuesday: 6,
+  };
 
-      // Active runs first
-      if (aPast !== bPast) {
-        return aPast ? 1 : -1;
-      }
+  function timeToMinutes(time?: string) {
+    if (!time) return 99999;
 
-      // Week order
-      const weekDiff =
-        (a.run?.week || 0) - (b.run?.week || 0);
+    const clean = time
+      .toString()
+      .replace("ST", "")
+      .replace("st", "")
+      .trim();
 
-      if (weekDiff !== 0) return weekDiff;
+    const match = clean.match(/(\d{1,2}):(\d{2})/);
+    if (!match) return 99999;
 
-      // Day order
-      const dayDiff =
-        (dayOrder[a.run?.day] || 0) -
-        (dayOrder[b.run?.day] || 0);
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
 
-      if (dayDiff !== 0) return dayDiff;
+    return hour * 60 + minute;
+  }
 
-      // Time order
-      const aDate = getRunDate(a)?.getTime() || 0;
-      const bDate = getRunDate(b)?.getTime() || 0;
+  const aPast = isRunPast(a);
+  const bPast = isRunPast(b);
 
-      return aDate - bDate;
-    });
+  if (aPast !== bPast) return aPast ? 1 : -1;
+
+  const weekDiff = Number(a.run?.week || 0) - Number(b.run?.week || 0);
+  if (weekDiff !== 0) return weekDiff;
+
+  const dayDiff =
+    (dayOrder[a.run?.day] ?? 999) -
+    (dayOrder[b.run?.day] ?? 999);
+
+  if (dayDiff !== 0) return dayDiff;
+
+  return timeToMinutes(a.run?.time) - timeToMinutes(b.run?.time);
+});
 }, [signups, selectedDay, selectedWeek, now]);
 
 return (
