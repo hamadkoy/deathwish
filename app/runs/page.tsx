@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   DndContext,
@@ -120,6 +120,55 @@ function formatCountdown(targetDate: string) {
   if (days > 0) return `${days}d ${hours}h ${minutes}m ${seconds}s`;
   return `${hours}h ${minutes}m ${seconds}s`;
 }
+function formatChatTime(dateString: string) {
+  const date = new Date(dateString);
+  const now = new Date();
+
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(
+    diffMs / (1000 * 60 * 60 * 24)
+  );
+
+  if (diffDays < 1) {
+    return date.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  if (diffDays < 7) {
+    return date.toLocaleDateString("en-GB", {
+      weekday: "long",
+    });
+  }
+
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+function formatChatDayLabel(dateString: string) {
+  const date = new Date(dateString);
+  const now = new Date();
+
+  const diffDays = Math.floor(
+    (now.getTime() - date.getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+
+  if (diffDays === 0) return "Today";
+
+  if (diffDays === 1) return "Yesterday";
+
+  if (diffDays < 7) {
+    return date.toLocaleDateString("en-GB", {
+      weekday: "long",
+    });
+  }
+
+  return date.toLocaleDateString("en-GB");
+}
 export default function RunsPage() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [signups, setSignups] = useState<Signup[]>([]);
@@ -129,6 +178,7 @@ export default function RunsPage() {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
 const [chatInput, setChatInput] = useState("");
 const [chatOpen, setChatOpen] = useState(false);
+const chatBottomRef = useRef<HTMLDivElement | null>(null);
 const [showAccessPopup, setShowAccessPopup] = useState(false);
 
 const [mainCharacterInput, setMainCharacterInput] = useState("");
@@ -366,6 +416,11 @@ setEuropeDay(day);
 
   return () => clearInterval(timer);
 }, []);
+useEffect(() => {
+  chatBottomRef.current?.scrollIntoView({
+    behavior: "smooth",
+  });
+}, [chatMessages, chatOpen]);
 useEffect(() => {
   async function loadChat() {
     const { data } = await supabase
@@ -2300,95 +2355,120 @@ setAdminAddSpec={setAdminAddSpec}
         gap: 10,
       }}
     >
-      {chatMessages.map((msg) => {
-        const mine = msg.user_id === user?.id;
+{chatMessages.map((msg, index) => {
+  const mine = msg.user_id === user?.id;
 
-        return (
-          <div
-            key={msg.id}
-            style={{
-              display: "flex",
-              justifyContent: mine ? "flex-end" : "flex-start",
-            }}
-          >
+  const currentDate = new Date(msg.created_at);
+
+  const previousDate =
+    index > 0
+      ? new Date(chatMessages[index - 1].created_at)
+      : null;
+
+  const showDateLabel =
+    !previousDate ||
+    currentDate.toDateString() !==
+      previousDate.toDateString();
+
+  return (
+    <div key={msg.id}>
+      {showDateLabel && (
+        <div
+          style={{
+            textAlign: "center",
+            color: "#c084fc",
+            fontSize: 12,
+            fontWeight: 900,
+            margin: "14px 0 8px",
+            opacity: 0.9,
+          }}
+        >
+          {formatChatDayLabel(msg.created_at)}
+        </div>
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: mine
+            ? "flex-end"
+            : "flex-start",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "78%",
+            background: mine
+              ? "linear-gradient(135deg,#9333ea,#c026d3)"
+              : "rgba(255,255,255,.08)",
+
+            border: mine
+              ? "1px solid rgba(255,255,255,.12)"
+              : "1px solid rgba(168,85,247,.18)",
+
+            borderRadius: 18,
+            padding: "10px 12px",
+          }}
+        >
+          {!mine && (
             <div
               style={{
-                maxWidth: "78%",
-                background: mine
-                  ? "linear-gradient(135deg,#9333ea,#c026d3)"
-                  : "rgba(255,255,255,.08)",
-
-                border: mine
-                  ? "1px solid rgba(255,255,255,.12)"
-                  : "1px solid rgba(168,85,247,.18)",
-
-                borderRadius: 18,
-                padding: "10px 12px",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 6,
               }}
             >
-              {!mine && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    marginBottom: 6,
-                  }}
-                >
-                  <img
-                    src={msg.avatar_url || "/logo.png"}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: "50%",
-                      objectFit: "cover",
-                    }}
-                  />
-
-                  <div
-                    style={{
-                      fontWeight: 800,
-                      color: "#c084fc",
-                      fontSize: 13,
-                    }}
-                  >
-                    {msg.discord_name}
-                  </div>
-                </div>
-              )}
+              <img
+                src={msg.avatar_url || "/logo.png"}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                }}
+              />
 
               <div
                 style={{
-                  color: "white",
-                  fontSize: 14,
-                  lineHeight: 1.45,
-                  wordBreak: "break-word",
+                  fontWeight: 800,
+                  color: "#c084fc",
+                  fontSize: 13,
                 }}
               >
-                {msg.message}
-              </div>
-
-              <div
-                style={{
-                  marginTop: 6,
-                  fontSize: 10,
-                  opacity: 0.7,
-                  textAlign: "right",
-                  color: "#d1d5db",
-                }}
-              >
-                {new Date(msg.created_at).toLocaleTimeString(
-                  "en-GB",
-                  {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }
-                )}
+                {msg.discord_name}
               </div>
             </div>
+          )}
+
+          <div
+            style={{
+              color: "white",
+              fontSize: 14,
+              lineHeight: 1.45,
+              wordBreak: "break-word",
+            }}
+          >
+            {msg.message}
           </div>
-        );
-      })}
+
+          <div
+            style={{
+              marginTop: 6,
+              fontSize: 10,
+              opacity: 0.7,
+              textAlign: "right",
+              color: "#d1d5db",
+            }}
+          >
+            {formatChatTime(msg.created_at)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+})}
+      <div ref={chatBottomRef} />
     </div>
 
     <div
