@@ -3097,6 +3097,10 @@ function getSpecIconPath(player: string) {
     "marksman hunter": "hunter-marksmanship",
     "marksmanship hunter": "hunter-marksmanship",
     "survival hunter": "hunter-survival",
+
+    "devastation evoker": "evoker-devastation",
+    "preservation evoker": "evoker-preservation",
+    "augmentation evoker": "evoker-augmentation",
   };
 
   const fileName = fixes[specClass];
