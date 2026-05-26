@@ -150,16 +150,55 @@ function getRunDate(run?: any) {
   const currentDay = getCurrentDay();
 
 const filteredSignups = useMemo(() => {
-  return signups.filter((signup) => {
-    const matchesWeek =
-      selectedWeek === "All" || signup.run?.week === selectedWeek;
+  const dayOrder: Record<string, number> = {
+    Wednesday: 0,
+    Thursday: 1,
+    Friday: 2,
+    Saturday: 3,
+    Sunday: 4,
+    Monday: 5,
+    Tuesday: 6,
+  };
 
-    const matchesDay =
-      selectedDay === "All" || signup.run?.day === selectedDay;
+  return [...signups]
+    .filter((signup) => {
+      const matchesWeek =
+        selectedWeek === "All" || signup.run?.week === selectedWeek;
 
-    return matchesWeek && matchesDay;
-  });
-}, [signups, selectedDay, selectedWeek]);
+      const matchesDay =
+        selectedDay === "All" || signup.run?.day === selectedDay;
+
+      return matchesWeek && matchesDay;
+    })
+    .sort((a, b) => {
+      const aPast = isRunPast(a);
+      const bPast = isRunPast(b);
+
+      // Active runs first
+      if (aPast !== bPast) {
+        return aPast ? 1 : -1;
+      }
+
+      // Week order
+      const weekDiff =
+        (a.run?.week || 0) - (b.run?.week || 0);
+
+      if (weekDiff !== 0) return weekDiff;
+
+      // Day order
+      const dayDiff =
+        (dayOrder[a.run?.day] || 0) -
+        (dayOrder[b.run?.day] || 0);
+
+      if (dayDiff !== 0) return dayDiff;
+
+      // Time order
+      const aDate = getRunDate(a)?.getTime() || 0;
+      const bDate = getRunDate(b)?.getTime() || 0;
+
+      return aDate - bDate;
+    });
+}, [signups, selectedDay, selectedWeek, now]);
 
 return (
   <div style={page}>
