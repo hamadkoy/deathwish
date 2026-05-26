@@ -193,12 +193,9 @@ async function addCharacter() {
     }
 
     try {
-const response = await fetch(
-  `https://raider.io/api/v1/characters/profile?region=eu&realm=${realm.trim()}&name=${name.trim()}&fields=gear,raid_progression,mythic_plus_best_runs,mythic_plus_scores_by_season_current&t=${Date.now()}`,
-  {
-    cache: "no-store",
-  }
-);
+      const response = await fetch(
+        `https://raider.io/api/v1/characters/profile?region=eu&realm=${realm.trim()}&name=${name.trim()}&fields=gear,raid_progression,mythic_plus_best_runs,mythic_plus_scores_by_season_current`
+      );
 
       const data = await response.json();
 const mythicBosses: string[] = [];
@@ -218,10 +215,10 @@ bosses.forEach((boss: any) => {
   }
 });
 });
-if (data.statusCode) {
-  alert("Character not found on Raider.IO");
-  return;
-}
+      if (data.statusCode) {
+        alert("Character not found on Raider.IO");
+        return;
+      }
 
       const ilvl = Math.floor(
         data.gear?.item_level_equipped ||
@@ -288,12 +285,9 @@ async function updateCharacter(char: Character) {
   try {
     setUpdatingId(char.id);
 
-const response = await fetch(
-  `https://raider.io/api/v1/characters/profile?region=eu&realm=${char.realm}&name=${char.name}&fields=gear,raid_progression,mythic_plus_best_runs,mythic_plus_scores_by_season_current&t=${Date.now()}`,
-  {
-    cache: "no-store",
-  }
-);
+    const response = await fetch(
+      `https://raider.io/api/v1/characters/profile?region=eu&realm=${char.realm}&name=${char.name}&fields=gear,raid_progression,mythic_plus_best_runs,mythic_plus_scores_by_season_current`
+    );
 
     const data = await response.json();
     console.log("RAIDER DATA:", data.raid_progression);
