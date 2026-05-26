@@ -2896,7 +2896,12 @@ function getSpecIconPath(player: string) {
   const parts = player.split(" - ");
   if (parts.length < 2) return null;
 
-  const specClass = parts[1].toLowerCase().trim();
+  let specClass = parts[1].toLowerCase().trim();
+
+  specClass = specClass
+    .replace("demonhunter", "demon hunter")
+    .replace("dh", "demon hunter")
+    .replace(/\s+/g, " ");
 
   const fixes: Record<string, string> = {
     "guardian druid": "druid-guardian",
@@ -2906,7 +2911,8 @@ function getSpecIconPath(player: string) {
 
     "vengeance demon hunter": "demonhunter-vengeance",
     "havoc demon hunter": "demonhunter-havoc",
-
+    "devourer demon hunter": "demonhunter-devourer",
+    
     "blood death knight": "deathknight-blood",
     "frost death knight": "deathknight-frost",
     "unholy death knight": "deathknight-unholy",
