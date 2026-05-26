@@ -19,7 +19,8 @@ export default function MySignupsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState("All");
   const [now, setNow] = useState(new Date());
-
+const [selectedWeek, setSelectedWeek] = useState<number | "All">("All");
+const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
   useEffect(() => {
     loadSignups();
   }, []);
@@ -79,8 +80,17 @@ export default function MySignupsPage() {
       character: myCharacters.find((c) => c.id === signup.character_id),
     }));
 
-    setSignups(merged);
-    setLoading(false);
+const weeks = Array.from(
+  new Set(
+    merged
+      .map((s) => s.run?.week)
+      .filter(Boolean)
+  )
+).sort((a, b) => a - b);
+
+setAvailableWeeks(weeks);
+setSignups(merged);
+setLoading(false);
   }
 
   function serverNow() {
@@ -139,12 +149,17 @@ function getRunDate(run?: any) {
 
   const currentDay = getCurrentDay();
 
-  const filteredSignups = useMemo(() => {
-    return signups.filter((signup) => {
-      if (selectedDay === "All") return true;
-      return signup.run?.day === selectedDay;
-    });
-  }, [signups, selectedDay]);
+const filteredSignups = useMemo(() => {
+  return signups.filter((signup) => {
+    const matchesWeek =
+      selectedWeek === "All" || signup.run?.week === selectedWeek;
+
+    const matchesDay =
+      selectedDay === "All" || signup.run?.day === selectedDay;
+
+    return matchesWeek && matchesDay;
+  });
+}, [signups, selectedDay, selectedWeek]);
 
 return (
   <div style={page}>
@@ -209,7 +224,24 @@ return (
             </button>
           </div>
         </section>
+<section style={dayPanel}>
+  <button
+    style={selectedWeek === "All" ? dayBtnActive : dayBtn}
+    onClick={() => setSelectedWeek("All")}
+  >
+    All Weeks
+  </button>
 
+  {availableWeeks.map((week) => (
+    <button
+      key={week}
+      style={selectedWeek === week ? dayBtnActive : dayBtn}
+      onClick={() => setSelectedWeek(week)}
+    >
+      Week {week}
+    </button>
+  ))}
+</section>
         <section style={dayPanel}>
           <button
             style={selectedDay === "All" ? dayBtnActive : dayBtn}

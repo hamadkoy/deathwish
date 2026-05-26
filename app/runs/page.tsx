@@ -513,6 +513,7 @@ if (run?.finished) {
     return;
   }
 if (
+  role !== "Loot Body" &&
   run?.ilvl_required &&
   (selectedCharacter.ilvl || 0) < run.ilvl_required
 ) {
