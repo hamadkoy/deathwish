@@ -260,7 +260,7 @@ style={{
 >
   My runs
 </a>
-{canUseRunCards && (
+{["officer", "admin"].includes(profile?.site_role || "") && (
 <a
   href="/booking"
   style={link}
