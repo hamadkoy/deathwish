@@ -2646,8 +2646,14 @@ const isOfficer =
         {roleSignups.map((signup) => {
           const parsed = parseSignup(signup.player);
 
-          const canDelete =
-            signup.character_id === selectedCharacter?.id || isAdmin;
+        const discordId =
+  user?.user_metadata?.provider_id ||
+  user?.user_metadata?.sub;
+
+const canDelete =
+  signup.discord_id === discordId ||
+  signup.character_id === selectedCharacter?.id ||
+  isAdmin;
 
           return (
             <DraggableSignup
@@ -2912,7 +2918,7 @@ function getSpecIconPath(player: string) {
     "vengeance demon hunter": "demonhunter-vengeance",
     "havoc demon hunter": "demonhunter-havoc",
     "devourer demon hunter": "demonhunter-devourer",
-    
+
     "blood death knight": "deathknight-blood",
     "frost death knight": "deathknight-frost",
     "unholy death knight": "deathknight-unholy",
