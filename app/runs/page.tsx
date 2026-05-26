@@ -552,7 +552,11 @@ if (
 
 if (role !== "Loot Body" && run) {
   const requiredExp = getRequiredBossExp(run.title);
-  const characterExp = getCharacterBossExp(selectedCharacter.progress);
+  const characterExp =
+  characters
+    .map((char) => getCharacterBossExp(char.progress))
+    .sort((a, b) => b.bosses - a.bosses)[0] ||
+  getCharacterBossExp(selectedCharacter.progress);
 
   if (
     requiredExp &&
@@ -570,7 +574,11 @@ if (role !== "Loot Body" && run) {
   const signupName = `${selectedCharacter.name} - ${selectedCharacter.spec} ${selectedCharacter.class}`;
   if (role !== "Loot Body" && run) {
   const requiredExp = getRequiredBossExp(run.title);
-  const characterExp = getCharacterBossExp(selectedCharacter.progress);
+  const characterExp =
+  characters
+    .map((char) => getCharacterBossExp(char.progress))
+    .sort((a, b) => b.bosses - a.bosses)[0] ||
+  getCharacterBossExp(selectedCharacter.progress);
 
   if (
     requiredExp &&
