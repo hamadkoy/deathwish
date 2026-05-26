@@ -185,7 +185,8 @@ const [mainCharacterInput, setMainCharacterInput] = useState("");
 const [mainRealmInput, setMainRealmInput] = useState("Kazzak");
 const [raiderIoInput, setRaiderIoInput] = useState("");
 const [applicationNote, setApplicationNote] = useState("");
-
+const [playerPopup, setPlayerPopup] =
+  useState<Signup | null>(null);
 const [signupApproved, setSignupApproved] = useState(false);
   const [selectedCharacter, setSelectedCharacter] =
     useState<Character | null>(null);
@@ -1177,6 +1178,81 @@ if (nextWeeks.length > 0) {
           }}
         >
           Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+{playerPopup && (
+  <div style={popupOverlay}>
+    <div
+      style={{
+        width: 420,
+        borderRadius: 22,
+        padding: 28,
+        background:
+          "linear-gradient(180deg, rgba(15,0,35,.98), rgba(5,0,20,.98))",
+        border: "1px solid rgba(168,85,247,.45)",
+        boxShadow:
+          "0 0 45px rgba(168,85,247,.45)",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 30,
+          fontWeight: 900,
+          marginBottom: 24,
+          textAlign: "center",
+          color: "white",
+        }}
+      >
+        {playerPopup.player.split(" - ")[0]}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+        }}
+      >
+        <button
+          onClick={() => {
+window.open(
+  `/profile?discordId=${playerPopup.discord_id}`,
+  "_blank"
+);
+          }}
+          style={popupButton}
+        >
+          View Garrison
+        </button>
+
+        <button
+          onClick={() => {
+            window.open(
+              `discord://-/users/${playerPopup.discord_id}`,
+              "_blank"
+            );
+          }}
+          style={{
+            ...popupButton,
+            background:
+              "linear-gradient(90deg,#2563eb,#60a5fa)",
+          }}
+        >
+          Open Discord DM
+        </button>
+
+        <button
+          onClick={() => setPlayerPopup(null)}
+          style={{
+            ...popupButton,
+            background:
+              "linear-gradient(90deg,#4b5563,#1f2937)",
+          }}
+        >
+          Close
         </button>
       </div>
     </div>
@@ -2216,6 +2292,7 @@ setEditRunSignupOpenAt(run.signup_open_at ? run.signup_open_at.slice(0, 16) : ""
                     selectedCharacter={selectedCharacter}
                     adminAddSignup={adminAddSignup}
                     markAttendance={markAttendance}
+                    setPlayerPopup={setPlayerPopup}
 setAdminAddOpen={setAdminAddOpen}
 setAdminAddRunId={setAdminAddRunId}
 setAdminAddRole={setAdminAddRole}
@@ -2237,6 +2314,7 @@ setAdminAddSpec={setAdminAddSpec}
                     selectedCharacter={selectedCharacter}
                     adminAddSignup={adminAddSignup}
                     markAttendance={markAttendance}
+                    setPlayerPopup={setPlayerPopup}
 setAdminAddOpen={setAdminAddOpen}
 setAdminAddRunId={setAdminAddRunId}
 setAdminAddRole={setAdminAddRole}
@@ -2259,6 +2337,7 @@ setAdminAddSpec={setAdminAddSpec}
                     adminAddSignup={adminAddSignup}
                     markAttendance={markAttendance}
                     setAdminAddOpen={setAdminAddOpen}
+                    setPlayerPopup={setPlayerPopup}
 setAdminAddRunId={setAdminAddRunId}
 setAdminAddRole={setAdminAddRole}
 setAdminAddName={setAdminAddName}
@@ -2280,6 +2359,7 @@ setAdminAddSpec={setAdminAddSpec}
                     adminAddSignup={adminAddSignup}
                     markAttendance={markAttendance}
                     setAdminAddOpen={setAdminAddOpen}
+                    setPlayerPopup={setPlayerPopup}
 setAdminAddRunId={setAdminAddRunId}
 setAdminAddRole={setAdminAddRole}
 setAdminAddName={setAdminAddName}
@@ -2301,6 +2381,7 @@ setAdminAddSpec={setAdminAddSpec}
                     adminAddSignup={adminAddSignup}
                     markAttendance={markAttendance}
                     setAdminAddOpen={setAdminAddOpen}
+                    setPlayerPopup={setPlayerPopup}
 setAdminAddRunId={setAdminAddRunId}
 setAdminAddRole={setAdminAddRole}
 setAdminAddName={setAdminAddName}
@@ -2679,6 +2760,7 @@ function RoleBox({
   adminAddSignup,
   removeSignup,
   markAttendance,
+  setPlayerPopup,
   limit,
   selectedCharacter,
   user,
@@ -2711,6 +2793,7 @@ markAttendance: (
   signupId: number,
   status: "present" | "missing"
 ) => void;
+setPlayerPopup: (signup: Signup) => void;
   limit: number;
   selectedCharacter: Character | null;
   user: any;
@@ -2809,6 +2892,7 @@ const canDelete =
               canDrag={isAdmin || isOfficer}
               removeSignup={removeSignup}
               markAttendance={markAttendance}
+              setPlayerPopup={setPlayerPopup}
             />
           );
         })}
@@ -2828,7 +2912,7 @@ onMouseLeave={(e) => {
   e.currentTarget.style.boxShadow = full ? "none" : `0 0 12px ${color}`;
 }}
         style={{
-          ...roleButton,
+  ...roleButton,
           background: full
             ? "#4b5563"
             : `linear-gradient(${color}, ${darkenColor(color)})`,
@@ -2886,6 +2970,7 @@ function DraggableSignup({
   canDrag,
   removeSignup,
   markAttendance,
+  setPlayerPopup,
 }: {
   signup: Signup;
   parsedName: string;
@@ -2897,6 +2982,7 @@ function DraggableSignup({
   signupId: number,
   status: "present" | "missing"
 ) => void;
+setPlayerPopup: (signup: Signup) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -2905,13 +2991,11 @@ function DraggableSignup({
     });
 
   return (
-    <div
+<div
       ref={setNodeRef}
       onClick={() => {
-  if (signup.discord_id) {
-    window.open(`discord://-/users/${signup.discord_id}`, "_blank");
-  }
-}}
+        setPlayerPopup(signup);
+      }}
       {...(canDrag ? listeners : {})}
       {...(canDrag ? attributes : {})}
       style={{

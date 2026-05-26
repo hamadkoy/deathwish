@@ -87,7 +87,29 @@ console.log(data.user);
     }
 
     setUser(data.user);
+const discordIdentity = data.user.identities?.find(
+  (i: any) => i.provider === "discord"
+);
 
+const userDiscordId =
+  discordIdentity?.identity_data?.provider_id ||
+  discordIdentity?.identity_data?.sub ||
+  data.user.user_metadata?.provider_id ||
+  data.user.user_metadata?.sub;
+
+await supabase
+  .from("profiles")
+  .upsert({
+    user_id: data.user.id,
+    discord_id: userDiscordId,
+    discord_name:
+      data.user.user_metadata?.full_name ||
+      data.user.user_metadata?.name ||
+      data.user.user_metadata?.preferred_username ||
+      "Unknown",
+    avatar_url:
+      data.user.user_metadata?.avatar_url || "",
+  });
     const { data: profileData } = await supabase
       .from("profiles")
       .select("*")
@@ -96,7 +118,6 @@ console.log(data.user);
 
     if (profileData) setProfile(profileData);
   }
-
 async function loadCharacters() {
   const { data: authData } = await supabase.auth.getUser();
 
@@ -106,10 +127,28 @@ async function loadCharacters() {
     return;
   }
 
+  const params = new URLSearchParams(window.location.search);
+  const targetDiscordId = params.get("discordId");
+
+  let targetUserId = authData.user.id;
+
+  // If viewing someone else's garrison
+  if (targetDiscordId) {
+    const { data: targetProfile } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("discord_id", targetDiscordId)
+      .single();
+
+    if (targetProfile?.user_id) {
+      targetUserId = targetProfile.user_id;
+    }
+  }
+
   const { data, error } = await supabase
     .from("characters")
     .select("*")
-    .eq("user_id", authData.user.id)
+    .eq("user_id", targetUserId)
     .order("class", { ascending: true });
 
   if (error) {
