@@ -264,6 +264,20 @@ async function addCharacter() {
       );
 
       const data = await response.json();
+      const existingCharacter = characters.find(
+  (char) =>
+    char.name.toLowerCase() === data.name.toLowerCase() &&
+    char.realm.toLowerCase() === data.realm.toLowerCase()
+);
+
+if (existingCharacter) {
+  setPopup({
+    title: "Character Already Exists",
+    message: `${data.name} already exists in your character list.`,
+    type: "info",
+  });
+  return;
+}
 const mythicBosses: string[] = [];
 
 const raids = Object.values(data.raid_progression || {}) as any[];
