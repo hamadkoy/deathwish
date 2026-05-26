@@ -102,32 +102,37 @@ export default function MySignupsPage() {
     ][d];
   }
 
-  function getRunDate(day?: string, time?: string) {
-    if (!day || !time) return null;
+function getRunDate(run?: any) {
+  if (!run?.day || !run?.time || !run?.week) return null;
 
-    const current = serverNow();
-    const currentDay = current.getDay();
-    const daysSinceWednesday = (currentDay - 3 + 7) % 7;
+  const start = new Date("2026-03-18T07:00:00");
 
-    const weekStart = new Date(current);
-    weekStart.setDate(current.getDate() - daysSinceWednesday);
-    weekStart.setHours(0, 0, 0, 0);
+  const dayOffset: Record<string, number> = {
+    Wednesday: 0,
+    Thursday: 1,
+    Friday: 2,
+    Saturday: 3,
+    Sunday: 4,
+    Monday: 5,
+    Tuesday: 6,
+  };
 
-    const dayIndex = DAYS.indexOf(day);
-    if (dayIndex === -1) return null;
+  const cleanTime = run.time.replace("ST", "").trim();
+  const [hour, minute] = cleanTime.split(":").map(Number);
 
-    const cleanTime = time.replace("ST", "").trim();
-    const [hour, minute] = cleanTime.split(":").map(Number);
+  const runDate = new Date(
+    start.getTime() +
+      (run.week - 1) * 7 * 24 * 60 * 60 * 1000 +
+      (dayOffset[run.day] || 0) * 24 * 60 * 60 * 1000
+  );
 
-    const runDate = new Date(weekStart);
-    runDate.setDate(weekStart.getDate() + dayIndex);
-    runDate.setHours(hour || 0, minute || 0, 0, 0);
+  runDate.setHours(hour || 0, minute || 0, 0, 0);
 
-    return runDate;
-  }
+  return runDate;
+}
 
   function isRunPast(signup: any) {
-    const runDate = getRunDate(signup.run?.day, signup.run?.time);
+    const runDate = getRunDate(signup.run);
     if (!runDate) return false;
     return runDate.getTime() < serverNow().getTime();
   }
@@ -370,18 +375,20 @@ function classText(className?: string): React.CSSProperties {
 
 const page: React.CSSProperties = {
   minHeight: "100vh",
-  position: "relative",
-  padding: "36px",
-  background: "url('/bg.png') center top / cover no-repeat fixed",
   color: "white",
+  fontFamily: "Arial, sans-serif",
+  background: "url('/bg.png') center top / cover no-repeat fixed",
+  position: "relative",
+  zIndex: 1,
+  overflow: "hidden",
 };
-
 const overlay: React.CSSProperties = {
-  position: "absolute",
+  position: "fixed",
   inset: 0,
   background:
-    "linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.82)), radial-gradient(circle at top right, rgba(168,85,247,0.18), transparent 42%)",
-  backdropFilter: "blur(1.5px)",
+    "linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.55)), radial-gradient(circle at top right, rgba(168,85,247,0.12), transparent 42%)",
+  backdropFilter: "blur(1px)",
+  zIndex: -1,
 };
 
 const container: React.CSSProperties = {
@@ -643,18 +650,17 @@ const pastViewBtn: React.CSSProperties = {
 };
 const layout: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "260px 1fr 260px",
-  gap: 24,
-  alignItems: "start",
-  position: "relative",
-  zIndex: 2,
-  maxWidth: 1850,
-  margin: "0 auto",
+  gridTemplateColumns: "220px 1fr 260px",
+  gap: 18,
+  padding: 18,
 };
 
 const sidebar: React.CSSProperties = {
-  position: "sticky",
-  top: 24,
+  background: "rgba(7,10,20,0.88)",
+  border: "1px solid rgba(255,255,255,0.07)",
+  borderRadius: 16,
+  padding: 18,
+  height: "fit-content",
 };
 
 const main: React.CSSProperties = {

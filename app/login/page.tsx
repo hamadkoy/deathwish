@@ -40,7 +40,7 @@ export default function LoginPage() {
             await supabase.auth.signInWithOAuth({
               provider: "discord",
               options: {
-                redirectTo: "https://deathwish-azure.vercel.app/runs",
+                redirectTo: `${window.location.origin}/auth/callback`,
               },
             });
           }}
