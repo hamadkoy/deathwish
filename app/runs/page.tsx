@@ -481,19 +481,20 @@ useEffect(() => {
     if (!selectedCharacter) return null;
     return `${selectedCharacter.name} - ${selectedCharacter.spec} ${selectedCharacter.class}`;
   }
+
 function getRequiredBossExp(title: string) {
-  const match = title.match(/(\d+)\/9\s*(M|Mythic|HC)/i);
+  const match = title.match(/(\d+)\s*\/\s*9\s*(m|mythic|hc|heroic)/i);
 
   if (!match) return null;
 
   return {
     bosses: Number(match[1]),
-    difficulty: match[2].toUpperCase().includes("HC") ? "HC" : "M",
+    difficulty: match[2].toLowerCase().includes("h") ? "HC" : "M",
   };
 }
 
 function getCharacterBossExp(progress?: string) {
-  const match = (progress || "0/9").match(/(\d+)\/9\s*(M|HC)?/i);
+  const match = (progress || "0/9").match(/(\d+)\s*\/\s*9\s*(m|hc)?/i);
 
   return {
     bosses: Number(match?.[1] || 0),
@@ -541,44 +542,52 @@ if (
   run?.ilvl_required &&
   (selectedCharacter.ilvl || 0) < run.ilvl_required
 ) {
+  setPopup({
+    title: "Item Level Too Low",
+    message: `This run requires ${run.ilvl_required}+ ilvl. Your selected character is ${selectedCharacter.ilvl || 0}.`,
+    type: "error",
+  });
+  return;
+}
+
+if (role !== "Loot Body" && run) {
+  const requiredExp = getRequiredBossExp(run.title);
+  const characterExp = getCharacterBossExp(selectedCharacter.progress);
+
+  if (
+    requiredExp &&
+    (characterExp.difficulty !== requiredExp.difficulty ||
+      characterExp.bosses < requiredExp.bosses)
+  ) {
+    setPopup({
+      title: "Boss Experience Too Low",
+      message: `This run requires ${requiredExp.bosses}/9${requiredExp.difficulty} experience. ${selectedCharacter.name} has ${selectedCharacter.progress || "0/9"}.`,
+      type: "error",
+    });
+    return;
+  }
+}
+  const signupName = `${selectedCharacter.name} - ${selectedCharacter.spec} ${selectedCharacter.class}`;
   if (role !== "Loot Body" && run) {
   const requiredExp = getRequiredBossExp(run.title);
   const characterExp = getCharacterBossExp(selectedCharacter.progress);
 
   if (
     requiredExp &&
-    characterExp.difficulty === requiredExp.difficulty &&
-    characterExp.bosses < requiredExp.bosses
+    (
+      characterExp.difficulty !== requiredExp.difficulty ||
+      characterExp.bosses < requiredExp.bosses
+    )
   ) {
     setPopup({
       title: "Boss Experience Too Low",
-      message: `This run requires ${requiredExp.bosses}/9${requiredExp.difficulty} experience. Your selected character has ${selectedCharacter.progress || "0/9"}.`,
+      message: `This run requires ${requiredExp.bosses}/9${requiredExp.difficulty} experience. ${selectedCharacter.name} has ${selectedCharacter.progress || "0/9"}.`,
       type: "error",
     });
-    return;
-  }
 
-  if (
-    requiredExp &&
-    requiredExp.difficulty === "M" &&
-    characterExp.difficulty !== "M"
-  ) {
-    setPopup({
-      title: "Boss Experience Too Low",
-      message: `This run requires ${requiredExp.bosses}/9M experience. Your selected character has ${selectedCharacter.progress || "0/9"}.`,
-      type: "error",
-    });
     return;
   }
 }
-  setPopup({
-    title: "Item Level Too Low",
-    message: `This run requires ${run.ilvl_required}+ ilvl. Your selected character is ${selectedCharacter.ilvl || 0}.`,
-    type: "error",
-  });
-  return; 
-}
-  const signupName = `${selectedCharacter.name} - ${selectedCharacter.spec} ${selectedCharacter.class}`;
 if (role !== "Loot Body") {
   const alreadyInRun = signups.find(
     (s) =>
