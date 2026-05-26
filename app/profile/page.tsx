@@ -54,6 +54,8 @@ const [updatingAll, setUpdatingAll] = useState(false);
 const [viewMode, setViewMode] = useState<"table" | "showcase">("table");
 const [selectedCharacterIndex, setSelectedCharacterIndex] = useState(0);
 const [hoveredItem, setHoveredItem] = useState<any>(null);
+const [specPopup, setSpecPopup] = useState<Character | null>(null);
+const [selectedSpec, setSelectedSpec] = useState("");
 const [muted, setMuted] = useState(() => {
   if (typeof window !== "undefined") {
     return localStorage.getItem("charactersVideoMuted") === "true";
@@ -470,6 +472,26 @@ async function setMainCharacter(id: number) {
     .eq("id", id);
 
   loadCharacters();
+}
+async function updateCharacterSpec() {
+  if (!specPopup || !selectedSpec) return;
+
+  const { error } = await supabase
+    .from("characters")
+    .update({
+      spec: selectedSpec,
+    })
+    .eq("id", specPopup.id);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  setSpecPopup(null);
+  setSelectedSpec("");
+
+  await loadCharacters();
 }
   async function deleteCharacter(id: number) {
     const { error } = await supabase.from("characters").delete().eq("id", id);
@@ -941,7 +963,24 @@ return (
                 </div>
 
                 <div style={progressCell}>
-                  <img src={getClassIcon(char.class, char.spec)} style={roleIcon} />
+                  <img
+  src={getClassIcon(char.class, char.spec)}
+  style={{
+    ...roleIcon,
+    cursor: "pointer",
+    transition: ".2s",
+  }}
+  onClick={() => {
+    setSpecPopup(char);
+    setSelectedSpec(char.spec);
+  }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.transform = "scale(1.12)";
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.transform = "scale(1)";
+  }}
+/>
                   <div>
                     <div style={progressText}>{char.progress || "0/9"}</div>
                     <div
@@ -1704,6 +1743,86 @@ top: tooltipPos.y,
 )}
   </div>
 )}
+{specPopup && (
+  <div style={popupOverlay}>
+    <div
+      style={{
+        width: 500,
+        background: "rgba(10,10,20,.98)",
+        border: "1px solid rgba(168,85,247,.4)",
+        borderRadius: 20,
+        padding: 24,
+      }}
+    >
+      <h2
+        style={{
+          fontSize: 28,
+          fontWeight: 900,
+          marginBottom: 20,
+        }}
+      >
+        Change Spec
+      </h2>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2,1fr)",
+          gap: 14,
+          marginBottom: 24,
+        }}
+      >
+        {getSpecsByClass(specPopup.class).map((spec) => (
+          <button
+            key={spec}
+            onClick={() => setSelectedSpec(spec)}
+            style={{
+              padding: 18,
+              borderRadius: 14,
+              border:
+                selectedSpec === spec
+                  ? "2px solid #d946ef"
+                  : "1px solid rgba(255,255,255,.1)",
+
+              background:
+                selectedSpec === spec
+                  ? "rgba(168,85,247,.25)"
+                  : "rgba(255,255,255,.03)",
+
+              color: "white",
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+          >
+            {spec}
+          </button>
+        ))}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 12,
+        }}
+      >
+        <button
+          onClick={() => setSpecPopup(null)}
+          style={popupCancelBtn}
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={updateCharacterSpec}
+          style={popupOkBtn}
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       {popup && (
         <div style={popupOverlay}>
           <div style={popupBox}>
@@ -1823,7 +1942,25 @@ function getIlvlColor(ilvl: number) {
   if (ilvl >= 275) return "#0ea5e9";
   return "#9ca3af";
 }
+function getSpecsByClass(className: string) {
+  const specs: Record<string, string[]> = {
+    "Death Knight": ["Blood", "Frost", "Unholy"],
+    "Demon Hunter": ["Havoc", "Vengeance"],
+    "Druid": ["Balance", "Feral", "Guardian", "Restoration"],
+    "Evoker": ["Devastation", "Preservation", "Augmentation"],
+    "Hunter": ["Beast Mastery", "Marksmanship", "Survival"],
+    "Mage": ["Arcane", "Fire", "Frost"],
+    "Monk": ["Brewmaster", "Mistweaver", "Windwalker"],
+    "Paladin": ["Holy", "Protection", "Retribution"],
+    "Priest": ["Discipline", "Holy", "Shadow"],
+    "Rogue": ["Assassination", "Outlaw", "Subtlety"],
+    "Shaman": ["Elemental", "Enhancement", "Restoration"],
+    "Warlock": ["Affliction", "Demonology", "Destruction"],
+    "Warrior": ["Arms", "Fury", "Protection"],
+  };
 
+  return specs[className] || [];
+}
 function getClassIcon(className: string, spec?: string) {
   const key = `${spec || ""} ${className}`.toLowerCase().trim();
 
