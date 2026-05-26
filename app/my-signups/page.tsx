@@ -145,12 +145,27 @@ return (
   <div style={page}>
     <div style={overlay} />
 
-    <div style={layoutShell}>
-      <aside style={sideNavWrap}>
-        <SideNav active="My Runs" />
-      </aside>
+<div style={layout}>
+  <aside style={sidebar}>
+    <SideNav active="My Runs" />
 
-      <main style={container}>
+    <div style={balanceBox}>
+      <div style={balanceTitle}>BALANCE OVERVIEW</div>
+      <div style={balanceLabel}>Total Balance</div>
+      <div style={balanceAmount}>0 🟡</div>
+      <button style={paymentBtn}>💰 Request Early Payment</button>
+    </div>
+
+    <div style={discordBox}>
+      <b>Join our Discord</b>
+      <p style={mutedSmall}>
+        Stay updated with raid announcements and guild activity.
+      </p>
+      <button style={discordBtn}>JOIN DISCORD</button>
+    </div>
+  </aside>
+
+  <main style={main}>
         <section style={heroPanel}>
           <div>
             <div style={miniTitle}>DEATH WISH RAID TRACKER</div>
@@ -626,18 +641,120 @@ const pastViewBtn: React.CSSProperties = {
   border: "1px solid rgba(148,163,184,0.35)",
   boxShadow: "none",
 };
-const layoutShell: React.CSSProperties = {
-  position: "relative",
-  zIndex: 2,
+const layout: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "260px 1fr",
+  gridTemplateColumns: "260px 1fr 260px",
   gap: 24,
   alignItems: "start",
+  position: "relative",
+  zIndex: 2,
   maxWidth: 1850,
   margin: "0 auto",
 };
 
-const sideNavWrap: React.CSSProperties = {
+const sidebar: React.CSSProperties = {
   position: "sticky",
   top: 24,
+};
+
+const main: React.CSSProperties = {
+  minWidth: 0,
+};
+
+const rightbar: React.CSSProperties = {
+  position: "sticky",
+  top: 24,
+  display: "flex",
+  flexDirection: "column",
+  gap: 18,
+};
+
+const balanceBox: React.CSSProperties = {
+  marginTop: 18,
+  padding: 18,
+  borderRadius: 18,
+  background:
+    "linear-gradient(180deg, rgba(10,15,35,.92), rgba(4,7,18,.96))",
+  border: "1px solid rgba(168,85,247,.22)",
+  boxShadow:
+    "0 0 24px rgba(168,85,247,.16), inset 0 0 22px rgba(168,85,247,.06)",
+};
+
+const balanceTitle: React.CSSProperties = {
+  color: "#a78bfa",
+  fontWeight: 900,
+  fontSize: 12,
+  marginBottom: 10,
+};
+
+const balanceLabel: React.CSSProperties = {
+  color: "#9ca3af",
+  fontSize: 13,
+};
+
+const balanceAmount: React.CSSProperties = {
+  color: "#facc15",
+  fontWeight: 900,
+  fontSize: 28,
+  marginTop: 8,
+};
+
+const paymentBtn: React.CSSProperties = {
+  marginTop: 16,
+  width: "100%",
+  padding: "12px",
+  borderRadius: 14,
+  border: "1px solid rgba(217,70,239,.45)",
+  background: "linear-gradient(90deg,#7c3aed,#d946ef)",
+  color: "white",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const discordBox: React.CSSProperties = {
+  marginTop: 18,
+  padding: 18,
+  borderRadius: 18,
+  background:
+    "linear-gradient(180deg, rgba(10,15,35,.92), rgba(4,7,18,.96))",
+  border: "1px solid rgba(168,85,247,.22)",
+};
+
+const mutedSmall: React.CSSProperties = {
+  color: "#9ca3af",
+  fontSize: 13,
+  lineHeight: 1.5,
+  marginTop: 8,
+};
+
+const discordBtn: React.CSSProperties = {
+  marginTop: 14,
+  width: "100%",
+  padding: "12px",
+  borderRadius: 14,
+  border: "1px solid rgba(168,85,247,.35)",
+  background: "linear-gradient(90deg,#6d28d9,#c026d3)",
+  color: "white",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const infoCard: React.CSSProperties = {
+  padding: 18,
+  borderRadius: 18,
+  background:
+    "linear-gradient(180deg, rgba(10,15,35,.92), rgba(4,7,18,.96))",
+  border: "1px solid rgba(168,85,247,.22)",
+};
+
+const infoTitle: React.CSSProperties = {
+  color: "#fff",
+  fontWeight: 900,
+  marginBottom: 14,
+};
+
+const mutedText: React.CSSProperties = {
+  color: "#9ca3af",
+  fontSize: 13,
+  lineHeight: 1.5,
 };
