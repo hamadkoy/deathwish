@@ -497,26 +497,34 @@ const highestRioScore = useMemo(() => {
     ...characters.map((char) => Number(char.mythic_plus_score || 0))
   );
 }, [characters]);
-
 const totalExperience = useMemo(() => {
   const uniqueBosses = new Set<string>();
-  let bestProgress = 0;
 
   characters.forEach((char) => {
-    const killed =
-      Number((char.progress || "0/9").split("/")[0]) || 0;
-
-    if (killed > bestProgress) bestProgress = killed;
-
     (char.mythic_bosses || []).forEach((boss) => {
       uniqueBosses.add(boss.toLowerCase().trim());
     });
   });
 
-  const combinedKills = Math.max(uniqueBosses.size, bestProgress);
+  if (uniqueBosses.size > 0) {
+    return `${uniqueBosses.size}/9M`;
+  }
 
-  return `${combinedKills}/9M`;
+  const bestMythicProgress = Math.max(
+    0,
+    ...characters.map((char) => {
+      const progress = (char.progress || "0/9").toLowerCase();
+
+      if (progress.includes("hc")) return 0;
+      if (!progress.includes("m")) return 0;
+
+      return Number(progress.split("/")[0]) || 0;
+    })
+  );
+
+  return `${bestMythicProgress}/9M`;
 }, [characters]);
+
 return (
   <div style={{ position: "relative", minHeight: "100vh", overflow: "hidden" }}>
 
