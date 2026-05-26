@@ -584,13 +584,11 @@ if (
     .sort((a, b) => b.bosses - a.bosses)[0] ||
   getCharacterBossExp(selectedCharacter.progress);
 
-  if (
-    requiredExp &&
-    (
-      characterExp.difficulty !== requiredExp.difficulty ||
-      characterExp.bosses < requiredExp.bosses
-    )
-  ) {
+if (
+  requiredExp &&
+  requiredExp.difficulty === "M" &&
+  characterExp.bosses < requiredExp.bosses
+) {
     setPopup({
       title: "Boss Experience Too Low",
       message: `This run requires ${requiredExp.bosses}/9${requiredExp.difficulty} experience. ${selectedCharacter.name} has ${selectedCharacter.progress || "0/9"}.`,
