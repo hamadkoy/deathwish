@@ -30,6 +30,25 @@ const [currentUserRole, setCurrentUserRole] = useState<SiteRole>("viewer");
 useEffect(() => {
   loadCurrentUser();
   loadUsers();
+
+  const channel = supabase
+    .channel("realtime-profiles")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "profiles",
+      },
+      () => {
+        loadUsers();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }, []);
 
 async function loadCurrentUser() {

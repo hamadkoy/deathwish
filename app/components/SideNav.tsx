@@ -7,18 +7,38 @@ import { supabase } from "@/lib/supabase";
 export default function SideNav({ active }: { active: string }) {
   const [pendingCount, setPendingCount] = useState(0);
 
-  useEffect(() => {
-    loadPendingApplicants();
-  }, []);
+useEffect(() => {
+  loadPendingApplicants();
 
-  async function loadPendingApplicants() {
-    const { count } = await supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("signup_approved", false);
+  const channel = supabase
+    .channel("realtime-pending-applications")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "profiles",
+      },
+      () => {
+        loadPendingApplicants();
+      }
+    )
+    .subscribe();
 
-    setPendingCount(count || 0);
-  }
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
+
+async function loadPendingApplicants() {
+  const { count } = await supabase
+    .from("profiles")
+    .select("*", { count: "exact", head: true })
+    .eq("signup_approved", false)
+    .not("applied_at", "is", null);
+
+  setPendingCount(count || 0);
+}
 
   const items = [
     { name: "My Runs", href: "/my-signups" },
