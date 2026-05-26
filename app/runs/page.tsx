@@ -190,6 +190,11 @@ const [signupApproved, setSignupApproved] = useState(false);
   const [selectedCharacter, setSelectedCharacter] =
     useState<Character | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<number>(getCurrentWeek());
+  const selectedWeekRef = useRef(selectedWeek);
+
+useEffect(() => {
+  selectedWeekRef.current = selectedWeek;
+}, [selectedWeek]);
 const [weeks, setWeeks] = useState<number[]>([]);
 
 useEffect(() => {
@@ -284,18 +289,18 @@ const [editRunSignupOpenAt, setEditRunSignupOpenAt] = useState("");
     })
   );
 
-  async function loadRuns() {
-    const { data, error } = await supabase
-      .from("runs")
-      .select("*")
-      .eq("week", selectedWeek)
-      .order("run_date", { ascending: true })
-      .order("time", { ascending: true });
+async function loadRuns(weekToLoad = selectedWeek) {
+  const { data, error } = await supabase
+    .from("runs")
+    .select("*")
+    .eq("week", weekToLoad)
+    .order("run_date", { ascending: true })
+    .order("time", { ascending: true });
 
-    if (error) return alert(error.message);
+  if (error) return alert(error.message);
 
-    setRuns(data || []);
-  }
+  setRuns(data || []);
+}
 
   async function loadSignups() {
     const { data, error } = await supabase.from("signups").select("*");
@@ -381,10 +386,10 @@ const channel = supabase
   .on(
     "postgres_changes",
     { event: "*", schema: "public", table: "runs" },
-    () => {
-      loadRuns();
-      loadSignups();
-    }
+() => {
+  loadRuns(selectedWeekRef.current);
+  loadSignups();
+}
   )
   .subscribe();
 
@@ -463,9 +468,10 @@ useEffect(() => {
     supabase.removeChannel(channel);
   };
 }, []);
-  useEffect(() => {
-    loadRuns();
-  }, [selectedWeek]);
+useEffect(() => {
+  loadRuns(selectedWeek);
+  loadSignups();
+}, [selectedWeek]);
 useEffect(() => {
   if (searchParams.get("apply") === "true") {
     setShowAccessPopup(true);
@@ -475,7 +481,25 @@ useEffect(() => {
     if (!selectedCharacter) return null;
     return `${selectedCharacter.name} - ${selectedCharacter.spec} ${selectedCharacter.class}`;
   }
+function getRequiredBossExp(title: string) {
+  const match = title.match(/(\d+)\/9\s*(M|Mythic|HC)/i);
 
+  if (!match) return null;
+
+  return {
+    bosses: Number(match[1]),
+    difficulty: match[2].toUpperCase().includes("HC") ? "HC" : "M",
+  };
+}
+
+function getCharacterBossExp(progress?: string) {
+  const match = (progress || "0/9").match(/(\d+)\/9\s*(M|HC)?/i);
+
+  return {
+    bosses: Number(match?.[1] || 0),
+    difficulty: (match?.[2] || "M").toUpperCase(),
+  };
+}
 function getLimits(run: Run) {
   const isHC = run.title.toLowerCase().includes("hc");
 
@@ -517,6 +541,36 @@ if (
   run?.ilvl_required &&
   (selectedCharacter.ilvl || 0) < run.ilvl_required
 ) {
+  if (role !== "Loot Body" && run) {
+  const requiredExp = getRequiredBossExp(run.title);
+  const characterExp = getCharacterBossExp(selectedCharacter.progress);
+
+  if (
+    requiredExp &&
+    characterExp.difficulty === requiredExp.difficulty &&
+    characterExp.bosses < requiredExp.bosses
+  ) {
+    setPopup({
+      title: "Boss Experience Too Low",
+      message: `This run requires ${requiredExp.bosses}/9${requiredExp.difficulty} experience. Your selected character has ${selectedCharacter.progress || "0/9"}.`,
+      type: "error",
+    });
+    return;
+  }
+
+  if (
+    requiredExp &&
+    requiredExp.difficulty === "M" &&
+    characterExp.difficulty !== "M"
+  ) {
+    setPopup({
+      title: "Boss Experience Too Low",
+      message: `This run requires ${requiredExp.bosses}/9M experience. Your selected character has ${selectedCharacter.progress || "0/9"}.`,
+      type: "error",
+    });
+    return;
+  }
+}
   setPopup({
     title: "Item Level Too Low",
     message: `This run requires ${run.ilvl_required}+ ilvl. Your selected character is ${selectedCharacter.ilvl || 0}.`,
@@ -682,8 +736,8 @@ setPopup({
       return;
     }
 
-    await loadRuns();
-    await loadSignups();
+await loadRuns(selectedWeekRef.current);
+await loadSignups();
   },
 });
 
@@ -704,7 +758,7 @@ async function finishRun(run: Run) {
     return;
   }
 
-  await loadRuns();
+  await loadRuns(selectedWeekRef.current);
 }
   function openEditRun(run: Run) {
     setEditingRun(run);
@@ -740,8 +794,9 @@ signup_open_at: editRunSignupOpenAt
       return;
     }
 
-    setEditingRun(null);
-    await loadRuns();
+   setEditingRun(null);
+await loadRuns(selectedWeekRef.current);
+await loadSignups();
   }
 
   async function createRun() {
@@ -781,7 +836,7 @@ signup_open_at: editRunSignupOpenAt
     setNewRunSignupOpenAt("");
     setNewRunHealers("3");
     setNewRunDps("10");
-    await loadRuns();
+    await loadRuns(selectedWeekRef.current);
   }
 async function sendChatMessage() {
   if (!chatInput.trim()) return;
