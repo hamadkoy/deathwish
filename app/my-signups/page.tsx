@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-
+import SideNav from "../components/SideNav";
 const DAYS = [
   "Wednesday",
   "Thursday",
@@ -141,9 +141,14 @@ export default function MySignupsPage() {
     });
   }, [signups, selectedDay]);
 
-  return (
-    <div style={page}>
-      <div style={overlay} />
+return (
+  <div style={page}>
+    <div style={overlay} />
+
+    <div style={layoutShell}>
+      <aside style={sideNavWrap}>
+        <SideNav active="My Runs" />
+      </aside>
 
       <main style={container}>
         <section style={heroPanel}>
@@ -306,7 +311,8 @@ export default function MySignupsPage() {
         </section>
       </main>
     </div>
-  );
+  </div>
+);
 }
 
 function glow(e: React.MouseEvent<HTMLButtonElement>) {
@@ -619,4 +625,19 @@ const pastViewBtn: React.CSSProperties = {
   background: "rgba(75,85,99,0.5)",
   border: "1px solid rgba(148,163,184,0.35)",
   boxShadow: "none",
+};
+const layoutShell: React.CSSProperties = {
+  position: "relative",
+  zIndex: 2,
+  display: "grid",
+  gridTemplateColumns: "260px 1fr",
+  gap: 24,
+  alignItems: "start",
+  maxWidth: 1850,
+  margin: "0 auto",
+};
+
+const sideNavWrap: React.CSSProperties = {
+  position: "sticky",
+  top: 24,
 };
