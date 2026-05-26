@@ -500,14 +500,22 @@ const highestRioScore = useMemo(() => {
 
 const totalExperience = useMemo(() => {
   const uniqueBosses = new Set<string>();
+  let bestProgress = 0;
 
   characters.forEach((char) => {
+    const killed =
+      Number((char.progress || "0/9").split("/")[0]) || 0;
+
+    if (killed > bestProgress) bestProgress = killed;
+
     (char.mythic_bosses || []).forEach((boss) => {
       uniqueBosses.add(boss.toLowerCase().trim());
     });
   });
 
-  return `${uniqueBosses.size}/9M`;
+  const combinedKills = Math.max(uniqueBosses.size, bestProgress);
+
+  return `${combinedKills}/9M`;
 }, [characters]);
 return (
   <div style={{ position: "relative", minHeight: "100vh", overflow: "hidden" }}>
