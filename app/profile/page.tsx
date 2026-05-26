@@ -476,15 +476,29 @@ async function setMainCharacter(id: number) {
 async function updateCharacterSpec() {
   if (!specPopup || !selectedSpec) return;
 
-  const { error } = await supabase
+  const newPlayerName = `${specPopup.name} - ${selectedSpec} ${specPopup.class}`;
+
+  const { error: charError } = await supabase
     .from("characters")
     .update({
       spec: selectedSpec,
     })
     .eq("id", specPopup.id);
 
-  if (error) {
-    alert(error.message);
+  if (charError) {
+    alert(charError.message);
+    return;
+  }
+
+  const { error: signupError } = await supabase
+    .from("signups")
+    .update({
+      player: newPlayerName,
+    })
+    .eq("character_id", specPopup.id);
+
+  if (signupError) {
+    alert(signupError.message);
     return;
   }
 
