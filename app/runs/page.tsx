@@ -571,7 +571,13 @@ if (
     return;
   }
 }
-  const signupName = `${selectedCharacter.name} - ${selectedCharacter.spec} ${selectedCharacter.class}`;
+ const signupSpec = getSpecForSignupRole(
+  selectedCharacter.class,
+  selectedCharacter.spec,
+  role
+);
+
+const signupName = `${selectedCharacter.name} - ${signupSpec} ${selectedCharacter.class}`;
 
 if (role !== "Loot Body") {
   const alreadyInRun = signups.find(
@@ -3029,7 +3035,57 @@ function parseSignup(player: string) {
     character: parts[0] || player,
   };
 }
+function getSpecForSignupRole(className: string, currentSpec: string, role: string) {
+  const roleSpecs: Record<string, Record<string, string[]>> = {
+    Druid: {
+      Tank: ["Guardian"],
+      Healer: ["Restoration"],
+      DPS: ["Balance", "Feral"],
+    },
+    Paladin: {
+      Tank: ["Protection"],
+      Healer: ["Holy"],
+      DPS: ["Retribution"],
+    },
+    Monk: {
+      Tank: ["Brewmaster"],
+      Healer: ["Mistweaver"],
+      DPS: ["Windwalker"],
+    },
+    Warrior: {
+      Tank: ["Protection"],
+      DPS: ["Arms", "Fury"],
+    },
+    "Death Knight": {
+      Tank: ["Blood"],
+      DPS: ["Frost", "Unholy"],
+    },
+    "Demon Hunter": {
+      Tank: ["Vengeance"],
+      DPS: ["Havoc"],
+    },
+    Priest: {
+      Healer: ["Discipline", "Holy"],
+      DPS: ["Shadow"],
+    },
+    Shaman: {
+      Healer: ["Restoration"],
+      DPS: ["Elemental", "Enhancement"],
+    },
+    Evoker: {
+      Healer: ["Preservation"],
+      DPS: ["Devastation", "Augmentation"],
+    },
+  };
 
+  const specs = roleSpecs[className]?.[role];
+
+  if (!specs) return currentSpec;
+
+  if (specs.includes(currentSpec)) return currentSpec;
+
+  return specs[0];
+}
 function SpecIcon({ player }: { player: string }) {
   const iconPath = getSpecIconPath(player);
   if (!iconPath) return null;
