@@ -129,10 +129,22 @@ async function loadCharacters() {
 
   const params = new URLSearchParams(window.location.search);
   const targetDiscordId = params.get("discordId");
+const targetCharacterId = params.get("characterId");
 
   let targetUserId = authData.user.id;
 
   // If viewing someone else's garrison
+  if (targetCharacterId) {
+  const { data: targetChar } = await supabase
+    .from("characters")
+    .select("user_id")
+    .eq("id", Number(targetCharacterId))
+    .single();
+
+  if (targetChar?.user_id) {
+    targetUserId = targetChar.user_id;
+  }
+}
   if (targetDiscordId) {
     const { data: targetProfile } = await supabase
       .from("profiles")

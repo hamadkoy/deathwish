@@ -1219,7 +1219,7 @@ if (nextWeeks.length > 0) {
         <button
           onClick={() => {
 window.open(
-  `/profile?discordId=${playerPopup.discord_id}`,
+  `/profile?characterId=${playerPopup.character_id}`,
   "_blank"
 );
           }}
