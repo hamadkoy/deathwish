@@ -36,7 +36,9 @@ export default function ProfilePage() {
   useEffect(() => {
   getLoggedUser();
 }, []);
-
+const [savedStatus, setSavedStatus] = useState<
+  Record<number, { hc: boolean; mythic: boolean }>
+>({});
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [discordId, setDiscordId] = useState("");
@@ -93,27 +95,89 @@ console.log(data.user);
     if (profileData) setProfile(profileData);
   }
 
-  async function loadCharacters() {
-    const { data: authData } = await supabase.auth.getUser();
+async function loadCharacters() {
+  const { data: authData } = await supabase.auth.getUser();
 
-    if (!authData.user) {
-      setCharacters([]);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("characters")
-      .select("*")
-      .eq("user_id", authData.user.id)
-      .order("class", { ascending: true });
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    setCharacters(data || []);
+  if (!authData.user) {
+    setCharacters([]);
+    setSavedStatus({});
+    return;
   }
+
+  const { data, error } = await supabase
+    .from("characters")
+    .select("*")
+    .eq("user_id", authData.user.id)
+    .order("class", { ascending: true });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  const chars = data || [];
+
+  setCharacters(chars);
+  await loadSavedStatus(chars);
+}
+  async function loadSavedStatus(characterList: Character[]) {
+  if (characterList.length === 0) {
+    setSavedStatus({});
+    return;
+  }
+
+  const characterIds = characterList.map((c) => c.id);
+
+  const { data, error } = await supabase
+    .from("signups")
+.select(`
+  character_id,
+  role,
+  attendance,
+  runs (
+    title,
+    finished
+  )
+`)
+    .in("character_id", characterIds);
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  const status: Record<number, { hc: boolean; mythic: boolean }> = {};
+
+  characterList.forEach((char) => {
+    status[char.id] = { hc: false, mythic: false };
+  });
+
+  (data || []).forEach((signup: any) => {
+    const run = Array.isArray(signup.runs)
+      ? signup.runs[0]
+      : signup.runs;
+
+    if (
+  !run?.finished ||
+  !signup.character_id ||
+  signup.attendance !== "present"
+) {
+  return;
+}
+
+    const title = (run.title || "").toLowerCase();
+
+    if (title.includes("hc") || title.includes("heroic")) {
+      status[signup.character_id].hc = true;
+    }
+
+    if (title.includes("mythic")) {
+      status[signup.character_id].mythic = true;
+    }
+  });
+
+  setSavedStatus(status);
+}
   async function getLoggedUser() {
   const {
     data: { user },
@@ -888,8 +952,8 @@ return (
                   </div>
                 </div>
 
-                <StatusCard saved={false} />
-                <StatusCard saved={false} />
+<StatusCard saved={savedStatus[char.id]?.hc || false} />
+<StatusCard saved={savedStatus[char.id]?.mythic || false} />
 
 <div style={actionCell}>
 
