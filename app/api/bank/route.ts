@@ -157,13 +157,29 @@ const totalSheetNames =
     ?.map((s) => s.properties?.title)
     .filter(Boolean) || [];
 
-for (const sheetName of totalSheetNames) {
-  const totalRes = await sheets.spreadsheets.values.get({
-    spreadsheetId: TOTAL_SPREADSHEET_ID,
-    range: `'${sheetName}'!A1:AZ1000`,
-  });
+const allSheetsData = await Promise.all(
+  totalSheetNames.map(async (sheetName) => {
+    try {
+      const totalRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: TOTAL_SPREADSHEET_ID,
+        range: `'${sheetName}'!A1:AZ1000`,
+      });
 
-  const totalRows = totalRes.data.values || [];
+      return {
+        name: sheetName,
+        rows: totalRes.data.values || [],
+      };
+    } catch {
+      return {
+        name: sheetName,
+        rows: [],
+      };
+    }
+  })
+);
+
+for (const sheet of allSheetsData) {
+  const totalRows = sheet.rows;
 
   const headerRow = totalRows.find((row) =>
     row.some((cell) => normalize(cell) === "total")

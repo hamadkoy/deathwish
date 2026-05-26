@@ -36,9 +36,15 @@ const [history, setHistory] = useState<any[]>([]);
   return cuts;
 }, [cuts, activeTab]);
 
-  useEffect(() => {
+useEffect(() => {
+  loadBalance();
+
+  const interval = setInterval(() => {
     loadBalance();
-  }, []);
+  }, 60000);
+
+  return () => clearInterval(interval);
+}, []);
 
 async function loadBalance() {
   try {
@@ -53,7 +59,17 @@ async function loadBalance() {
       return;
     }
 
-    const res = await fetch(`/api/bank?discordId=${discordId}`);
+    const controller = new AbortController();
+
+const timeout = setTimeout(() => {
+  controller.abort();
+}, 15000);
+
+const res = await fetch(`/api/bank?discordId=${discordId}`, {
+  signal: controller.signal,
+});
+
+clearTimeout(timeout);
     const data = await res.json();
 
     console.log("BANK DATA:", data);
