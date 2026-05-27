@@ -23,6 +23,7 @@ type Character = {
 };
 
 type Profile = {
+  user_id?: string;
   discord_name?: string;
   avatar_url?: string;
 };
@@ -34,6 +35,11 @@ export default function ProfilePage() {
   const [realm, setRealm] = useState("Kazzak");
   const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [cinematicMode, setCinematicMode] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+const [newComment, setNewComment] = useState("");
+const [viewedProfile, setViewedProfile] = useState<any>(null);
+const [visitorCount, setVisitorCount] = useState(0);
+const [isOwnProfile, setIsOwnProfile] = useState(true);
   const [balance, setBalance] = useState(0);
   useEffect(() => {
   getLoggedUser();
@@ -87,6 +93,12 @@ useEffect(() => {
   loadCharacters();
   getLoggedUser();
 }, []);
+
+useEffect(() => {
+  if (viewedProfile?.user_id || profile?.user_id) {
+    loadComments();
+  }
+}, [viewedProfile?.user_id, profile?.user_id]);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -156,6 +168,7 @@ async function loadCharacters() {
 const targetCharacterId = params.get("characterId");
 
   let targetUserId = authData.user.id;
+  setIsOwnProfile(true);
 
   // If viewing someone else's garrison
   if (targetCharacterId) {
@@ -180,7 +193,39 @@ const targetCharacterId = params.get("characterId");
       targetUserId = targetProfile.user_id;
     }
   }
+setIsOwnProfile(targetUserId === authData.user.id);
 
+const { data: viewedProfileData } = await supabase
+  .from("profiles")
+  .select("*")
+  .eq("user_id", targetUserId)
+  .single();
+
+if (viewedProfileData) {
+  setViewedProfile(viewedProfileData);
+
+  if (viewedProfileData.profile_theme) {
+    setSelectedTheme(viewedProfileData.profile_theme);
+  }
+}
+if (targetUserId !== authData.user.id) {
+  await supabase.from("garrison_visits").insert({
+    profile_user_id: targetUserId,
+    visitor_user_id: authData.user.id,
+    visitor_name:
+      authData.user.user_metadata?.full_name ||
+      authData.user.user_metadata?.name ||
+      "Unknown",
+    visitor_avatar: authData.user.user_metadata?.avatar_url || "",
+  });
+}
+
+const { count } = await supabase
+  .from("garrison_visits")
+  .select("*", { count: "exact", head: true })
+  .eq("profile_user_id", targetUserId);
+
+setVisitorCount(count || 0);
   const { data, error } = await supabase
     .from("characters")
     .select("*")
@@ -197,6 +242,7 @@ const targetCharacterId = params.get("characterId");
   setCharacters(chars);
   await loadSavedStatus(chars);
 }
+
   async function loadSavedStatus(characterList: Character[]) {
   if (characterList.length === 0) {
     setSavedStatus({});
@@ -255,7 +301,43 @@ const targetCharacterId = params.get("characterId");
 
   setSavedStatus(status);
 }
-  async function getLoggedUser() {
+async function loadComments() {
+  const commentProfileId = viewedProfile?.user_id || profile?.user_id;
+  if (!commentProfileId) return;
+
+  const { data } = await supabase
+    .from("profile_comments")
+    .select("*")
+    .eq("profile_user_id", commentProfileId)
+    .order("created_at", { ascending: false });
+
+  setComments(data || []);
+}
+
+async function submitComment() {
+ const commentProfileId = viewedProfile?.user_id || profile?.user_id;
+if (!newComment.trim() || !user || !commentProfileId) return;
+
+  await supabase.from("profile_comments").insert({
+    profile_user_id: commentProfileId,
+    commenter_user_id: user.id,
+commenter_name:
+  profile?.discord_name ||
+  user.user_metadata?.full_name ||
+  user.user_metadata?.name ||
+  "Unknown",
+
+commenter_avatar:
+  profile?.avatar_url ||
+  user.user_metadata?.avatar_url ||
+  "",
+    comment: newComment,
+  });
+
+  setNewComment("");
+  loadComments();
+}
+async function getLoggedUser() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -755,7 +837,8 @@ left: 110,
     {muted ? "🔇 Unmute Sound" : "🔊 Mute Sound"}
   </button>
 </div>
-<div style={{ marginBottom: 20, padding: "0 18px" }}>
+{isOwnProfile && (
+<div style={{ marginBottom: 20, padding: "0 18px" }}> 
   <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
     
     <button
@@ -814,7 +897,7 @@ left: 110,
 
   </div>
 </div>
-
+)}
 {themePickerOpen && (
   <div style={popupOverlay}>
     <div
@@ -945,15 +1028,25 @@ left: 110,
     </div>
   </div>
 )}
-<div style={layout}>
-       <aside
+<div
   style={{
-    ...sidebar,
-    background: `${currentTheme.primary}22`,
-    backdropFilter: "blur(10px)",
-    border: `1px solid ${currentTheme.secondary}55`,
+    ...layout,
+    gridTemplateColumns: isOwnProfile ? "220px 1fr 260px" : "1fr",
+    paddingLeft: isOwnProfile ? 0 : 40,
+    paddingRight: isOwnProfile ? 0 : 40,
   }}
 >
+{isOwnProfile && (
+  <aside
+  
+    style={{
+      ...sidebar,
+      background: `${currentTheme.primary}22`,
+      backdropFilter: "blur(10px)",
+      border: `1px solid ${currentTheme.secondary}55`,
+    }}
+  >
+
 <SideNav active="My Characters" />
 
 <div style={balanceBox}>
@@ -982,7 +1075,7 @@ left: 110,
   </button>
 </div>
         </aside>
-
+)}
         <main style={main}>
           <div style={headerRow}>
             <div>
@@ -1140,20 +1233,24 @@ left: 110,
     ⚔ CHARACTER VIEW
   </button>
 
-  <button
-    onClick={updateAllCharacters}
-    disabled={updatingAll || characters.length === 0}
-    style={normalViewBtn}
-  >
-    {updatingAll ? "Refreshing..." : "↻ REFRESH ALL"}
-  </button>
+  {isOwnProfile && (
+  <>
+    <button
+      onClick={updateAllCharacters}
+      disabled={updatingAll || characters.length === 0}
+      style={normalViewBtn}
+    >
+      {updatingAll ? "Refreshing..." : "↻ REFRESH ALL"}
+    </button>
 
-  <button
-    onClick={() => setAddCharacterOpen(true)}
-    style={normalViewBtn}
-  >
-    ✦ NEW CHARACTER
-  </button>
+    <button
+      onClick={() => setAddCharacterOpen(true)}
+      style={normalViewBtn}
+    >
+      ✦ NEW CHARACTER
+    </button>
+  </>
+)}
 </div>
 
 
@@ -1914,7 +2011,8 @@ style={{
 )}
         </main>
 
-        <aside style={rightbar}>
+  {isOwnProfile && (
+  <aside style={rightbar}>
           <InfoCard title="HOW IT WORKS">
             <Legend color="#22c55e" title="Available" text="You can sign up for HC and Mythic runs." />
             <Legend color="#eab308" title="Saved" text="You've completed a finished run this week." />
@@ -1962,13 +2060,103 @@ style={{
 />
             <Summary
               label="Total Item Level"
+              
               value={characters.reduce((a, b) => a + b.ilvl, 0)}
               color="#d946ef"
             />
           </InfoCard>
         </aside>
+        )}
       </div>
-      {hoveredItem && (
+<div
+  style={{
+  maxWidth: 1480,
+margin: "30px auto 40px auto",
+    marginTop: 30,
+    marginBottom: 40,
+    background: `${currentTheme.primary}33`,
+    backdropFilter: "blur(12px)",
+    border: `1px solid ${currentTheme.secondary}66`,
+    boxShadow: `0 0 30px ${currentTheme.secondary}33`,
+    borderRadius: 20,
+    padding: 24,
+  }}
+>
+  <div
+  style={{
+    display: "flex",
+    justifyContent: "center",
+    marginBottom: 18,
+  }}
+>
+  <div
+    style={{
+      padding: "10px 22px",
+      borderRadius: 14,
+      background: `${currentTheme.primary}55`,
+      border: `1px solid ${currentTheme.secondary}66`,
+      boxShadow: `0 0 20px ${currentTheme.secondary}33`,
+      color: "white",
+      fontWeight: 900,
+      fontSize: 18,
+      backdropFilter: "blur(10px)",
+    }}
+  >
+    👁 {visitorCount} Visitors
+  </div>
+</div>
+  <h2
+    style={{
+      textAlign: "center",
+      fontSize: 30,
+      fontWeight: 900,
+      marginBottom: 22,
+      color: "white",
+      textShadow: `0 0 18px ${currentTheme.secondary}`,
+    }}
+  >
+    Profile Comments
+  </h2>
+
+  <div style={{ display: "flex", gap: 12, marginBottom: 22 }}>
+    <input
+      value={newComment}
+      onChange={(e) => setNewComment(e.target.value)}
+      placeholder="Write a comment..."
+      style={{
+        flex: 1,
+        height: 52,
+        borderRadius: 14,
+        border: `1px solid ${currentTheme.secondary}55`,
+        background: "rgba(0,0,0,.45)",
+        color: "white",
+        padding: "0 18px",
+      }}
+    />
+
+    <button onClick={submitComment} style={normalViewBtn}>
+      Post
+    </button>
+  </div>
+
+  <div style={{ display: "grid", gap: 16 }}>
+    {comments.map((comment) => (
+      <div
+        key={comment.id}
+        style={{
+          padding: 18,
+          borderRadius: 16,
+          background: "rgba(255,255,255,.03)",
+          border: `1px solid ${currentTheme.secondary}33`,
+        }}
+      >
+        <b>{comment.commenter_name}</b>
+        <div style={{ marginTop: 8 }}>{comment.comment}</div>
+      </div>
+    ))}
+  </div>
+</div>
+{hoveredItem && (
   <div
     style={{
       position: "fixed",
