@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import SideNav from "@/app/components/SideNav";
-
+import { themes } from "@/lib/themes";
 type Character = {
   id: number;
   user_id?: string;
@@ -32,6 +32,8 @@ export default function ProfilePage() {
   const [time, setTime] = useState(new Date());
   const [name, setName] = useState("");
   const [realm, setRealm] = useState("Kazzak");
+  const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const [cinematicMode, setCinematicMode] = useState(false);
   const [balance, setBalance] = useState(0);
   useEffect(() => {
   getLoggedUser();
@@ -55,6 +57,7 @@ const [viewMode, setViewMode] = useState<"table" | "showcase">("table");
 const [selectedCharacterIndex, setSelectedCharacterIndex] = useState(0);
 const [hoveredItem, setHoveredItem] = useState<any>(null);
 const [specPopup, setSpecPopup] = useState<Character | null>(null);
+const [addCharacterOpen, setAddCharacterOpen] = useState(false);
 const [selectedSpec, setSelectedSpec] = useState("");
 const [muted, setMuted] = useState(() => {
   if (typeof window !== "undefined") {
@@ -63,6 +66,21 @@ const [muted, setMuted] = useState(() => {
 
   return true;
 });
+
+
+const [selectedTheme, setSelectedTheme] =
+  useState(() => {
+    if (typeof window !== "undefined") {
+      return (
+        localStorage.getItem("profileTheme") ||
+        "midnight"
+      );
+    }
+
+    return "midnight";
+  });
+
+const currentTheme = themes[selectedTheme] || themes.midnight;
 const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 useEffect(() => {
   loadUserAndProfile();
@@ -77,6 +95,12 @@ useEffect(() => {
 useEffect(() => {
   localStorage.setItem("charactersVideoMuted", String(muted));
 }, [muted]);
+useEffect(() => {
+  localStorage.setItem(
+    "profileTheme",
+    selectedTheme
+  );
+}, [selectedTheme]);
   async function loadUserAndProfile() {
     const { data } = await supabase.auth.getUser();
 console.log(data.user);
@@ -405,8 +429,9 @@ bosses.forEach((boss: any) => {
         return;
       }
 
-      setName("");
-      await loadCharacters();
+  setName("");
+setAddCharacterOpen(false);
+await loadCharacters();
     } catch (err) {
       console.error(err);
       alert("Failed to fetch Raider.IO");
@@ -629,23 +654,41 @@ const totalExperience = useMemo(() => {
 return (
   <div style={{ position: "relative", minHeight: "100vh", overflow: "hidden" }}>
 
-<video
-  autoPlay
-  muted={muted}
-  loop
-  playsInline
-      style={{
-        position: "fixed",
-        inset: 0,
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-        zIndex: -2,
-        filter: "brightness(.8)",
-      }}
-    >
-      <source src="/home2.webm" type="video/webm" />
-    </video>
+{currentTheme.video ? (
+  <video
+    autoPlay
+    muted={muted}
+    loop
+    playsInline
+    key={selectedTheme}
+    style={{
+      position: "fixed",
+      inset: 0,
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+      zIndex: -2,
+      filter: "brightness(.8)",
+    }}
+  >
+    <source
+      src={currentTheme.video}
+      type="video/webm"
+    />
+  </video>
+) : (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      backgroundImage: `url(${currentTheme.image})`,
+     backgroundSize: "95%",
+backgroundPosition: "center top",
+      zIndex: -2,
+      filter: "brightness(.8)",
+    }}
+  />
+)}
 
     {/* DARK OVERLAY */}
     <div
@@ -659,6 +702,32 @@ return (
     />
 
     <div style={page}>
+{cinematicMode && (
+  <button
+    onClick={() => setCinematicMode(false)}
+    style={{
+   position: "absolute",
+top: 0,
+left: 110,
+      zIndex: 999999,
+      height: 56,
+      padding: "0 28px",
+      borderRadius: 16,
+      border: `1px solid ${currentTheme.secondary}88`,
+      background: "rgba(0,0,0,.75)",
+      color: "white",
+      fontWeight: 900,
+      fontSize: 16,
+      cursor: "pointer",
+      boxShadow: `0 0 25px ${currentTheme.secondary}88`,
+    }}
+  >
+    ✕ EXIT CINEMATIC
+  </button>
+)}
+
+{!cinematicMode && (
+  <>
       <div
   style={{
     position: "fixed",
@@ -686,8 +755,205 @@ return (
     {muted ? "🔇 Unmute Sound" : "🔊 Mute Sound"}
   </button>
 </div>
-  <div style={layout}>
-        <aside style={sidebar}>
+<div style={{ marginBottom: 20, padding: "0 18px" }}>
+  <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+    
+    <button
+      onClick={() => setThemePickerOpen(true)}
+      style={{
+        ...normalViewBtn,
+        height: 56,
+        padding: "0 34px",
+        borderRadius: 16,
+        fontSize: 18,
+        fontWeight: 900,
+        minWidth: 180,
+        boxShadow: "0 0 18px rgba(168,85,247,.35)",
+        transition: "all .22s ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "scale(1.06)";
+        e.currentTarget.style.boxShadow =
+          "0 0 28px rgba(168,85,247,.75)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "scale(1)";
+        e.currentTarget.style.boxShadow =
+          "0 0 18px rgba(168,85,247,.35)";
+      }}
+    >
+      🎨 THEMES
+    </button>
+
+    <button
+      onClick={() => setCinematicMode(true)}
+      style={{
+        ...normalViewBtn,
+        height: 56,
+        padding: "0 34px",
+        borderRadius: 16,
+        fontSize: 18,
+        fontWeight: 900,
+        minWidth: 220,
+        boxShadow: "0 0 18px rgba(236,72,153,.35)",
+        transition: "all .22s ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "scale(1.06)";
+        e.currentTarget.style.boxShadow =
+          "0 0 30px rgba(236,72,153,.75)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "scale(1)";
+        e.currentTarget.style.boxShadow =
+          "0 0 18px rgba(236,72,153,.35)";
+      }}
+    >
+      🎬 CINEMATIC MODE
+    </button>
+
+  </div>
+</div>
+
+{themePickerOpen && (
+  <div style={popupOverlay}>
+    <div
+      style={{
+        width: 1300,
+        maxHeight: "80vh",
+        overflowY: "auto",
+        borderRadius: 24,
+        padding: 24,
+        background: "rgba(8,8,20,.96)",
+        border: `1px solid ${currentTheme.secondary}66`,
+        boxShadow: `0 0 40px ${currentTheme.secondary}55`,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 20,
+        }}
+      >
+        <h2
+          style={{
+            margin: 0,
+            fontSize: 32,
+            fontWeight: 900,
+          }}
+        >
+          Choose Theme
+        </h2>
+
+        <button
+          onClick={() => setThemePickerOpen(false)}
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,.12)",
+            background: "rgba(255,255,255,.05)",
+            color: "white",
+            fontSize: 18,
+            cursor: "pointer",
+          }}
+        >
+          ✕
+        </button>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))",
+          gap: 18,
+        }}
+      >
+        {Object.keys(themes).map((theme) => (
+          <button
+            key={theme}
+            onClick={() => {
+              setSelectedTheme(theme);
+              setThemePickerOpen(false);
+            }}
+            style={{
+              height: 200,
+              borderRadius: 20,
+              border:
+                selectedTheme === theme
+                  ? `2px solid ${
+                      themes[
+                        theme as keyof typeof themes
+                      ].secondary
+                    }`
+                  : "1px solid rgba(255,255,255,.08)",
+
+              backgroundImage: `url(${
+                themes[
+                  theme as keyof typeof themes
+                ].image
+              })`,
+
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              position: "relative",
+              overflow: "hidden",
+              cursor: "pointer",
+              transition: "all .25s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "scale(1.03)";
+              e.currentTarget.style.boxShadow =
+                `0 0 30px ${
+                  themes[
+                    theme as keyof typeof themes
+                  ].secondary
+                }88`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "scale(1)";
+              e.currentTarget.style.boxShadow = "none";
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background:
+                  "linear-gradient(rgba(0,0,0,.2), rgba(0,0,0,.7))",
+              }}
+            />
+
+            <div
+              style={{
+                position: "absolute",
+                bottom: 14,
+                left: 14,
+                fontSize: 20,
+                fontWeight: 900,
+                color: "white",
+                textTransform: "uppercase",
+              }}
+            >
+              {theme}
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
+<div style={layout}>
+       <aside
+  style={{
+    ...sidebar,
+    background: `${currentTheme.primary}22`,
+    backdropFilter: "blur(10px)",
+    border: `1px solid ${currentTheme.secondary}55`,
+  }}
+>
 <SideNav active="My Characters" />
 
 <div style={balanceBox}>
@@ -781,176 +1047,115 @@ return (
 
 )}
             </div>
-
-            <div style={{ display: "flex", gap: 12 }}>
-  <button
-    onClick={updateAllCharacters}
-    disabled={updatingAll || characters.length === 0}
-    style={{
-      ...newCharacterBtn,
-      opacity: updatingAll ? 0.6 : 1,
-      cursor: updatingAll ? "not-allowed" : "pointer",
-      background: "linear-gradient(90deg,#7c3aed,#d946ef)",
-      color: "white",
-      boxShadow: "0 0 18px rgba(217,70,239,0.45)",
-    }}
-  >
-    {updatingAll ? "Refreshing All..." : "↻ Refresh All"}
-  </button>
-
-  <button style={newCharacterBtn}>+ New Character</button>
-</div>
           </div>
 
-          <div style={addBox}>
-            <input
-              placeholder="Character name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") addCharacter();
-              }}
-              style={input}
-            />
 
-            <input
-              placeholder="Realm"
-              value={realm}
-              onChange={(e) => setRealm(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") addCharacter();
-              }}
-              style={input}
-            />
-
-            <button
-  onClick={addCharacter}
-  style={addBtn}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.transform = "scale(1.04)";
-    e.currentTarget.style.boxShadow = "0 0 22px rgba(217,70,239,0.75)";
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.transform = "scale(1)";
-    e.currentTarget.style.boxShadow = "0 0 10px rgba(217,70,239,0.25)";
+{addCharacterOpen && (
+<div style={popupOverlay}>
+<div
+  style={{
+    width: 620,
+    borderRadius: 22,
+    padding: 24,
+    background: `${currentTheme.primary}22`,
+    backdropFilter: "blur(14px)",
+    border: `1px solid ${currentTheme.secondary}88`,
+    boxShadow: `0 0 35px ${currentTheme.secondary}66`,
   }}
 >
-  Add
-</button>
-          </div>
+  <div
+  style={{
+    display: "flex",
+    justifyContent: "flex-end",
+    marginBottom: 12,
+  }}
+>
+  <button
+    onClick={() => setAddCharacterOpen(false)}
+    style={{
+      width: 38,
+      height: 38,
+      borderRadius: 10,
+      border: "1px solid rgba(255,255,255,.12)",
+      background: "rgba(255,255,255,.05)",
+      color: "white",
+      cursor: "pointer",
+      fontSize: 18,
+      fontWeight: 900,
+    }}
+  >
+    ✕
+  </button>
+</div>
+<h2 style={{ margin: "0 0 18px", fontSize: 26, fontWeight: 900 }}>
+  Add Character
+</h2>
 
+<div style={{ display: "grid", gap: 14 }}>
+  <input
+    placeholder="Character name"
+    value={name}
+    onChange={(e) => setName(e.target.value)}
+    style={{ ...input, width: "100%", boxSizing: "border-box" }}
+  />
+
+  <input
+    placeholder="Realm"
+    value={realm}
+    onChange={(e) => setRealm(e.target.value)}
+    style={{ ...input, width: "100%", boxSizing: "border-box" }}
+  />
+
+  <button
+    onClick={addCharacter}
+    style={{
+      ...addBtn,
+      height: 46,
+      width: "100%",
+      background: `linear-gradient(90deg, ${currentTheme.primary}, ${currentTheme.secondary})`,
+      boxShadow: `0 0 18px ${currentTheme.secondary}88`,
+    }}
+  >
+    Add Character
+  </button>
+</div>
+          </div>
+</div>
+
+)}
 <div
   style={{
     display: "flex",
-    gap: 18,
+    gap: 12,
     marginBottom: 28,
     alignItems: "center",
+    flexWrap: "wrap",
   }}
 >
-  <button
-    onClick={() => setViewMode("table")}
-    style={{
-      padding: "14px 34px",
-      borderRadius: 18,
-      border:
-        viewMode === "table"
-          ? "1px solid #facc15"
-          : "1px solid rgba(168,85,247,.35)",
-
-      background:
-        viewMode === "table"
-          ? "linear-gradient(180deg,#6d28d9,#2e1065)"
-          : "rgba(8,5,20,.82)",
-
-      color:
-        viewMode === "table"
-          ? "#fff"
-          : "#d8b4fe",
-
-      fontWeight: 900,
-      fontSize: 16,
-      letterSpacing: 1,
-
-      boxShadow:
-        viewMode === "table"
-          ? "0 0 30px rgba(250,204,21,.55), inset 0 0 20px rgba(255,255,255,.12)"
-          : "0 0 18px rgba(168,85,247,.18)",
-
-      cursor: "pointer",
-      transition: ".25s",
-      position: "relative",
-      overflow: "hidden",
-      textTransform: "uppercase",
-      minWidth: 210,
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.transform = "translateY(-3px) scale(1.03)";
-      e.currentTarget.style.boxShadow =
-        "0 0 32px rgba(168,85,247,.65)";
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.transform = "scale(1)";
-      e.currentTarget.style.boxShadow =
-        viewMode === "table"
-          ? "0 0 30px rgba(250,204,21,.55)"
-          : "0 0 18px rgba(168,85,247,.18)";
-    }}
-  >
+  <button onClick={() => setViewMode("table")} style={viewMode === "table" ? activeViewBtn : normalViewBtn}>
     🛡 TABLE VIEW
   </button>
 
-  <button
-    onClick={() => setViewMode("showcase")}
-    style={{
-      padding: "14px 34px",
-      borderRadius: 18,
-      border:
-        viewMode === "showcase"
-          ? "1px solid #facc15"
-          : "1px solid rgba(168,85,247,.35)",
-
-      background:
-        viewMode === "showcase"
-          ? "linear-gradient(180deg,#6d28d9,#2e1065)"
-          : "rgba(8,5,20,.82)",
-
-      color:
-        viewMode === "showcase"
-          ? "#fff"
-          : "#d8b4fe",
-
-      fontWeight: 900,
-      fontSize: 16,
-      letterSpacing: 1,
-
-      boxShadow:
-        viewMode === "showcase"
-          ? "0 0 30px rgba(250,204,21,.55), inset 0 0 20px rgba(255,255,255,.12)"
-          : "0 0 18px rgba(168,85,247,.18)",
-
-      cursor: "pointer",
-      transition: ".25s",
-      position: "relative",
-      overflow: "hidden",
-      textTransform: "uppercase",
-      minWidth: 210,
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.transform = "translateY(-3px) scale(1.03)";
-      e.currentTarget.style.boxShadow =
-        "0 0 32px rgba(168,85,247,.65)";
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.transform = "scale(1)";
-      e.currentTarget.style.boxShadow =
-        viewMode === "showcase"
-          ? "0 0 30px rgba(250,204,21,.55)"
-          : "0 0 18px rgba(168,85,247,.18)";
-    }}
-  >
+  <button onClick={() => setViewMode("showcase")} style={viewMode === "showcase" ? activeViewBtn : normalViewBtn}>
     ⚔ CHARACTER VIEW
   </button>
+
+  <button
+    onClick={updateAllCharacters}
+    disabled={updatingAll || characters.length === 0}
+    style={normalViewBtn}
+  >
+    {updatingAll ? "Refreshing..." : "↻ REFRESH ALL"}
+  </button>
+
+  <button
+    onClick={() => setAddCharacterOpen(true)}
+    style={normalViewBtn}
+  >
+    ✦ NEW CHARACTER
+  </button>
 </div>
+
 
           {viewMode === "table" && (
 <div style={table}>
@@ -1938,6 +2143,8 @@ top: tooltipPos.y,
           </div>
         </div>
       )}
+    </>
+)}
     </div>
   </div>
   );
@@ -2265,8 +2472,7 @@ const addBox: React.CSSProperties = {
   borderRadius: 14,
   padding: 16,
   marginBottom: 14,
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr 120px",
+  display: "flex",
   gap: 12,
 };
 
@@ -2800,4 +3006,27 @@ const gearSlot: React.CSSProperties = {
   objectFit: "cover",
   transition: "all .18s ease",
   cursor: "pointer",
+};
+const activeViewBtn: React.CSSProperties = {
+  padding: "14px 34px",
+  borderRadius: 18,
+  border: "1px solid #facc15",
+  background: "linear-gradient(180deg,#6d28d9,#2e1065)",
+  color: "white",
+  fontWeight: 900,
+  fontSize: 16,
+  cursor: "pointer",
+  minWidth: 210,
+};
+
+const normalViewBtn: React.CSSProperties = {
+  padding: "14px 34px",
+  borderRadius: 18,
+  border: "1px solid rgba(168,85,247,.35)",
+  background: "rgba(8,5,20,.82)",
+  color: "#d8b4fe",
+  fontWeight: 900,
+  fontSize: 16,
+  cursor: "pointer",
+  minWidth: 210,
 };
