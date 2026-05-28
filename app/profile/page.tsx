@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import SideNav from "@/app/components/SideNav";
 import { themes } from "@/lib/themes";
-import { useMobile } from "@/app/hooks/useMobile";
+import { useMobile } from "../hooks/useMobile";
 
 type Character = {
   id: number;
@@ -767,8 +767,9 @@ return (
       position: "fixed",
       inset: 0,
       backgroundImage: `url(${currentTheme.image})`,
-     backgroundSize: "95%",
+backgroundSize: isMobile ? "cover" : "95%",
 backgroundPosition: "center top",
+backgroundRepeat: "no-repeat",
       zIndex: -2,
       filter: "brightness(.8)",
     }}
@@ -1434,7 +1435,11 @@ paddingRight: isMobile ? 10 : 20,
   <div
     style={{
       display: "grid",
-      gridTemplateColumns: "280px 1fr 340px",
+      gridTemplateColumns: isMobile
+  ? "1fr"
+  : "240px minmax(0,1fr) 300px",
+  overflow: "hidden",
+width: "100%",
       gap: 20,
       marginTop: 20,
       minHeight: 780,

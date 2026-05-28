@@ -3,7 +3,10 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "./components/Navbar";
 import AuthGuard from "./components/AuthGuard";
-
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
