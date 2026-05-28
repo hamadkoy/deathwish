@@ -1268,17 +1268,25 @@ paddingRight: isMobile ? 10 : 20,
   style={{
     ...table,
     overflowX: "auto",
+    width: "100%",
+    minWidth: 0,
   }}
 >
-            <div style={tableHead}>
-<div>CHARACTER</div>
-<div>MAIN</div>
-<div>ILVL</div>
-<div>PROGRESS</div>
-<div>HC STATUS</div>
-<div>MYTHIC STATUS</div>
-<div>ACTIONS</div>
-            </div>
+  <div
+    style={{
+      ...tableHead,
+      minWidth: isMobile ? 1100 : "unset",
+    }}
+  >
+    <div>CHARACTER</div>
+    <div>MAIN</div>
+    <div>ILVL</div>
+    <div>PROGRESS</div>
+    <div>HC STATUS</div>
+    <div>MYTHIC STATUS</div>
+    <div>ACTIONS</div>
+  </div>
+
 
             {groupedCharacters.map((char) => (
               
@@ -1286,7 +1294,7 @@ paddingRight: isMobile ? 10 : 20,
   key={char.id}
   style={{
     ...tableRow,
-
+minWidth: isMobile ? 1100 : "unset",
     border: char.is_main
       ? "1px solid rgba(250,204,21,.75)"
       : "1px solid rgba(255,255,255,0.05)",
