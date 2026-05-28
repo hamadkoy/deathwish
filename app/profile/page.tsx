@@ -1046,10 +1046,9 @@ paddingRight: isMobile ? 10 : 20,
 >
 {isOwnProfile && (
   <aside
-  
+    className="desktop-only"
     style={{
       ...sidebar,
-      display: isMobile ? "none" : "block",
       background: `${currentTheme.primary}22`,
       backdropFilter: "blur(10px)",
       border: `1px solid ${currentTheme.secondary}55`,
@@ -2037,12 +2036,10 @@ style={{
 )}
         </main>
 
- {isOwnProfile && (
+{isOwnProfile && (
   <aside
-    style={{
-      ...rightbar,
-      display: isMobile ? "none" : "block",
-    }}
+    className="desktop-only"
+    style={rightbar}
   >
           <InfoCard title="HOW IT WORKS">
             <Legend color="#22c55e" title="Available" text="You can sign up for HC and Mythic runs." />

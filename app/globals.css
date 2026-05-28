@@ -93,3 +93,8 @@ body {
     opacity: 0;
   }
 }
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+}
