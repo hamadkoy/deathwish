@@ -2204,6 +2204,12 @@ style={{
           {filteredRuns.map((run, index) => {
             const theme = getRunTheme(run, index);
             const limits = getLimits(run);
+            const boosterCount = signups.filter(
+  (s) =>
+    s.run_id === run.id &&
+    s.role !== "Bench" &&
+    s.role !== "Loot Body"
+).length;
 const signupLocked =
   run.signup_open_at &&
   new Date(run.signup_open_at).getTime() > nowTick;
@@ -2267,6 +2273,52 @@ overflow: "hidden",
                     <h2 style={{ ...runTitle, color: theme.title }}>
                       {run.title}
                     </h2>
+                    <div
+  style={{
+    position: "absolute",
+    top: 26,
+    right: 110,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+
+    padding: "6px 14px",
+
+    borderRadius: 999,
+
+    background:
+      "linear-gradient(90deg, rgba(168,85,247,.22), rgba(124,58,237,.12))",
+
+    border: "1px solid rgba(168,85,247,.4)",
+
+    boxShadow:
+      "0 0 18px rgba(168,85,247,.35)",
+
+    backdropFilter: "blur(8px)",
+  }}
+>
+  <span
+    style={{
+      color: "#c084fc",
+      fontSize: 12,
+      fontWeight: 900,
+      letterSpacing: .5,
+    }}
+  >
+    BOOSTERS
+  </span>
+
+  <span
+    style={{
+      color: "white",
+      fontSize: 16,
+      fontWeight: 900,
+      textShadow: "0 0 10px rgba(255,255,255,.25)",
+    }}
+  >
+    {boosterCount}
+  </span>
+</div>
 
                     <div style={runTime}>
                       Run ID #{run.id} • {run.day} • {run.time}
@@ -2274,7 +2326,6 @@ overflow: "hidden",
                     </div>
 
                     {run.notes && <div style={runNotes}>{run.notes}</div>}
-
                     {run.ilvl_required && (
                       <div
                         style={{

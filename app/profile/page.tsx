@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import SideNav from "@/app/components/SideNav";
 import { themes } from "@/lib/themes";
+import { useMobile } from "@/app/hooks/useMobile";
+
 type Character = {
   id: number;
   user_id?: string;
@@ -39,6 +41,7 @@ export default function ProfilePage() {
 const [newComment, setNewComment] = useState("");
 const [viewedProfile, setViewedProfile] = useState<any>(null);
 const [visitorCount, setVisitorCount] = useState(0);
+const isMobile = useMobile();
 const [isOwnProfile, setIsOwnProfile] = useState(true);
   const [balance, setBalance] = useState(0);
   useEffect(() => {
@@ -734,7 +737,7 @@ const totalExperience = useMemo(() => {
 }, [characters]);
 
 return (
-  <div style={{ position: "relative", minHeight: "100vh", overflow: "hidden" }}>
+  <div style={{ position: "relative", minHeight: "100vh", overflowX: "hidden" }}>
 
 {currentTheme.video ? (
   <video
@@ -1031,12 +1034,17 @@ left: 110,
 <div
   style={{
     ...layout,
-    gridTemplateColumns: isOwnProfile ? "220px 1fr 260px" : "1fr",
-    paddingLeft: isOwnProfile ? 0 : 40,
-    paddingRight: isOwnProfile ? 0 : 40,
+gridTemplateColumns: isMobile
+  ? "1fr"
+  : isOwnProfile
+  ? "220px minmax(0,1fr) 260px"
+  : "minmax(0,1fr)",
+
+paddingLeft: isMobile ? 10 : 20,
+paddingRight: isMobile ? 10 : 20,
   }}
 >
-{isOwnProfile && (
+{isOwnProfile && !isMobile && (
   <aside
   
     style={{
@@ -1255,7 +1263,12 @@ left: 110,
 
 
           {viewMode === "table" && (
-<div style={table}>
+<div
+  style={{
+    ...table,
+    overflowX: "auto",
+  }}
+>
             <div style={tableHead}>
 <div>CHARACTER</div>
 <div>MAIN</div>
@@ -2011,7 +2024,7 @@ style={{
 )}
         </main>
 
-  {isOwnProfile && (
+  {isOwnProfile && !isMobile && (
   <aside style={rightbar}>
           <InfoCard title="HOW IT WORKS">
             <Legend color="#22c55e" title="Available" text="You can sign up for HC and Mythic runs." />
@@ -2067,10 +2080,11 @@ style={{
           </InfoCard>
         </aside>
         )}
-      </div>
+</div>
+
 <div
   style={{
-  maxWidth: 1480,
+    maxWidth: 1480,
 margin: "30px auto 40px auto",
     marginTop: 30,
     marginBottom: 40,
