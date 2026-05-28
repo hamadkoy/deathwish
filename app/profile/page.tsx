@@ -897,8 +897,7 @@ left: 110,
     >
       🎬 CINEMATIC MODE
     </button>
-
-  </div>
+</div>
 </div>
 )}
 {themePickerOpen && (
