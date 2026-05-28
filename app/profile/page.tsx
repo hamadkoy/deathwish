@@ -1040,13 +1040,12 @@ gridTemplateColumns: isMobile
   ? "220px minmax(0,1fr) 260px"
   : "minmax(0,1fr)",
 
-paddingLeft: isMobile ? 10 : 20,
-paddingRight: isMobile ? 10 : 20,
+paddingLeft: isMobile ? 0 : 20,
+paddingRight: isMobile ? 0 : 20,
   }}
 >
-{isOwnProfile && (
+{isOwnProfile && !isMobile && (
   <aside
-    className="desktop-only"
     style={{
       ...sidebar,
       background: `${currentTheme.primary}22`,
@@ -2036,9 +2035,8 @@ style={{
 )}
         </main>
 
-{isOwnProfile && (
+{isOwnProfile && !isMobile && (
   <aside
-    className="desktop-only"
     style={rightbar}
   >
           <InfoCard title="HOW IT WORKS">
