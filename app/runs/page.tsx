@@ -1812,6 +1812,11 @@ onClick={deleteSelectedWeek}
 const characterUsed = signups.some((s) => {
   if (s.character_id !== char.id) return false;
 
+  // only count signup if the run still exists
+  const runExists = runs.some((r) => r.id === s.run_id);
+
+  if (!runExists) return false;
+
   const run = runs.find((r) => r.id === s.run_id);
 
   return run?.week === selectedWeek;
