@@ -15,12 +15,11 @@ type Profile = {
 export default function Navbar() {
   const isMobile = useMobile();
 
-const navLink: React.CSSProperties = {
-  ...link,
-  padding: isMobile ? "3px 5px" : "10px 18px",
-  fontSize: isMobile ? 6.5 : 14,
-  borderRadius: isMobile ? 10 : 14,
-};
+  const navLink: React.CSSProperties = {
+    ...link,
+padding: isMobile ? "5px 7px" : "10px 18px",
+fontSize: isMobile ? 8 : 14,
+  };
   const [user, setUser] = useState<any>(null);
   const pathname = usePathname();
 const hideNavbar =
@@ -121,7 +120,7 @@ height: isMobile ? 70 : 95,
 }}
   />
 
-  <div style={{ display: isMobile ? "none" : "block" }}>
+  <div>
     <div
       style={{
 fontSize: isMobile ? 18 : 32,
@@ -188,7 +187,7 @@ fontSize: isMobile ? 18 : 32,
 style={{
   display: "flex",
   alignItems: "center",
-  gap: isMobile ? 1 : 14,
+  gap: isMobile ? 3 : 14,
   flexWrap: "nowrap",
   justifyContent: "flex-end",
   flexShrink: 0,
