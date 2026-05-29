@@ -737,7 +737,13 @@ const totalExperience = useMemo(() => {
 }, [characters]);
 
 return (
-  <div style={{ position: "relative", minHeight: "100vh", overflowX: "hidden" }}>
+  <div
+    style={{
+      position: "relative",
+      minHeight: "100vh",
+      overflowX: isMobile ? "auto" : "hidden",
+    }}
+  >
 
 {currentTheme.video ? (
   <video
@@ -787,7 +793,12 @@ backgroundRepeat: "no-repeat",
       }}
     />
 
-    <div style={page}>
+<div
+  style={{
+    ...page,
+    minWidth: isMobile ? 1180 : undefined,
+  }}
+>
 {cinematicMode && (
   <button
     onClick={() => setCinematicMode(false)}
