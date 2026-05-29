@@ -1038,10 +1038,11 @@ gridTemplateColumns: isMobile
   ? "1fr"
   : isOwnProfile
   ? "220px minmax(0,1fr) 260px"
-  : "minmax(0,1fr)",
+  : "minmax(0,1400px)",
 
-paddingLeft: isMobile ? 0 : 20,
-paddingRight: isMobile ? 0 : 20,
+paddingLeft: isMobile ? 12 : isOwnProfile ? 20 : 40,
+paddingRight: isMobile ? 12 : isOwnProfile ? 20 : 40,
+justifyContent: isOwnProfile ? "unset" : "center",
   }}
 >
 {isOwnProfile && !isMobile && (
@@ -2588,6 +2589,7 @@ const layout: React.CSSProperties = {
   gridTemplateColumns: "220px 1fr 260px",
   gap: 18,
   padding: 18,
+alignItems: "start",
 };
 
 const sidebar: React.CSSProperties = {
@@ -3233,6 +3235,8 @@ const activeViewBtn: React.CSSProperties = {
   cursor: "pointer",
   minWidth: 210,
 };
+const isMobile =
+  typeof window !== "undefined" && window.innerWidth < 768;
 
 const normalViewBtn: React.CSSProperties = {
   padding: "14px 34px",
