@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import SideNav from "../components/SideNav";
 import { supabase } from "@/lib/supabase";
 import {
   DndContext,
@@ -1038,6 +1039,12 @@ if (nextWeeks.length > 0) {
 }
   return (
     <main style={page}>
+<div style={runsLayout}>
+  <div style={sideNavFixed}>
+    <SideNav active="My Runs" />
+  </div>
+
+  <div>
       <div style={magicFog} />
       <div style={magicFog2} />
       <div style={castlePurpleGlow} />
@@ -2968,6 +2975,8 @@ setAdminAddSpec={setAdminAddSpec}
     </div>
   </div>
 )}
+    </div>
+  </div>
 </main>
   );
 }
@@ -4348,4 +4357,16 @@ const fieldLabel: React.CSSProperties = {
   marginTop: 10,
   textTransform: "uppercase",
   letterSpacing: 1,
+};
+const runsLayout: React.CSSProperties = {
+  width: "100%",
+  position: "relative",
+  zIndex: 2,
+};
+const sideNavFixed: React.CSSProperties = {
+  position: "absolute",
+  top: 24,
+  left: 24,
+  width: 260,
+  zIndex: 20,
 };

@@ -2037,10 +2037,8 @@ style={{
         </main>
 
 {isOwnProfile && !isMobile && (
-  <aside
-    style={rightbar}
-  >
-          <InfoCard title="HOW IT WORKS">
+  <aside style={rightbar}>
+    <InfoCard title="HOW IT WORKS">
             <Legend color="#22c55e" title="Available" text="You can sign up for HC and Mythic runs." />
             <Legend color="#eab308" title="Saved" text="You've completed a finished run this week." />
             <Legend color="#ef4444" title="Finished" text="Character is locked until reset." />
