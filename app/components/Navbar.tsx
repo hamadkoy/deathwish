@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { usePathname } from "next/navigation";
 import OnlineUsers from "./OnlineUsers";
-
+import { useMobile } from "../hooks/useMobile";
 type Profile = {
   discord_name?: string;
   avatar_url?: string;
@@ -13,6 +13,7 @@ type Profile = {
 };
 
 export default function Navbar() {
+  const isMobile = useMobile();
   const [user, setUser] = useState<any>(null);
   const pathname = usePathname();
 const hideNavbar =
@@ -74,10 +75,12 @@ return (
         position: "sticky",
         top: 0,
         zIndex: 100,
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "16px 28px",
+display: "flex",
+justifyContent: "space-between",
+alignItems: "center",
+padding: isMobile ? "10px 8px" : "16px 28px",
+overflowX: isMobile ? "auto" : "visible",
+gap: isMobile ? 10 : 0,
         background: "rgba(5,0,20,0.92)",
         borderBottom: "1px solid rgba(168,85,247,0.35)",
         backdropFilter: "blur(10px)",
@@ -172,9 +175,9 @@ style={{
 
 <div
   style={{
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
+display: "flex",
+alignItems: "center",
+gap: 14,
   }}
 >
         <a
@@ -417,4 +420,5 @@ const link: React.CSSProperties = {
   transition: "all 0.22s ease",
   boxShadow: "0 0 14px rgba(168,85,247,0.45)",
   whiteSpace: "nowrap",
+  flexShrink: 0,
 };
