@@ -1049,9 +1049,7 @@ left: 110,
   style={{
     ...layout,
 gridTemplateColumns: isOwnProfile
-  ? isMobile
-    ? "130px minmax(0,1fr) 150px"
-    : "220px minmax(0,1fr) 260px"
+  ? "220px minmax(0,1fr) 260px"
   : "minmax(0,1400px)",
 
 paddingLeft: isMobile ? 6 : isOwnProfile ? 20 : 40,
