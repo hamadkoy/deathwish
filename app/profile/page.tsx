@@ -1048,10 +1048,10 @@ left: 110,
 <div
   style={{
     ...layout,
-gridTemplateColumns: isOwnProfile
-  ? isMobile
-    ? "130px minmax(0,1fr) 150px"
-    : "220px minmax(0,1fr) 260px"
+gridTemplateColumns: isMobile
+  ? "1fr"
+  : isOwnProfile
+  ? "220px minmax(0,1fr) 260px"
   : "minmax(0,1400px)",
 
 paddingLeft: isMobile ? 6 : isOwnProfile ? 20 : 40,
