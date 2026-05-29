@@ -796,9 +796,9 @@ backgroundRepeat: "no-repeat",
 <div
   style={{
     ...page,
-width: isMobile ? 1000 : "100%",
-maxWidth: isMobile ? 1000 : "100vw",
-transform: isMobile ? "scale(0.39)" : "scale(1)",
+    width: "100%",
+    maxWidth: "100vw",
+    transform: "none",
     transformOrigin: "top left",
   }}
 >
@@ -1050,7 +1050,7 @@ left: 110,
     ...layout,
 gridTemplateColumns: isOwnProfile
   ? isMobile
-    ? "105px minmax(0,1fr)"
+    ? "1fr"
     : "220px minmax(0,1fr) 260px"
   : "minmax(0,1400px)",
 
@@ -1059,7 +1059,7 @@ paddingRight: isMobile ? 6 : isOwnProfile ? 20 : 40,
 justifyContent: isOwnProfile ? "unset" : "center",
   }}
 >
-{isOwnProfile && (
+{isOwnProfile && !isMobile && (
   <aside
     style={{
       ...sidebar,
@@ -1281,7 +1281,7 @@ justifyContent: isOwnProfile ? "unset" : "center",
   style={{
     ...table,
     width: "100%",
-    overflowX: "hidden",
+    overflowX: isMobile ? "auto" : "hidden",
   }}
 >
   <div
@@ -2047,7 +2047,7 @@ style={{
 )}
         </main>
 
-{isOwnProfile && (
+{isOwnProfile && !isMobile && (
   <aside style={rightbar}>
     <InfoCard title="HOW IT WORKS">
             <Legend color="#22c55e" title="Available" text="You can sign up for HC and Mythic runs." />
