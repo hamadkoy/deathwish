@@ -740,8 +740,9 @@ return (
   <div
     style={{
       position: "relative",
-      minHeight: "100vh",
+
       overflowX: "hidden",
+minHeight: isMobile ? 2600 : "100vh",
     }}
   >
 
@@ -796,8 +797,10 @@ backgroundRepeat: "no-repeat",
 <div
   style={{
     ...page,
-    width: "100%",
-    maxWidth: "100vw",
+    width: isMobile ? 1180 : "100%",
+    maxWidth: isMobile ? 1180 : "100vw",
+    transform: isMobile ? "scale(0.34)" : "scale(1)",
+    transformOrigin: "top left",
   }}
 >
 {cinematicMode && (
