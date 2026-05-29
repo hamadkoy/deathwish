@@ -917,7 +917,13 @@ if (run?.finished) {
 
   const signedForMoreThanOneHour = signedForMs >= 60 * 60 * 1000;
 
-  if (banishActive && signup && run && signedForMoreThanOneHour) {
+if (
+  banishActive &&
+  signup &&
+  run &&
+  signedForMoreThanOneHour &&
+  signup.discord_id === discordId
+) {
     const newLog = {
       id: Date.now(),
       player: signup.player,
