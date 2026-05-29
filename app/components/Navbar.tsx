@@ -103,7 +103,7 @@ style={{
   textDecoration: "none",
   color: "white",
   flexShrink: 0,
-  transform: isMobile ? "scale(0.72)" : "scale(1)",
+  transform: "scale(1)",
   transformOrigin: "left center",
 }}
 >
@@ -190,7 +190,7 @@ style={{
   flexWrap: "nowrap",
   justifyContent: "flex-end",
   flexShrink: 0,
-  transform: isMobile ? "scale(0.58)" : "scale(1)",
+  transform: isMobile ? "scale(0.70)" : "scale(1)",
   transformOrigin: "right center",
 }}
 >     
