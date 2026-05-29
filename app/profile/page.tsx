@@ -740,7 +740,6 @@ return (
   <div
     style={{
       position: "relative",
-
       overflowX: "hidden",
 minHeight: isMobile ? 2600 : "100vh",
     }}
@@ -797,9 +796,9 @@ backgroundRepeat: "no-repeat",
 <div
   style={{
     ...page,
-    width: isMobile ? 1180 : "100%",
-    maxWidth: isMobile ? 1180 : "100vw",
-    transform: isMobile ? "scale(0.34)" : "scale(1)",
+width: isMobile ? 1000 : "100%",
+maxWidth: isMobile ? 1000 : "100vw",
+transform: isMobile ? "scale(0.39)" : "scale(1)",
     transformOrigin: "top left",
   }}
 >
@@ -1289,7 +1288,7 @@ justifyContent: isOwnProfile ? "unset" : "center",
   <div
     style={{
       ...tableHead,
-      minWidth: isMobile ? 1100 : "unset",
+      minWidth: isMobile ? 1000 : "unset",
     }}
   >
     <div>CHARACTER</div>
