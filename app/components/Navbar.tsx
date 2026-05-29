@@ -76,12 +76,11 @@ return (
         top: 0,
         zIndex: 100,
 display: "flex",
-justifyContent: isMobile ? "center" : "space-between",
+justifyContent: "space-between",
 alignItems: "center",
 padding: isMobile ? "10px 8px" : "16px 28px",
-overflowX: "hidden",
-gap: isMobile ? 8 : 0,
-flexWrap: isMobile ? "wrap" : "nowrap",
+overflowX: isMobile ? "auto" : "visible",
+gap: isMobile ? 10 : 0,
         background: "rgba(5,0,20,0.92)",
         borderBottom: "1px solid rgba(168,85,247,0.35)",
         backdropFilter: "blur(10px)",
@@ -96,16 +95,14 @@ flexWrap: isMobile ? "wrap" : "nowrap",
     gap: 14,
     textDecoration: "none",
     color: "white",
-    width: isMobile ? "100%" : "auto",
-    justifyContent: isMobile ? "center" : "flex-start",
   }}
 >
   <img
     src="/websitelogo.png"
     alt=""
 style={{
-width: isMobile ? 70 : 120,
-height: isMobile ? 70 : 120,
+width: isMobile ? 70 : 95,
+height: isMobile ? 70 : 95,
   objectFit: "contain",
   marginTop: -18,
   marginBottom: -18,
@@ -126,8 +123,8 @@ fontSize: isMobile ? 18 : 32,
 
 <div
   style={{
-fontSize: isMobile ? 9 : 15,
-letterSpacing: isMobile ? 2 : 5,
+    fontSize: 15,
+    letterSpacing: 5,
     color: "#bca38c",
     marginTop: 4,
   }}
@@ -175,12 +172,11 @@ letterSpacing: isMobile ? 2 : 5,
 </a>
 
 {/* RIGHT SIDE */}
-
 <div
   style={{
     display: "flex",
     alignItems: "center",
-    gap: isMobile ? 8 : 14,
+    gap: isMobile ? 6 : 14,
     flexWrap: isMobile ? "wrap" : "nowrap",
     justifyContent: isMobile ? "center" : "flex-end",
     width: isMobile ? "100%" : "auto",
