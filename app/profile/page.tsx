@@ -1280,15 +1280,13 @@ justifyContent: isOwnProfile ? "unset" : "center",
 <div
   style={{
     ...table,
-    overflowX: "auto",
     width: "100%",
-    minWidth: 0,
+    overflowX: "hidden",
   }}
 >
   <div
     style={{
       ...tableHead,
-      minWidth: isMobile ? 1000 : "unset",
     }}
   >
     <div>CHARACTER</div>
@@ -1307,7 +1305,6 @@ justifyContent: isOwnProfile ? "unset" : "center",
   key={char.id}
   style={{
     ...tableRow,
-minWidth: isMobile ? 1100 : "unset",
     border: char.is_main
       ? "1px solid rgba(250,204,21,.75)"
       : "1px solid rgba(255,255,255,0.05)",
