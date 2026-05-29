@@ -76,11 +76,12 @@ return (
         top: 0,
         zIndex: 100,
 display: "flex",
-justifyContent: "space-between",
+justifyContent: isMobile ? "center" : "space-between",
 alignItems: "center",
 padding: isMobile ? "10px 8px" : "16px 28px",
-overflowX: isMobile ? "auto" : "visible",
-gap: isMobile ? 10 : 0,
+overflowX: "hidden",
+gap: isMobile ? 8 : 0,
+flexWrap: isMobile ? "wrap" : "nowrap",
         background: "rgba(5,0,20,0.92)",
         borderBottom: "1px solid rgba(168,85,247,0.35)",
         backdropFilter: "blur(10px)",
@@ -95,6 +96,8 @@ gap: isMobile ? 10 : 0,
     gap: 14,
     textDecoration: "none",
     color: "white",
+    width: isMobile ? "100%" : "auto",
+    justifyContent: isMobile ? "center" : "flex-start",
   }}
 >
   <img
@@ -175,9 +178,12 @@ letterSpacing: isMobile ? 2 : 5,
 
 <div
   style={{
-display: "flex",
-alignItems: "center",
-gap: 14,
+    display: "flex",
+    alignItems: "center",
+    gap: isMobile ? 8 : 14,
+    flexWrap: isMobile ? "wrap" : "nowrap",
+    justifyContent: isMobile ? "center" : "flex-end",
+    width: isMobile ? "100%" : "auto",
   }}
 >
         <a

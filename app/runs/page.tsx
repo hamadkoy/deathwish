@@ -214,12 +214,13 @@ useEffect(() => {
           .filter(Boolean)
       )
     ).sort((a, b) => a - b);
+const savedWeeks = JSON.parse(localStorage.getItem("weeks") || "[]");
 
-    if (uniqueWeeks.length > 0) {
-      setWeeks(uniqueWeeks);
-    } else {
-      setWeeks([1]);
-    }
+const mergedWeeks = Array.from(
+  new Set([...uniqueWeeks, ...savedWeeks])
+).sort((a, b) => a - b);
+
+setWeeks(mergedWeeks.length > 0 ? mergedWeeks : [1]);
   }
 
   loadWeeks();
@@ -1566,11 +1567,12 @@ boxShadow:
 <button
 onClick={() => {
   const nextWeek =
-    weeks.length > 0
-      ? Math.max(...weeks) + 1
-      : 1;
+    weeks.length > 0 ? Math.max(...weeks) + 1 : 1;
 
-  setWeeks((prev) => [...prev, nextWeek]);
+  const updatedWeeks = [...weeks, nextWeek];
+
+  setWeeks(updatedWeeks);
+  localStorage.setItem("weeks", JSON.stringify(updatedWeeks));
   setSelectedWeek(nextWeek);
 }}
   style={addWeekButton}
