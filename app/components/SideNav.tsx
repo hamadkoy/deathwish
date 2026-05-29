@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useMobile } from "@/app/hooks/useMobile";
+
 export default function SideNav({ active }: { active: string }) {
   const [pendingCount, setPendingCount] = useState(0);
-const isMobile = useMobile();
+
 useEffect(() => {
   loadPendingApplicants();
 
@@ -50,25 +50,9 @@ async function loadPendingApplicants() {
     { name: "Bank", href: "/bank" },
   ];
 
- return (
-  <div
-    style={{
-      ...navBox,
-
-      width: isMobile ? 88 : undefined,
-      padding: isMobile ? 6 : 14,
-      borderRadius: isMobile ? 10 : 18,
-    }}
-  >
-  <div
-  style={{
-    ...smallTitle,
-    fontSize: isMobile ? 8 : 13,
-    marginBottom: isMobile ? 8 : 16,
-  }}
->
-  NAVIGATION
-</div>
+  return (
+    <div style={navBox}>
+      <div style={smallTitle}>NAVIGATION</div>
 
       {items.map((item) => {
         const isActive = active === item.name || active === item.name.replace("👑 ", "");
@@ -76,14 +60,7 @@ async function loadPendingApplicants() {
         return (
           <Link key={item.name} href={item.href} style={{ textDecoration: "none" }}>
             <div
-              style={{
-  ...(isActive ? sideActive : sideItem),
-
-  padding: isMobile ? "7px 5px" : "12px 14px",
-  fontSize: isMobile ? 10 : 14,
-  borderRadius: isMobile ? 8 : 12,
-  marginBottom: isMobile ? 4 : 7,
-}}
+              style={isActive ? sideActive : sideItem}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = "rgba(139,92,246,0.22)";
                 e.currentTarget.style.boxShadow =
