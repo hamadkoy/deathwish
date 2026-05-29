@@ -796,7 +796,7 @@ backgroundRepeat: "no-repeat",
 <div
   style={{
     ...page,
-    zoom: isMobile ? 0.05 : 1,
+    zoom: isMobile ? 0.8 : 1,
   }}
 >
 {cinematicMode && (
