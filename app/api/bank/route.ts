@@ -59,15 +59,7 @@ const headers = rows[1] || [];     // Thursday 15:00, Payout Character, Balance
 const players = rows.slice(2);     // actual player rows
   const player = players.find((row) => row[0]?.toString().trim() === discordId);
 
-  if (!player) {
-    return NextResponse.json({
-      balance: 0,
-      status: "Not found",
-      payoutCharacter: "Not set",
-      payoutType: "Not set",
-      cuts: [],
-    });
-  }
+const hasWeeklyPlayer = !!player;
 
   const balanceIndex = headers.findIndex((h) =>
     normalize(h).includes("balance")
@@ -93,30 +85,32 @@ const players = rows.slice(2);     // actual player rows
     payoutTypeIndex,
   ]);
 
-const cuts = headers
-  .map((header, index) => {
-    const raw = player[index] || "";
-    const amount = parseNumber(raw);
+const cuts = hasWeeklyPlayer
+  ? headers
+      .map((header, index) => {
+        const raw = player?.[index] || "";
+        const amount = parseNumber(raw);
 
-const runText = typeHeaders[index]?.toString() || "";
-const dayText = headers[index]?.toString() || "";
+        const runText = typeHeaders[index]?.toString() || "";
+        const dayText = headers[index]?.toString() || "";
 
-    return {
-      id: index,
-      date: dayText,
-      run: runText,
-        character: player[payoutCharacterIndex] || "Not set",
-        cut: amount,
-        status:
-          normalize(player[statusIndex]).includes("mailed") ||
-          normalize(player[statusIndex]).includes("paid")
-            ? "Paid"
-            : "Pending",
-        source: "Bot (!cuts)",
-        note: "",
-      };
-    })
-    .filter((cut) => !ignored.has(cut.id) && cut.cut > 0);
+        return {
+          id: index,
+          date: dayText,
+          run: runText,
+          character: player?.[payoutCharacterIndex] || "Not set",
+          cut: amount,
+          status:
+            normalize(player?.[statusIndex]).includes("mailed") ||
+            normalize(player?.[statusIndex]).includes("paid")
+              ? "Paid"
+              : "Pending",
+          source: "Bot (!cuts)",
+          note: "",
+        };
+      })
+      .filter((cut) => !ignored.has(cut.id) && cut.cut > 0)
+  : [];
 // HISTORY SHEET
 
 const historyHeaders = historyRows.find((row) =>
@@ -145,66 +139,39 @@ if (historyPlayer) {
     }
   }
 }
-// TOTAL BALANCE FROM ALL TABS
+// FAST TOTAL BALANCE FROM TOTAL TAB
 let combinedTotalBalance = 0;
 
-const totalMeta = await sheets.spreadsheets.get({
+const totalRes = await sheets.spreadsheets.values.get({
   spreadsheetId: TOTAL_SPREADSHEET_ID,
+  range: "'Total'!A1:C1000",
 });
 
-const totalSheetNames =
-  totalMeta.data.sheets
-    ?.map((s) => s.properties?.title)
-    .filter(Boolean) || [];
+const totalRows = totalRes.data.values || [];
+const totalHeaders = totalRows[0] || [];
 
-const allSheetsData = await Promise.all(
-  totalSheetNames.map(async (sheetName) => {
-    try {
-      const totalRes = await sheets.spreadsheets.values.get({
-        spreadsheetId: TOTAL_SPREADSHEET_ID,
-        range: `'${sheetName}'!A1:AZ1000`,
-      });
-
-      return {
-        name: sheetName,
-        rows: totalRes.data.values || [],
-      };
-    } catch {
-      return {
-        name: sheetName,
-        rows: [],
-      };
-    }
-  })
+const userIdIndex = totalHeaders.findIndex(
+  (h) => normalize(h) === "user id"
 );
 
-for (const sheet of allSheetsData) {
-  const totalRows = sheet.rows;
-
-  const headerRow = totalRows.find((row) =>
-    row.some((cell) => normalize(cell) === "total")
-  );
-
-  if (!headerRow) continue;
-
-  const totalIndex = headerRow.findIndex(
-    (h) => normalize(h) === "total"
-  );
-
-const userRow = totalRows.find(
-  (row) => row[0]?.toString().trim() === discordId
+const totalIndex = totalHeaders.findIndex(
+  (h) => normalize(h) === "total"
 );
 
-if (!userRow) continue;
+if (userIdIndex !== -1 && totalIndex !== -1) {
+  const totalUserRow = totalRows.find(
+    (row) => row[userIdIndex]?.toString().trim() === discordId
+  );
 
-combinedTotalBalance += parseNumber(userRow[totalIndex]);
-
+  if (totalUserRow) {
+    combinedTotalBalance = parseNumber(totalUserRow[totalIndex]);
+  }
 }
   return NextResponse.json({
     balance: combinedTotalBalance,
-    status: player[statusIndex] || "Unknown",
-    payoutCharacter: player[payoutCharacterIndex] || "Not set",
-    payoutType: player[payoutTypeIndex] || "Not set",
+status: player?.[statusIndex] || "Unknown",
+payoutCharacter: player?.[payoutCharacterIndex] || "Not set",
+payoutType: player?.[payoutTypeIndex] || "Not set",
     cuts,
     history,
   });
