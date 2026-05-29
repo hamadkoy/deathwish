@@ -793,7 +793,12 @@ backgroundRepeat: "no-repeat",
       }}
     />
 
-<div style={page}>
+<div
+  style={{
+    ...page,
+    zoom: isMobile ? 0.72 : 1,
+  }}
+>
 {cinematicMode && (
   <button
     onClick={() => setCinematicMode(false)}

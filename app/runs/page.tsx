@@ -1564,12 +1564,14 @@ boxShadow:
   {isAdmin && (
     <div style={{ width: 170, display: "flex", justifyContent: "center" }}>
 <button
-  onClick={() => {
+onClick={() => {
   const nextWeek =
-  weeks.length > 0
-    ? Math.max(...weeks) + 1
-    : 1;
- setSelectedWeek(nextWeek);
+    weeks.length > 0
+      ? Math.max(...weeks) + 1
+      : 1;
+
+  setWeeks((prev) => [...prev, nextWeek]);
+  setSelectedWeek(nextWeek);
 }}
   style={addWeekButton}
   onMouseEnter={(e) => {
