@@ -633,7 +633,17 @@ if (alreadySigned) {
     return;
   }
 
-  await loadSignups();
+setBanishLogs((prev) =>
+  prev.filter(
+    (log) =>
+      !(
+        log.runId === runId &&
+        log.discord_id === discordId
+      )
+  )
+);
+
+await loadSignups();
 } 
 
 
@@ -878,7 +888,6 @@ async function sendChatMessage() {
   setChatInput("");
 }
 const [banishLogs, setBanishLogs] = useState<any[]>([]);
-const [banishActive, setBanishActive] = useState(false);
 const [banishOpen, setBanishOpen] = useState(false);
 useEffect(() => {
   const saved = localStorage.getItem("banishLogs");
@@ -918,20 +927,16 @@ if (run?.finished) {
 
   const signedForMoreThanOneHour = signedForMs >= 60 * 60 * 1000;
 
-if (
-  banishActive &&
-  signup &&
-  run &&
-  signedForMoreThanOneHour &&
-  signup.discord_id === discordId
-) {
-    const newLog = {
-      id: Date.now(),
-      player: signup.player,
-      runId: run.id,
-      runTitle: run.title,
-      unsignedAt: now.toLocaleString("en-GB"),
-    };
+if (signup && run) {
+const newLog = {
+  id: Date.now(),
+  player: signup.player,
+  discord_id: signup.discord_id,
+  runId: run.id,
+  runTitle: run.title,
+  week: run.week,
+  unsignedAt: now.toLocaleString("en-GB"),
+};
 
     setBanishLogs((prev) => [newLog, ...prev]);
   }
@@ -1007,6 +1012,10 @@ const filteredRuns = runs.filter((run) => {
 
   return matchesRaid && matchesDay;
 });
+
+const filteredBanishLogs = banishLogs.filter(
+  (log) => Number(log.week) === Number(selectedWeek)
+);
 async function deleteSelectedWeek() {
   setPopup({
     title: "Delete Week",
@@ -1899,7 +1908,6 @@ style={{
     ☠
   </button>
 )}
-
 {isAdmin && banishOpen && (
   <div
     style={{
@@ -1943,106 +1951,38 @@ style={{
       ☠ BANISH
     </div>
 
-    <div
-      style={{
-        display: "flex",
-        gap: 18,
-        justifyContent: "center",
-        marginBottom: 16,
-        alignItems: "center",
-      }}
-    >
-      <button
-        onClick={() => setBanishActive((prev) => !prev)}
+    {filteredBanishLogs.length === 0 && (
+      <div style={{ color: "#9ca3af", textAlign: "center" }}>
+        No unsigned players yet.
+      </div>
+    )}
+
+  {filteredBanishLogs.map((log) => (
+      <div
+        key={log.id}
         style={{
-          width: 180,
-          height: 70,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          padding: 0,
-          whiteSpace: "nowrap",
-          borderRadius: 20,
-          border: banishActive
-            ? "1px solid rgba(34,197,94,.8)"
-            : "1px solid rgba(239,68,68,.8)",
-          background: banishActive
-            ? "linear-gradient(90deg,#14532d,#22c55e)"
-            : "linear-gradient(90deg,#b91c1c,#ef4444)",
-          color: "white",
-          fontWeight: 900,
-          fontSize: 22,
-          cursor: "pointer",
-          boxShadow: banishActive
-            ? "0 0 25px rgba(34,197,94,.55)"
-            : "0 0 25px rgba(239,68,68,.45)",
+          padding: 10,
+          marginBottom: 10,
+          borderRadius: 10,
+          background: "rgba(0,0,0,.35)",
         }}
       >
-        {banishActive ? "ACTIVATED" : "STOP"}
-      </button>
-
-      <button
-        onClick={() => {
-          setBanishLogs([]);
-          localStorage.removeItem("banishLogs");
-        }}
-        style={{
-          width: 180,
-          height: 70,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          padding: 0,
-          whiteSpace: "nowrap",
-          borderRadius: 20,
-          border: "1px solid rgba(250,204,21,.7)",
-          background: "linear-gradient(90deg,#a16207,#facc15)",
-          color: "#fff",
-          fontWeight: 900,
-          fontSize: 22,
-          cursor: "pointer",
-          boxShadow: "0 0 25px rgba(250,204,21,.45)",
-        }}
-      >
-        RESET
-      </button>
-    </div>
-
-    {banishLogs.slice(0, 5).map((log) => {
-      const count = banishLogs.filter((x) => x.player === log.player).length;
-
-      return (
-        <div
-          key={log.id}
-          style={{
-            padding: 10,
-            marginBottom: 10,
-            borderRadius: 10,
-            background: "rgba(0,0,0,.35)",
-          }}
-        >
-          <div style={{ color: "#fff", fontWeight: 800 }}>
-            {log.player.split(" - ")[0]}
-          </div>
-
-          <div style={{ color: "#facc15", fontSize: 13, marginTop: 4 }}>
-            Unsigns: {count}
-          </div>
-
-          <div style={{ color: "#c084fc", fontSize: 12 }}>
-            Run ID #{log.runId}
-          </div>
-
-          <div style={{ color: "#9ca3af", fontSize: 11 }}>
-            Unsigned: {log.unsignedAt}
-          </div>
+        <div style={{ color: "#fff", fontWeight: 800 }}>
+          {log.player.split(" - ")[0]}
         </div>
-      );
-    })}
+
+        <div style={{ color: "#c084fc", fontSize: 12 }}>
+          {log.runTitle} — Run ID #{log.runId}
+        </div>
+
+        <div style={{ color: "#9ca3af", fontSize: 11 }}>
+          Unsigned: {log.unsignedAt}
+        </div>
+      </div>
+    ))}
   </div>
 )}
+
 {isAdmin && (
   <div style={createArea}>
     <button

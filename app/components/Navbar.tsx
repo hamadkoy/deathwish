@@ -84,9 +84,10 @@ return (
 display: "flex",
 justifyContent: "space-between",
 alignItems: "center",
-padding: isMobile ? "10px 8px" : "16px 28px",
-overflowX: isMobile ? "auto" : "visible",
-gap: isMobile ? 10 : 0,
+padding: isMobile ? "6px 10px" : "16px 28px",
+overflowX: "hidden",
+gap: 0,
+flexWrap: "nowrap",
         background: "rgba(5,0,20,0.92)",
         borderBottom: "1px solid rgba(168,85,247,0.35)",
         backdropFilter: "blur(10px)",
@@ -95,14 +96,16 @@ gap: isMobile ? 10 : 0,
 {/* LEFT SIDE */}
 <a
   href="/"
-  style={{
-    display: "flex",
-    alignItems: "center",
-    gap: isMobile ? 8 : 14,
-    width: isMobile ? "42%" : "auto",
-    textDecoration: "none",
-    color: "white",
-  }}
+style={{
+  display: "flex",
+  alignItems: "center",
+  gap: isMobile ? 4 : 14,
+  textDecoration: "none",
+  color: "white",
+  flexShrink: 0,
+  transform: isMobile ? "scale(0.72)" : "scale(1)",
+  transformOrigin: "left center",
+}}
 >
   <img
     src="/websitelogo.png"
@@ -183,10 +186,12 @@ fontSize: isMobile ? 18 : 32,
 style={{
   display: "flex",
   alignItems: "center",
-  gap: isMobile ? 6 : 14,
-  flexWrap: isMobile ? "wrap" : "nowrap",
-  justifyContent: isMobile ? "flex-end" : "flex-end",
-  width: isMobile ? "56%" : "auto",
+  gap: isMobile ? 4 : 14,
+  flexWrap: "nowrap",
+  justifyContent: "flex-end",
+  flexShrink: 0,
+  transform: isMobile ? "scale(0.58)" : "scale(1)",
+  transformOrigin: "right center",
 }}
 >     
 <a
