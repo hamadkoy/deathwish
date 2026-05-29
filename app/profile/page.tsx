@@ -1050,7 +1050,7 @@ left: 110,
     ...layout,
 gridTemplateColumns: isOwnProfile
   ? isMobile
-    ? "80px minmax(0,1fr)"
+    ? "130px minmax(0,1fr) 150px"
     : "220px minmax(0,1fr) 260px"
   : "minmax(0,1400px)",
 
@@ -1063,9 +1063,6 @@ justifyContent: isOwnProfile ? "unset" : "center",
   <aside
     style={{
       ...sidebar,
-      transform: isMobile ? "scale(0.82)" : "scale(1)",
-transformOrigin: "top left",
-width: isMobile ? 95 : "auto",
       background: `${currentTheme.primary}22`,
       backdropFilter: "blur(10px)",
       border: `1px solid ${currentTheme.secondary}55`,
@@ -2050,7 +2047,7 @@ style={{
 )}
         </main>
 
-{isOwnProfile && !isMobile && (
+{isOwnProfile && (
   <aside style={rightbar}>
     <InfoCard title="HOW IT WORKS">
             <Legend color="#22c55e" title="Available" text="You can sign up for HC and Mythic runs." />
