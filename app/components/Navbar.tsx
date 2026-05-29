@@ -14,6 +14,12 @@ type Profile = {
 
 export default function Navbar() {
   const isMobile = useMobile();
+
+  const navLink: React.CSSProperties = {
+    ...link,
+    padding: isMobile ? "8px 12px" : "10px 18px",
+    fontSize: isMobile ? 12 : 14,
+  };
   const [user, setUser] = useState<any>(null);
   const pathname = usePathname();
 const hideNavbar =
@@ -92,7 +98,8 @@ gap: isMobile ? 10 : 0,
   style={{
     display: "flex",
     alignItems: "center",
-    gap: 14,
+    gap: isMobile ? 8 : 14,
+    width: isMobile ? "42%" : "auto",
     textDecoration: "none",
     color: "white",
   }}
@@ -173,18 +180,18 @@ fontSize: isMobile ? 18 : 32,
 
 {/* RIGHT SIDE */}
 <div
-  style={{
-    display: "flex",
-    alignItems: "center",
-    gap: isMobile ? 6 : 14,
-    flexWrap: isMobile ? "wrap" : "nowrap",
-    justifyContent: isMobile ? "center" : "flex-end",
-    width: isMobile ? "100%" : "auto",
-  }}
->
-        <a
+style={{
+  display: "flex",
+  alignItems: "center",
+  gap: isMobile ? 6 : 14,
+  flexWrap: isMobile ? "wrap" : "nowrap",
+  justifyContent: isMobile ? "flex-end" : "flex-end",
+  width: isMobile ? "56%" : "auto",
+}}
+>     
+<a
   href="/"
-  style={link}
+  style={navLink}
   onMouseEnter={(e) => {
     e.currentTarget.style.transform = "scale(1.06)";
     e.currentTarget.style.background =
@@ -204,7 +211,7 @@ fontSize: isMobile ? 18 : 32,
         </a>
 <a
   href="/runs"
-  style={link}
+  style={navLink}
   onMouseEnter={(e) => {
     e.currentTarget.style.transform = "scale(1.06)";
     e.currentTarget.style.background =
@@ -225,7 +232,8 @@ fontSize: isMobile ? 18 : 32,
 {!canUseRunCards && (
 <a
   href="/runs?apply=true"
-  style={link}
+  style={navLink}
+
   onMouseEnter={(e) => {
     e.currentTarget.style.transform = "scale(1.06)";
     e.currentTarget.style.background =
@@ -247,7 +255,7 @@ fontSize: isMobile ? 18 : 32,
 <a
 
   href="/my-signups"
-  style={link}
+ style={navLink}
   onMouseEnter={(e) => {
     e.currentTarget.style.transform = "scale(1.06)";
     e.currentTarget.style.background =
@@ -268,7 +276,7 @@ fontSize: isMobile ? 18 : 32,
 {["officer", "admin"].includes(profile?.site_role || "") && (
 <a
   href="/booking"
-  style={link}
+  style={navLink}
   onMouseEnter={(e) => {
     e.currentTarget.style.transform = "scale(1.06)";
     e.currentTarget.style.background =
@@ -289,7 +297,7 @@ fontSize: isMobile ? 18 : 32,
 )}
 <a
   href="/bank"
-  style={link}
+  style={navLink}
   onMouseEnter={(e) => {
     e.currentTarget.style.transform = "scale(1.06)";
     e.currentTarget.style.background =
@@ -310,7 +318,7 @@ fontSize: isMobile ? 18 : 32,
 <a
 
   href="/profile"
-  style={link}
+  style={navLink}
   onMouseEnter={(e) => {
     e.currentTarget.style.transform = "scale(1.06)";
     e.currentTarget.style.background =
@@ -400,7 +408,7 @@ fontSize: isMobile ? 18 : 32,
             </button>
           </div>
         ) : (
-          <a href="/login" style={link}>
+          <a href="/login" style={navLink}>
             Login
           </a>
         )}
