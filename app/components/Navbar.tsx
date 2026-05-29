@@ -15,11 +15,12 @@ type Profile = {
 export default function Navbar() {
   const isMobile = useMobile();
 
-  const navLink: React.CSSProperties = {
-    ...link,
-    padding: isMobile ? "8px 12px" : "10px 18px",
-    fontSize: isMobile ? 12 : 14,
-  };
+const navLink: React.CSSProperties = {
+  ...link,
+  padding: isMobile ? "3px 5px" : "10px 18px",
+  fontSize: isMobile ? 6.5 : 14,
+  borderRadius: isMobile ? 10 : 14,
+};
   const [user, setUser] = useState<any>(null);
   const pathname = usePathname();
 const hideNavbar =
@@ -84,10 +85,13 @@ return (
 display: "flex",
 justifyContent: "space-between",
 alignItems: "center",
-padding: isMobile ? "6px 10px" : "16px 28px",
-overflowX: "hidden",
-gap: 0,
+padding: isMobile ? "10px 8px" : "16px 28px",
+overflowX: isMobile ? "auto" : "visible",
+gap: isMobile ? 10 : 0,
 flexWrap: "nowrap",
+transform: isMobile ? "scale(0.64)" : "scale(1)",
+transformOrigin: "top left",
+width: isMobile ? "156%" : "100%",
         background: "rgba(5,0,20,0.92)",
         borderBottom: "1px solid rgba(168,85,247,0.35)",
         backdropFilter: "blur(10px)",
@@ -99,12 +103,10 @@ flexWrap: "nowrap",
 style={{
   display: "flex",
   alignItems: "center",
-  gap: isMobile ? 4 : 14,
+  gap: 14,
   textDecoration: "none",
   color: "white",
   flexShrink: 0,
-  transform: "scale(1)",
-  transformOrigin: "left center",
 }}
 >
   <img
@@ -119,7 +121,7 @@ height: isMobile ? 70 : 95,
 }}
   />
 
-  <div>
+  <div style={{ display: isMobile ? "none" : "block" }}>
     <div
       style={{
 fontSize: isMobile ? 18 : 32,
@@ -186,12 +188,10 @@ fontSize: isMobile ? 18 : 32,
 style={{
   display: "flex",
   alignItems: "center",
-  gap: isMobile ? 4 : 14,
+  gap: isMobile ? 1 : 14,
   flexWrap: "nowrap",
   justifyContent: "flex-end",
   flexShrink: 0,
-  transform: isMobile ? "scale(0.70)" : "scale(1)",
-  transformOrigin: "right center",
 }}
 >     
 <a
