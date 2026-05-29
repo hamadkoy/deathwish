@@ -191,13 +191,13 @@ for (const sheet of allSheetsData) {
     (h) => normalize(h) === "total"
   );
 
-  const userRow = totalRows.find((row) =>
-    row.some((cell) => cell?.toString().trim() === discordId)
-  );
+const userRow = totalRows.find(
+  (row) => row[0]?.toString().trim() === discordId
+);
 
-  if (!userRow) continue;
+if (!userRow) continue;
 
-  combinedTotalBalance += parseNumber(userRow[totalIndex]);
+combinedTotalBalance += parseNumber(userRow[totalIndex]);
 
 }
   return NextResponse.json({
