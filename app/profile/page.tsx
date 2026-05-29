@@ -741,7 +741,7 @@ return (
     style={{
       position: "relative",
       minHeight: "100vh",
-      overflowX: isMobile ? "auto" : "hidden",
+      overflowX: "hidden",
     }}
   >
 
@@ -793,12 +793,7 @@ backgroundRepeat: "no-repeat",
       }}
     />
 
-<div
-  style={{
-    ...page,
-    minWidth: isMobile ? 1180 : undefined,
-  }}
->
+<div style={page}>
 {cinematicMode && (
   <button
     onClick={() => setCinematicMode(false)}
