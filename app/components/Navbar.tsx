@@ -416,4 +416,5 @@ const link: React.CSSProperties = {
   textDecoration: "none",
   transition: "all 0.22s ease",
   boxShadow: "0 0 14px rgba(168,85,247,0.45)",
+  whiteSpace: "nowrap",
 };
