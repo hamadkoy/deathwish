@@ -796,7 +796,8 @@ backgroundRepeat: "no-repeat",
 <div
   style={{
     ...page,
-    zoom: isMobile ? 0.8 : 1,
+    width: "100%",
+    maxWidth: "100vw",
   }}
 >
 {cinematicMode && (
@@ -1051,8 +1052,8 @@ gridTemplateColumns: isMobile
   ? "220px minmax(0,1fr) 260px"
   : "minmax(0,1400px)",
 
-paddingLeft: isMobile ? 12 : isOwnProfile ? 20 : 40,
-paddingRight: isMobile ? 12 : isOwnProfile ? 20 : 40,
+paddingLeft: isMobile ? 6 : isOwnProfile ? 20 : 40,
+paddingRight: isMobile ? 6 : isOwnProfile ? 20 : 40,
 justifyContent: isOwnProfile ? "unset" : "center",
   }}
 >
@@ -1459,7 +1460,7 @@ minWidth: isMobile ? 1100 : "unset",
   : "240px minmax(0,1fr) 300px",
   overflow: "hidden",
 width: "100%",
-      gap: 20,
+gap: isMobile ? 10 : 20,
       marginTop: 20,
       minHeight: 780,
     }}

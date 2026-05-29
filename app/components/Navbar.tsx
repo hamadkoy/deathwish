@@ -101,8 +101,8 @@ gap: isMobile ? 10 : 0,
     src="/websitelogo.png"
     alt=""
 style={{
-  width: 120,
-  height: 120,
+width: isMobile ? 70 : 120,
+height: isMobile ? 70 : 120,
   objectFit: "contain",
   marginTop: -18,
   marginBottom: -18,
@@ -112,7 +112,7 @@ style={{
   <div>
     <div
       style={{
-        fontSize: 32,
+fontSize: isMobile ? 18 : 32,
         fontWeight: 900,
         fontFamily: "Georgia, serif",
         lineHeight: 1,
@@ -123,8 +123,8 @@ style={{
 
 <div
   style={{
-    fontSize: 15,
-    letterSpacing: 5,
+fontSize: isMobile ? 9 : 15,
+letterSpacing: isMobile ? 2 : 5,
     color: "#bca38c",
     marginTop: 4,
   }}
