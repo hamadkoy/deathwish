@@ -27,6 +27,7 @@ type Run = {
   finished?: boolean;
   signup_open_at?: string;
   healer_limit?: number;
+  background_key?: string;
 dps_limit?: number;
 };
 
@@ -174,6 +175,7 @@ export default function RunsPage() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [signups, setSignups] = useState<Signup[]>([]);
   const [user, setUser] = useState<any>(null);
+  const [editRunBackground, setEditRunBackground] = useState("mythic-red");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -181,7 +183,7 @@ const [chatInput, setChatInput] = useState("");
 const [chatOpen, setChatOpen] = useState(false);
 const chatBottomRef = useRef<HTMLDivElement | null>(null);
 const [showAccessPopup, setShowAccessPopup] = useState(false);
-
+const [newRunBackground, setNewRunBackground] = useState("mythic-red");
 const [mainCharacterInput, setMainCharacterInput] = useState("");
 const [mainRealmInput, setMainRealmInput] = useState("Kazzak");
 const [raiderIoInput, setRaiderIoInput] = useState("");
@@ -780,6 +782,7 @@ async function finishRun(run: Run) {
     setEditRunTime(run.time || "");
     setEditRunDate(run.run_date || "");
     setEditRunNotes(run.notes || "");
+    setEditRunBackground(run.background_key || "mythic-red");
   }
 
   async function saveEditRun() {
@@ -787,19 +790,22 @@ async function finishRun(run: Run) {
 
     const { error } = await supabase
       .from("runs")
-      .update({
-        title: editRunTitle,
-        day: editRunDay,
-        time: editRunTime,
-        run_date: editRunDate || null,
-        notes: editRunNotes,
-        ilvl_required: Number(editRunIlvl) || null,
-healer_limit: Number(editRunHealers) || 3,
-dps_limit: Number(editRunDps) || 10,
-signup_open_at: editRunSignupOpenAt
-  ? new Date(editRunSignupOpenAt).toISOString()
-  : null,
-      })
+.update({
+  title: editRunTitle,
+  day: editRunDay,
+  time: editRunTime,
+  run_date: editRunDate || null,
+  notes: editRunNotes,
+  background_key: editRunBackground,
+  ilvl_required: Number(editRunIlvl) || null,
+  healer_limit: Number(editRunHealers) || 3,
+  dps_limit: Number(editRunDps) || 10,
+
+  signup_open_at:
+    editRunSignupOpenAt.trim() !== ""
+      ? new Date(editRunSignupOpenAt).toISOString()
+      : editingRun.signup_open_at,
+})
       .eq("id", editingRun.id);
 
     if (error) {
@@ -815,6 +821,7 @@ await loadSignups();
   async function createRun() {
     if (!newRunTitle.trim()) {
       alert("Enter run title");
+      
       return;
     }
 
@@ -825,6 +832,7 @@ await loadSignups();
         time: newRunTime,
         week: selectedWeek,
         notes: newRunNotes,
+        background_key: newRunBackground,
         run_date: getRunDateFromWeekAndDay(selectedWeek, newRunDay),
         ilvl_required: Number(newRunIlvl) || null,
         healer_limit: Number(newRunHealers) || 3,
@@ -982,6 +990,15 @@ async function markAttendance(signupId: number, status: "present" | "missing") {
     await loadSignups();
   }
 
+  function toDatetimeLocal(value?: string) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60000);
+
+  return localDate.toISOString().slice(0, 16);
+}
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
 
@@ -2045,12 +2062,33 @@ style={{
   style={createInput}
 />
 
-      <input
-        placeholder="Notes"
-        value={newRunNotes}
-        onChange={(e) => setNewRunNotes(e.target.value)}
-        style={createInput}
-      />
+<select
+  value={newRunBackground}
+  onChange={(e) => setNewRunBackground(e.target.value)}
+  style={createInput}
+>
+  <option value="mythic-red">Mythic Red</option>
+  <option value="mythic-purple">Mythic Purple</option>
+  <option value="hc-gold">HC Gold</option>
+  <option value="void">Void</option>
+</select>
+
+<input
+  placeholder="Notes"
+  value={newRunNotes}
+  onChange={(e) => setNewRunNotes(e.target.value)}
+  style={createInput}
+/>
+<select
+  value={newRunBackground}
+  onChange={(e) => setNewRunBackground(e.target.value)}
+  style={createInput}
+>
+  <option value="mythic-red">Mythic Red</option>
+  <option value="mythic-purple">Mythic Purple</option>
+  <option value="hc-gold">HC Gold</option>
+  <option value="void">Void</option>
+</select>
 
       <button
         onClick={createRun}
@@ -2128,12 +2166,24 @@ style={{
               onChange={(e) => setEditRunTime(e.target.value)}
               style={createInput}
             />
+<div style={fieldLabel}>Background</div>
+<select
+  value={editRunBackground}
+  onChange={(e) => setEditRunBackground(e.target.value)}
+  style={createInput}
+>
+  <option value="mythic-red">Mythic Red</option>
+  <option value="mythic-purple">Mythic Purple</option>
+  <option value="hc-gold">HC Blue</option>
+  <option value="void">Void Blue</option>
+</select>
+
 <div style={fieldLabel}>Notes</div>
-            <input
-              value={editRunNotes}
-              onChange={(e) => setEditRunNotes(e.target.value)}
-              style={createInput}
-            />
+<input
+  value={editRunNotes}
+  onChange={(e) => setEditRunNotes(e.target.value)}
+  style={createInput}
+/>
 
             <button
               onClick={saveEditRun}
@@ -2383,7 +2433,7 @@ right: 18,
     setEditRunIlvl(String(run.ilvl_required || ""));
 setEditRunHealers(String(run.healer_limit || 3));
 setEditRunDps(String(run.dps_limit || 10));
-setEditRunSignupOpenAt(run.signup_open_at ? run.signup_open_at.slice(0, 16) : "");
+setEditRunSignupOpenAt(toDatetimeLocal(run.signup_open_at));
   }}
         style={editRunButton}
       >
@@ -3460,39 +3510,49 @@ function getSpecIconPath(player: string) {
   return `/icons/${fileName}.png`;
 }
 function getRunTheme(run: Run, index: number) {
-  const title = run.title.toLowerCase();
-
-  const isHC = title.includes("hc");
-
-  const bossMatch = title.match(/(\d+)\/9/i);
-  const bossCount = bossMatch ? Number(bossMatch[1]) : 0;
-
-  if (isHC) {
+  if (run.background_key === "mythic-red") {
     return {
-      bg: "/hc-bg.png",
-      glow: "rgba(14,165,233,.95)",
-      title: "#38dfff",
-      emblem: "/hc-emblem.png",
-    };
-  }
-
-  if (bossCount <= 5) {
-    return {
-      bg: "/mythic-purple-bg.png",
+      bg: "/mythic-red-bg.png",
       glow: "rgba(239,68,68,.9)",
-      title: "#e9d5ff",
+      title: "#fecaca",
       emblem: "/mythic-red-emblem.png",
     };
   }
 
+  if (run.background_key === "mythic-purple") {
+    return {
+      bg: "/mythic-purple-bg.png",
+      glow: "rgba(168,85,247,.9)",
+      title: "#e9d5ff",
+      emblem: "/mythic-emblem.png",
+    };
+  }
+
+  if (run.background_key === "hc-gold") {
+    return {
+      bg: "/hc-bg.png",
+      glow: "rgba(59,130,246,.95)",
+      title: "#bfdbfe",
+      emblem: "/hc-emblem.png",
+    };
+  }
+
+  if (run.background_key === "void") {
+    return {
+      bg: "/nightfall.png",
+      glow: "rgba(59,130,246,.95)",
+      title: "#bfdbfe",
+      emblem: "/mythic-emblem.png",
+    };
+  }
+
   return {
-    bg: "/mythic-red-bg.png",
-    glow: "rgba(250,204,21,.75)",
-    title: "#ffffff",
+    bg: "/mythic-purple-bg.png",
+    glow: "rgba(168,85,247,.9)",
+    title: "#e9d5ff",
     emblem: "/mythic-emblem.png",
   };
 }
-
 function getClassColor(className?: string) {
   const colors: Record<string, string> = {
     Druid: "#ff7c0a",

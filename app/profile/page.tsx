@@ -1059,7 +1059,7 @@ paddingRight: isMobile ? 6 : isOwnProfile ? 20 : 40,
 justifyContent: isOwnProfile ? "unset" : "center",
   }}
 >
-{isOwnProfile && !isMobile && (
+{isOwnProfile && (
   <aside
     style={{
       ...sidebar,
@@ -2047,7 +2047,7 @@ style={{
 )}
         </main>
 
-{isOwnProfile && !isMobile && (
+{isOwnProfile && (
   <aside style={rightbar}>
     <InfoCard title="HOW IT WORKS">
             <Legend color="#22c55e" title="Available" text="You can sign up for HC and Mythic runs." />
