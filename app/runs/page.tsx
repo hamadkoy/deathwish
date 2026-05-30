@@ -298,7 +298,7 @@ const canFinishRun = isAdmin || isOfficer;
 
 const canUseRunCards =
   signupApproved &&
-  ["Reaper", "Soulreaper", "Nightblade", "Dreadlord"].includes(fixedRole);
+  fixedRole !== "Lost_soul";
 
   const [editingRun, setEditingRun] = useState<Run | null>(null);
   const [editRunTitle, setEditRunTitle] = useState("");
@@ -1788,45 +1788,84 @@ onClick={deleteSelectedWeek}
 </div>
 
 <div style={weekButtons}>
+  {weeks.map((week) => {
+    const isOldWeek = week < getCurrentWeek();
 
-      
-{weeks.map((week) => (
-            <button
-              key={week}
-              onClick={() => setSelectedWeek(week)}
-              style={{
-                ...weekButton,
-                ...(selectedWeek === week ? weekButtonActive : {}),
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform =
-                  "translateY(-2px) scale(1.04)";
-                e.currentTarget.style.boxShadow =
-                  "0 0 22px rgba(168,85,247,.95), inset 0 0 16px rgba(168,85,247,.35)";
-                e.currentTarget.style.border = "2px solid #c084fc";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0) scale(1)";
-                e.currentTarget.style.boxShadow =
-                  selectedWeek === week
-                    ? "0 0 22px rgba(250,204,21,.9), inset 0 0 14px rgba(250,204,21,.35)"
-                    : "0 0 10px rgba(168,85,247,.35), inset 0 0 10px rgba(168,85,247,.25)";
-                e.currentTarget.style.border =
-                  selectedWeek === week
-                    ? "2px solid #facc15"
-                    : "1px solid #7e22ce";
-              }}
-            >
-              <div>
-                <div>
-                 Week {week}
-                </div>
+    return (
+      <button
+        key={week}
+        onClick={() => setSelectedWeek(week)}
+        style={{
+          ...weekButton,
 
-                <div style={weekDateText}>{getShortWeekRange(week)}</div>
-              </div>
-            </button>
-          ))}
+          ...(selectedWeek === week
+            ? weekButtonActive
+            : {}),
+
+          opacity: isOldWeek ? 0.45 : 1,
+
+          filter: isOldWeek
+            ? "grayscale(100%) brightness(70%)"
+            : "none",
+
+          border:
+            selectedWeek === week
+              ? "2px solid #facc15"
+              : isOldWeek
+              ? "1px solid rgba(120,120,120,.45)"
+              : "1px solid #7e22ce",
+
+          boxShadow:
+            selectedWeek === week
+              ? "0 0 22px rgba(250,204,21,.9), inset 0 0 14px rgba(250,204,21,.35)"
+              : isOldWeek
+              ? "0 0 8px rgba(120,120,120,.25)"
+              : "0 0 10px rgba(168,85,247,.35), inset 0 0 10px rgba(168,85,247,.25)",
+        }}
+
+        onMouseEnter={(e) => {
+          if (isOldWeek) return;
+
+          e.currentTarget.style.transform =
+            "translateY(-2px) scale(1.04)";
+
+          e.currentTarget.style.boxShadow =
+            "0 0 22px rgba(168,85,247,.95), inset 0 0 16px rgba(168,85,247,.35)";
+
+          e.currentTarget.style.border =
+            "2px solid #c084fc";
+        }}
+
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform =
+            "translateY(0) scale(1)";
+
+          e.currentTarget.style.boxShadow =
+            selectedWeek === week
+              ? "0 0 22px rgba(250,204,21,.9), inset 0 0 14px rgba(250,204,21,.35)"
+              : isOldWeek
+              ? "0 0 8px rgba(120,120,120,.25)"
+              : "0 0 10px rgba(168,85,247,.35), inset 0 0 10px rgba(168,85,247,.25)";
+
+          e.currentTarget.style.border =
+            selectedWeek === week
+              ? "2px solid #facc15"
+              : isOldWeek
+              ? "1px solid rgba(120,120,120,.45)"
+              : "1px solid #7e22ce";
+        }}
+      >
+        <div>
+          <div>Week {week}</div>
+
+          <div style={weekDateText}>
+            {getShortWeekRange(week)}
+          </div>
         </div>
+      </button>
+    );
+  })}
+</div>
 
   
 
@@ -2616,7 +2655,7 @@ setAdminAddSpec={setAdminAddSpec}
                   <RoleBox
                     runId={run.id}
                     role="DPS"
-                    color="#ef4444"
+                    color="#ff4d8d"
                     buttonText="SIGN DPS"
                     signups={signups}
                     addSignup={addSignup}
@@ -3041,7 +3080,15 @@ function FilterButton({
     </button>
   );
 }
+function getNumberColor(current: number, max: number | null) {
+  if (!max) return "#ffffff";
 
+  const percent = (current / max) * 100;
+
+  if (percent >= 100) return "#ef4444"; // red
+  if (percent >= 61) return "#facc15"; // yellow
+  return "#22c55e"; // green
+}
 function RoleBox({
   runId,
   role,
@@ -3134,7 +3181,7 @@ const isOfficer =
       <div
         style={{
           ...roleTitle,
-          color: displayColor,
+         color: color,
 
           fontSize:
             role === "Loot Body"
@@ -3143,11 +3190,7 @@ const isOfficer =
               ? 20
               : 22,
 
-          textShadow: full
-            ? "0 0 18px rgba(239,68,68,.95)"
-            : oneLeft
-            ? "0 0 18px rgba(250,204,21,.95)"
-            : `0 0 18px ${color}`,
+  textShadow: `0 0 18px ${color}`,
 
           whiteSpace: "nowrap",
         }}
@@ -3156,9 +3199,15 @@ const isOfficer =
           {getRoleIcon(role)}
         </span>{" "}
         {getRoleLabel(role)}{" "}
-        <span style={{ fontSize: 14 }}>
-          {roleSignups.length}/{limit}
-        </span>
+<span
+  style={{
+    fontSize: 14,
+    color: getNumberColor(roleSignups.length, limit),
+    textShadow: `0 0 12px ${getNumberColor(roleSignups.length, limit)}`,
+  }}
+>
+  {roleSignups.length}/{limit}
+</span>
       </div>
 
       <div style={signupList}>
