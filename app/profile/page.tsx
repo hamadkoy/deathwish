@@ -33,6 +33,7 @@ type Profile = {
 export default function ProfilePage() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [time, setTime] = useState(new Date());
+  const [balanceData, setBalanceData] = useState<any>(null);
   const [name, setName] = useState("");
   const [realm, setRealm] = useState("Kazzak");
   const [themePickerOpen, setThemePickerOpen] = useState(false);
@@ -151,7 +152,7 @@ await supabase
   });
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("*")
+      .select("*, discord_id")
       .eq("user_id", data.user.id)
       .single();
 
@@ -167,24 +168,29 @@ async function loadCharacters() {
   }
 
   const params = new URLSearchParams(window.location.search);
+
+  const targetUserIdParam = params.get("userId");
   const targetDiscordId = params.get("discordId");
-const targetCharacterId = params.get("characterId");
+  const targetCharacterId = params.get("characterId");
 
   let targetUserId = authData.user.id;
-  setIsOwnProfile(true);
 
-  // If viewing someone else's garrison
-  if (targetCharacterId) {
-  const { data: targetChar } = await supabase
-    .from("characters")
-    .select("user_id")
-    .eq("id", Number(targetCharacterId))
-    .single();
-
-  if (targetChar?.user_id) {
-    targetUserId = targetChar.user_id;
+  if (targetUserIdParam) {
+    targetUserId = targetUserIdParam;
   }
-}
+
+  if (targetCharacterId) {
+    const { data: targetChar } = await supabase
+      .from("characters")
+      .select("user_id")
+      .eq("id", Number(targetCharacterId))
+      .single();
+
+    if (targetChar?.user_id) {
+      targetUserId = targetChar.user_id;
+    }
+  }
+
   if (targetDiscordId) {
     const { data: targetProfile } = await supabase
       .from("profiles")
@@ -196,39 +202,61 @@ const targetCharacterId = params.get("characterId");
       targetUserId = targetProfile.user_id;
     }
   }
-setIsOwnProfile(targetUserId === authData.user.id);
+
+  setIsOwnProfile(targetUserId === authData.user.id);
 
 const { data: viewedProfileData } = await supabase
   .from("profiles")
-  .select("*")
-  .eq("user_id", targetUserId)
-  .single();
+  .select("*, discord_id")
+    .eq("user_id", targetUserId)
+    .single();
 
-if (viewedProfileData) {
-  setViewedProfile(viewedProfileData);
+  if (viewedProfileData) {
+    setViewedProfile(viewedProfileData);
+const bankDiscordId =
+  viewedProfileData?.discord_id ||
+  viewedProfileData?.user_id;
 
-  if (viewedProfileData.profile_theme) {
-    setSelectedTheme(viewedProfileData.profile_theme);
+console.log("VIEWED PROFILE DATA:", viewedProfileData);
+console.log("BANK DISCORD ID USED:", bankDiscordId);
+
+if (bankDiscordId) {
+  try {
+    const res = await fetch(`/api/bank?discordId=${bankDiscordId}`);
+    const bankData = await res.json();
+
+    console.log("VIEWED USER BANK:", bankData);
+
+    setBalanceData(bankData);
+  } catch (err) {
+    console.error(err);
+    setBalanceData(null);
   }
 }
-if (targetUserId !== authData.user.id) {
-  await supabase.from("garrison_visits").insert({
-    profile_user_id: targetUserId,
-    visitor_user_id: authData.user.id,
-    visitor_name:
-      authData.user.user_metadata?.full_name ||
-      authData.user.user_metadata?.name ||
-      "Unknown",
-    visitor_avatar: authData.user.user_metadata?.avatar_url || "",
-  });
-}
+    if (viewedProfileData.profile_theme) {
+      setSelectedTheme(viewedProfileData.profile_theme);
+    }
+  }
 
-const { count } = await supabase
-  .from("garrison_visits")
-  .select("*", { count: "exact", head: true })
-  .eq("profile_user_id", targetUserId);
+  if (targetUserId !== authData.user.id) {
+    await supabase.from("garrison_visits").insert({
+      profile_user_id: targetUserId,
+      visitor_user_id: authData.user.id,
+      visitor_name:
+        authData.user.user_metadata?.full_name ||
+        authData.user.user_metadata?.name ||
+        "Unknown",
+      visitor_avatar: authData.user.user_metadata?.avatar_url || "",
+    });
+  }
 
-setVisitorCount(count || 0);
+  const { count } = await supabase
+    .from("garrison_visits")
+    .select("*", { count: "exact", head: true })
+    .eq("profile_user_id", targetUserId);
+
+  setVisitorCount(count || 0);
+
   const { data, error } = await supabase
     .from("characters")
     .select("*")
@@ -245,7 +273,6 @@ setVisitorCount(count || 0);
   setCharacters(chars);
   await loadSavedStatus(chars);
 }
-
   async function loadSavedStatus(characterList: Character[]) {
   if (characterList.length === 0) {
     setSavedStatus({});
@@ -773,8 +800,8 @@ minHeight: isMobile ? 2600 : "100vh",
       position: "fixed",
       inset: 0,
       backgroundImage: `url(${currentTheme.image})`,
-backgroundSize: isMobile ? "cover" : "95%",
-backgroundPosition: "center top",
+backgroundSize: "cover",
+backgroundPosition: "center",
 backgroundRepeat: "no-repeat",
       zIndex: -2,
       filter: "brightness(.8)",
@@ -974,10 +1001,20 @@ left: 110,
         {Object.keys(themes).map((theme) => (
           <button
             key={theme}
-            onClick={() => {
-              setSelectedTheme(theme);
-              setThemePickerOpen(false);
-            }}
+
+onClick={async () => {
+  setSelectedTheme(theme);
+  localStorage.setItem("profileTheme", theme);
+
+  if (user?.id) {
+    await supabase
+      .from("profiles")
+      .update({ profile_theme: theme })
+      .eq("user_id", user.id);
+  }
+
+  setThemePickerOpen(false);
+}}
             style={{
               height: 200,
               borderRadius: 20,
@@ -1101,7 +1138,11 @@ justifyContent: isOwnProfile ? "unset" : "center",
         <main style={main}>
           <div style={headerRow}>
             <div>
-              <h1 style={title}>My Characters</h1>
+              <h1 style={title}>
+  {isOwnProfile
+    ? "My Characters"
+    : `${viewedProfile?.discord_name || "User"}'s Garrison`}
+</h1>
               <p style={subtitle}>View all your characters and their raid availability.</p>
               {characters.find((c) => c.is_main) && (
 <div
@@ -1158,6 +1199,14 @@ justifyContent: isOwnProfile ? "unset" : "center",
     <span style={miniStatLabel}>Raider.IO</span>
     <b style={rioValue}>{highestRioScore}</b>
   </div>
+  {!isOwnProfile && (
+  <div style={miniStat}>
+    <span style={miniStatLabel}>Balance</span>
+<b style={balanceValue}>
+  {Number(balanceData?.balance || 0).toLocaleString()} 🟡
+</b>
+  </div>
+)}
 </div>
 
 )}
@@ -3257,4 +3306,10 @@ const normalViewBtn: React.CSSProperties = {
   fontSize: 16,
   cursor: "pointer",
   minWidth: 210,
+};
+const balanceValue: React.CSSProperties = {
+  color: "#facc15",
+  fontSize: 28,
+  fontWeight: 900,
+  textShadow: "0 0 14px rgba(250,204,21,.75)",
 };

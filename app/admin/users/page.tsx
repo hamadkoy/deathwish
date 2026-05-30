@@ -4,14 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import SideNav from "@/app/components/SideNav";
 
-type SiteRole = "viewer" | "booster" | "officer" | "admin";
+type SiteRole =
+  | "Lost_soul"
+  | "Reaper"
+  | "Soulreaper"
+  | "Nightblade"
+  | "Dreadlord";
 
 type Profile = {
   id?: number;
   user_id: string;
   discord_name?: string;
   avatar_url?: string;
-  site_role?: SiteRole;
+  site_role?: string;
   signup_approved?: boolean;
 
   main_character?: string;
@@ -26,46 +31,48 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"team" | "applicants">("team");
-const [currentUserRole, setCurrentUserRole] = useState<SiteRole>("viewer");
-useEffect(() => {
-  loadCurrentUser();
-  loadUsers();
+  const [currentUserRole, setCurrentUserRole] =
+    useState<SiteRole>("Lost_soul");
 
-  const channel = supabase
-    .channel("realtime-profiles")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "profiles",
-      },
-      () => {
-        loadUsers();
-      }
-    )
-    .subscribe();
+  useEffect(() => {
+    loadCurrentUser();
+    loadUsers();
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, []);
+    const channel = supabase
+      .channel("realtime-profiles")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "profiles",
+        },
+        () => {
+          loadUsers();
+        }
+      )
+      .subscribe();
 
-async function loadCurrentUser() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
-  if (!user) return;
+  async function loadCurrentUser() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("site_role")
-    .eq("user_id", user.id)
-    .single();
+    if (!user) return;
 
-  setCurrentUserRole((data?.site_role as SiteRole) || "viewer");
-}
+    const { data } = await supabase
+      .from("profiles")
+      .select("site_role")
+      .eq("user_id", user.id)
+      .single();
+
+    setCurrentUserRole(normalizeRole(data?.site_role));
+  }
 
   async function loadUsers() {
     setLoading(true);
@@ -85,24 +92,24 @@ async function loadCurrentUser() {
     setLoading(false);
   }
 
-async function updateUser(userId: string, updates: Partial<Profile>) {
-  if (currentUserRole !== "admin") {
-    alert("Only Admins can manage user access.");
-    return;
+  async function updateUser(userId: string, updates: Partial<Profile>) {
+    if (currentUserRole !== "Dreadlord") {
+      alert("Only Dreadlords can manage user access.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(updates)
+      .eq("user_id", userId);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await loadUsers();
   }
-
-  const { error } = await supabase
-    .from("profiles")
-    .update(updates)
-    .eq("user_id", userId);
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  await loadUsers();
-}
 
   const filteredUsers = useMemo(() => {
     let list = [...users];
@@ -110,16 +117,17 @@ async function updateUser(userId: string, updates: Partial<Profile>) {
     if (activeTab === "team") {
       list = list.filter((u) => u.signup_approved);
 
-      const roleOrder: Record<string, number> = {
-        admin: 0,
-        officer: 1,
-        booster: 2,
-        viewer: 3,
+      const roleOrder: Record<SiteRole, number> = {
+        Dreadlord: 0,
+        Nightblade: 1,
+        Soulreaper: 2,
+        Reaper: 3,
+        Lost_soul: 4,
       };
 
       list.sort((a, b) => {
-        const roleA = roleOrder[a.site_role || "viewer"];
-        const roleB = roleOrder[b.site_role || "viewer"];
+        const roleA = roleOrder[normalizeRole(a.site_role)];
+        const roleB = roleOrder[normalizeRole(b.site_role)];
 
         if (roleA !== roleB) return roleA - roleB;
 
@@ -127,9 +135,9 @@ async function updateUser(userId: string, updates: Partial<Profile>) {
       });
     }
 
-if (activeTab === "applicants") {
-  list = list.filter((u) => u.applied_at && !u.signup_approved);
-}
+    if (activeTab === "applicants") {
+      list = list.filter((u) => u.applied_at && !u.signup_approved);
+    }
 
     return list.filter((u) =>
       (u.discord_name || "").toLowerCase().includes(search.toLowerCase())
@@ -138,11 +146,17 @@ if (activeTab === "applicants") {
 
   const totalUsers = users.length;
   const approvedUsers = users.filter((u) => u.signup_approved).length;
-  const boosters = users.filter((u) => u.site_role === "booster").length;
-  const officers = users.filter((u) => u.site_role === "officer").length;
-  const admins = users.filter((u) => u.site_role === "admin").length;
-  const applicants = users.filter((u) => !u.signup_approved).length;
-  const isAdmin = currentUserRole === "admin";
+  const applicants = users.filter((u) => u.applied_at && !u.signup_approved).length;
+
+  const dreadlords = users.filter((u) => normalizeRole(u.site_role) === "Dreadlord").length;
+  const nightblades = users.filter((u) => normalizeRole(u.site_role) === "Nightblade").length;
+  const soulreapers = users.filter((u) => normalizeRole(u.site_role) === "Soulreaper").length;
+  const reapers = users.filter((u) => normalizeRole(u.site_role) === "Reaper").length;
+
+  const isAdmin = currentUserRole === "Dreadlord";
+  const canSeeApplicants =
+    currentUserRole === "Dreadlord" || currentUserRole === "Nightblade";
+
   return (
     <div style={page}>
       <div style={layout}>
@@ -160,9 +174,10 @@ if (activeTab === "applicants") {
             <Stat title="Total Users" value={totalUsers} color="#c084fc" />
             <Stat title="Approved" value={approvedUsers} color="#22c55e" />
             <Stat title="Applicants" value={applicants} color="#f97316" />
-            <Stat title="Officers" value={officers} color="#facc15" />
-            <Stat title="Boosters" value={boosters} color="#38bdf8" />
-            <Stat title="Admins" value={admins} color="#fb7185" />
+            <Stat title="Dreadlords" value={dreadlords} color="#fb7185" />
+            <Stat title="Nightblades" value={nightblades} color="#facc15" />
+            <Stat title="Soulreapers" value={soulreapers} color="#a78bfa" />
+            <Stat title="Reapers" value={reapers} color="#38bdf8" />
           </div>
 
           <div style={panel}>
@@ -174,12 +189,14 @@ if (activeTab === "applicants") {
                 Team
               </button>
 
-              <button
-                onClick={() => setActiveTab("applicants")}
-                style={activeTab === "applicants" ? tabActive : tab}
-              >
-                New Applicants
-              </button>
+              {canSeeApplicants && (
+                <button
+                  onClick={() => setActiveTab("applicants")}
+                  style={activeTab === "applicants" ? tabActive : tab}
+                >
+                  New Applicants
+                </button>
+              )}
             </div>
 
             <div style={topRow}>
@@ -247,11 +264,11 @@ if (activeTab === "applicants") {
                       <div style={muted}>No Raider.IO</div>
                     )}
 
-                    {user.application_note && (
+                    {!user.signup_approved && user.application_note && (
                       <div style={note}>“{user.application_note}”</div>
                     )}
 
-                    {user.applied_at && (
+                    {!user.signup_approved && user.applied_at && (
                       <div style={appliedAt}>
                         Applied: {new Date(user.applied_at).toLocaleString()}
                       </div>
@@ -260,7 +277,7 @@ if (activeTab === "applicants") {
 
                   <div>
                     <select
-                      value={user.site_role || "viewer"}
+                      value={normalizeRole(user.site_role)}
                       onChange={(e) =>
                         updateUser(user.user_id, {
                           site_role: e.target.value as SiteRole,
@@ -269,10 +286,11 @@ if (activeTab === "applicants") {
                       style={select}
                       disabled={!isAdmin || isOwner(user)}
                     >
-                      <option value="viewer">Viewer</option>
-                      <option value="booster">Booster</option>
-                      <option value="officer">Officer</option>
-                      <option value="admin">Admin</option>
+                      <option value="Dreadlord">Dreadlord</option>
+                      <option value="Nightblade">Nightblade</option>
+                      <option value="Soulreaper">Soulreaper</option>
+                      <option value="Reaper">Reaper</option>
+                      <option value="Lost_soul">Lost Soul</option>
                     </select>
                   </div>
 
@@ -286,9 +304,8 @@ if (activeTab === "applicants") {
 
                   <div style={actions}>
                     {!isAdmin ? (
-  <span style={muted}>Admin only</span>
-) : isOwner(user) ? (
-                   
+                      <span style={muted}>Dreadlord only</span>
+                    ) : isOwner(user) ? (
                       <button style={ownerBtn} disabled>
                         👑 Owner
                       </button>
@@ -298,10 +315,10 @@ if (activeTab === "applicants") {
                           updateUser(user.user_id, {
                             signup_approved: false,
                             site_role:
-                              user.site_role === "admin" ||
-                              user.site_role === "officer"
-                                ? user.site_role
-                                : "viewer",
+                              normalizeRole(user.site_role) === "Dreadlord" ||
+                              normalizeRole(user.site_role) === "Nightblade"
+                                ? normalizeRole(user.site_role)
+                                : "Lost_soul",
                           })
                         }
                         style={revokeBtn}
@@ -309,32 +326,35 @@ if (activeTab === "applicants") {
                         Revoke Access
                       </button>
                     ) : (
-<>
-  <button
-    onClick={() =>
-      updateUser(user.user_id, {
-        signup_approved: true,
-        site_role: "booster",
-      })
-    }
-    style={approveBtn}
-  >
-    Approve Signup
-  </button>
+                      <>
+                        <button
+                          onClick={() =>
+                            updateUser(user.user_id, {
+                              signup_approved: true,
+                              site_role: "Reaper",
+                              application_note: "",
+                              applied_at: null,
+                            })
+                          }
+                          style={approveBtn}
+                        >
+                          Approve Signup
+                        </button>
 
-  <button
-    onClick={() =>
-      updateUser(user.user_id, {
-        signup_approved: false,
-        applied_at: null,
-        application_note: "",
-      })
-    }
-    style={revokeBtn}
-  >
-    Decline
-  </button>
-</>
+                        <button
+                          onClick={() =>
+                            updateUser(user.user_id, {
+                              signup_approved: false,
+                              applied_at: null,
+                              application_note: "",
+                              site_role: "Lost_soul",
+                            })
+                          }
+                          style={revokeBtn}
+                        >
+                          Decline
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -347,15 +367,38 @@ if (activeTab === "applicants") {
   );
 }
 
+function normalizeRole(role?: string | null): SiteRole {
+  if (role === "Dreadlord" || role === "admin" || role === "Deathlord") {
+    return "Dreadlord";
+  }
+
+  if (role === "Nightblade" || role === "officer" || role === "Deathbringer") {
+    return "Nightblade";
+  }
+
+  if (role === "Soulreaper") {
+    return "Soulreaper";
+  }
+
+  if (role === "Reaper" || role === "Booster" || role === "booster") {
+    return "Reaper";
+  }
+
+  return "Lost_soul";
+}
+
 function isOwner(user: Profile) {
   return (user.discord_name || "").toLowerCase() === "koyjin";
 }
 
-function getRoleIcon(role?: SiteRole) {
-  if (role === "admin") return "👑";
-  if (role === "officer") return "⭐";
-  if (role === "booster") return "⚔️";
-  return "👤";
+function getRoleIcon(role?: string | null) {
+  const fixedRole = normalizeRole(role);
+
+  if (fixedRole === "Dreadlord") return "👑";
+  if (fixedRole === "Nightblade") return "☠️";
+  if (fixedRole === "Soulreaper") return "💀";
+  if (fixedRole === "Reaper") return "⚔️";
+  return "👻";
 }
 
 function Stat({

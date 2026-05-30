@@ -321,6 +321,26 @@ style={{
   Bank
 </a>
 <a
+  href="/garrisons"
+  style={navLink}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.transform = "scale(1.06)";
+    e.currentTarget.style.background =
+      "linear-gradient(90deg,#9333ea,#e879f9)";
+    e.currentTarget.style.boxShadow =
+      "0 0 22px rgba(217,70,239,0.9)";
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.transform = "scale(1)";
+    e.currentTarget.style.background =
+      "linear-gradient(90deg,#6d28d9,#c026d3)";
+    e.currentTarget.style.boxShadow =
+      "0 0 14px rgba(168,85,247,0.45)";
+  }}
+>
+  Garrisons
+</a>
+<a
 
   href="/profile"
   style={navLink}
