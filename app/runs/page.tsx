@@ -171,6 +171,25 @@ function formatChatDayLabel(dateString: string) {
 
   return date.toLocaleDateString("en-GB");
 }
+function normalizeRole(role?: string | null) {
+  if (role === "Dreadlord" || role === "admin" || role === "Deathlord") {
+    return "Dreadlord";
+  }
+
+  if (role === "Nightblade" || role === "officer" || role === "Deathbringer") {
+    return "Nightblade";
+  }
+
+  if (role === "Soulreaper") {
+    return "Soulreaper";
+  }
+
+  if (role === "Reaper" || role === "Booster" || role === "booster") {
+    return "Reaper";
+  }
+
+  return "Lost_soul";
+}
 export default function RunsPage() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [signups, setSignups] = useState<Signup[]>([]);
@@ -265,15 +284,22 @@ const [adminAddSpec, setAdminAddSpec] = useState("Guardian");
   const discordId =
     user?.user_metadata?.provider_id || user?.user_metadata?.sub;
 
- const isAdmin =
+const fixedRole = normalizeRole(profile?.site_role);
+
+const isAdmin =
   ADMIN_IDS.includes(discordId) ||
-  profile?.site_role === "admin";
-const isOfficer = profile?.site_role === "officer";
+  fixedRole === "Dreadlord";
+
+const isOfficer =
+  fixedRole === "Nightblade" ||
+  fixedRole === "Soulreaper";
 
 const canFinishRun = isAdmin || isOfficer;
+
 const canUseRunCards =
   signupApproved &&
-  ["booster", "officer", "admin"].includes(profile?.site_role || "");
+  ["Reaper", "Soulreaper", "Nightblade", "Dreadlord"].includes(fixedRole);
+
   const [editingRun, setEditingRun] = useState<Run | null>(null);
   const [editRunTitle, setEditRunTitle] = useState("");
   const [editRunDay, setEditRunDay] = useState("");
