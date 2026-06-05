@@ -28,6 +28,7 @@ type Profile = {
   user_id?: string;
   discord_name?: string;
   avatar_url?: string;
+  site_role?: string;
 };
 
 export default function ProfilePage() {
@@ -45,15 +46,13 @@ const [visitorCount, setVisitorCount] = useState(0);
 const isMobile = useMobile();
 const [isOwnProfile, setIsOwnProfile] = useState(true);
   const [balance, setBalance] = useState(0);
-  useEffect(() => {
-  getLoggedUser();
-}, []);
 const [savedStatus, setSavedStatus] = useState<
   Record<number, { hc: boolean; mythic: boolean }>
 >({});
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [discordId, setDiscordId] = useState("");
+  const [promotionOpen, setPromotionOpen] = useState(false);
   const [popup, setPopup] = useState<{
   title: string;
   message: string;
@@ -71,7 +70,12 @@ const [addCharacterOpen, setAddCharacterOpen] = useState(false);
 const [selectedSpec, setSelectedSpec] = useState("");
 const [muted, setMuted] = useState(() => {
   if (typeof window !== "undefined") {
-    return localStorage.getItem("charactersVideoMuted") === "true";
+    const saved = localStorage.getItem("charactersVideoMuted");
+
+    // first visit = muted
+    if (saved === null) return true;
+
+    return saved === "true";
   }
 
   return true;
@@ -95,7 +99,6 @@ const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 useEffect(() => {
   loadUserAndProfile();
   loadCharacters();
-  getLoggedUser();
 }, []);
 
 useEffect(() => {
@@ -136,7 +139,11 @@ const userDiscordId =
   discordIdentity?.identity_data?.sub ||
   data.user.user_metadata?.provider_id ||
   data.user.user_metadata?.sub;
+setDiscordId(userDiscordId || "");
 
+if (userDiscordId) {
+  loadBalance(userDiscordId);
+}
 await supabase
   .from("profiles")
   .upsert({
@@ -219,20 +226,6 @@ const bankDiscordId =
 
 console.log("VIEWED PROFILE DATA:", viewedProfileData);
 console.log("BANK DISCORD ID USED:", bankDiscordId);
-
-if (bankDiscordId) {
-  try {
-    const res = await fetch(`/api/bank?discordId=${bankDiscordId}`);
-    const bankData = await res.json();
-
-    console.log("VIEWED USER BANK:", bankData);
-
-    setBalanceData(bankData);
-  } catch (err) {
-    console.error(err);
-    setBalanceData(null);
-  }
-}
     if (viewedProfileData.profile_theme) {
       setSelectedTheme(viewedProfileData.profile_theme);
     }
@@ -250,18 +243,33 @@ if (bankDiscordId) {
     });
   }
 
-  const { count } = await supabase
-    .from("garrison_visits")
-    .select("*", { count: "exact", head: true })
-    .eq("profile_user_id", targetUserId);
+supabase
+  .from("garrison_visits")
+  .select("*", { count: "exact", head: true })
+  .eq("profile_user_id", targetUserId)
+  .then(({ count }) => {
+    setVisitorCount(count || 0);
+  });
 
-  setVisitorCount(count || 0);
-
-  const { data, error } = await supabase
-    .from("characters")
-    .select("*")
-    .eq("user_id", targetUserId)
-    .order("class", { ascending: true });
+const { data, error } = await supabase
+  .from("characters")
+  .select(`
+    id,
+    user_id,
+    name,
+    realm,
+    ilvl,
+    class,
+    spec,
+    progress,
+    mythic_bosses,
+    mythic_plus_score,
+    mythic_plus_color,
+    avatar_url,
+    is_main
+  `)
+  .eq("user_id", targetUserId)
+  .order("class", { ascending: true });
 
   if (error) {
     alert(error.message);
@@ -270,8 +278,26 @@ if (bankDiscordId) {
 
   const chars = data || [];
 
-  setCharacters(chars);
-  await loadSavedStatus(chars);
+setCharacters(chars);
+loadSavedStatus(chars);
+}
+async function loadCharacterGear(characterId: number) {
+  const char = characters.find((c) => c.id === characterId);
+  if (!char) return;
+
+  const response = await fetch(
+    `https://raider.io/api/v1/characters/profile?region=eu&realm=${char.realm}&name=${char.name}&fields=gear`
+  );
+
+  const data = await response.json();
+
+  setCharacters((prev) =>
+    prev.map((c) =>
+      c.id === characterId
+        ? { ...c, gear: data?.gear || null }
+        : c
+    )
+  );
 }
   async function loadSavedStatus(characterList: Character[]) {
   if (characterList.length === 0) {
@@ -281,18 +307,19 @@ if (bankDiscordId) {
 
   const characterIds = characterList.map((c) => c.id);
 
-  const { data, error } = await supabase
-    .from("signups")
-.select(`
-  character_id,
-  role,
-  attendance,
-  runs (
-    title,
-    finished
-  )
-`)
-    .in("character_id", characterIds);
+const { data, error } = await supabase
+  .from("signups")
+  .select(`
+    character_id,
+    role,
+    attendance,
+    runs!inner (
+      title,
+      finished
+    )
+  `)
+  .in("character_id", characterIds)
+  .eq("runs.finished", true);
 
   if (error) {
     console.error(error);
@@ -392,18 +419,92 @@ async function getLoggedUser() {
     loadBalance(loggedDiscordId);
   }
 }
-async function loadBalance(discordId: string) {
-  try {
-    const res = await fetch(`/api/bank?discordId=${discordId}`);
-    const data = await res.json();
+async function requestPromotion(
+  role: "Soulreaper" | "Nightblade" | "Dreadlord"
+) {
+  if (!user) return;
+const currentRole =
+  profile?.site_role === "Dreadlord"
+    ? "Dreadlord"
+    : profile?.site_role === "Nightblade"
+    ? "Nightblade"
+    : profile?.site_role === "Soulreaper"
+    ? "Soulreaper"
+    : "Lost_soul";
 
-    console.log("BALANCE DATA:", data);
+const roleOrder = {
+  Lost_soul: 0,
+  Soulreaper: 1,
+  Nightblade: 2,
+  Dreadlord: 3,
+};
 
-    setBalance(Number(data.balance || 0));
-  } catch (err) {
-    console.error(err);
-    setBalance(0);
+const requiredGold = {
+  Soulreaper: 150000000,
+  Nightblade: 250000000,
+  Dreadlord: 325000000,
+};
+
+if (roleOrder[role] <= roleOrder[currentRole]) {
+  setPopup({
+    title: "Rank Already Received",
+    message: `You already received ${role}.`,
+  });
+  return;
+}
+
+if (balance < requiredGold[role]) {
+  setPopup({
+    title: "Requirement Not Met",
+    message: `You do not meet the requirement to get ${role}.`,
+  });
+  return;
+}
+  const { data: existing } = await supabase
+    .from("promotion_requests")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  if (existing) {
+    setPopup({
+      title: "Already Requested",
+      message: "You already have a pending promotion request.",
+    });
+    return;
   }
+
+  const { error } = await supabase.from("promotion_requests").insert({
+    user_id: user.id,
+    discord_name: profile?.discord_name || "Unknown",
+    discord_id: discordId,
+    current_balance: balance,
+    requested_role: role,
+    status: "pending",
+  });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  setPopup({
+    title: "Request Sent",
+    message: `Your ${role} promotion request was sent.`,
+  });
+}
+async function loadBalance(discordId: string) {
+  fetch(`/api/bank?discordId=${discordId}`)
+    .then((res) => res.json())
+    .then((data) => {
+      console.log("BALANCE DATA:", data);
+      setBalance(Number(data.balance || 0));
+    })
+    .catch((err) => {
+      console.error(err);
+      setBalance(0);
+    });
 }
   function getRaidProgress(data: any) {
     const raids = data.raid_progression || {};
@@ -532,7 +633,6 @@ bosses.forEach((boss: any) => {
           mythic_plus_color: mythicPlusColor,
           mythic_bosses: mythicBosses,
           avatar_url: data.thumbnail_url || "",
-          gear: data.gear || null,
         },
       ]);
 
@@ -553,9 +653,9 @@ async function updateCharacter(char: Character) {
   try {
     setUpdatingId(char.id);
 
-    const response = await fetch(
-      `https://raider.io/api/v1/characters/profile?region=eu&realm=${char.realm}&name=${char.name}&fields=gear,raid_progression,mythic_plus_best_runs,mythic_plus_scores_by_season_current`
-    );
+const response = await fetch(
+  `https://raider.io/api/v1/characters/profile?region=eu&realm=${char.realm}&name=${char.name}&fields=raid_progression,mythic_plus_scores_by_season_current`
+);
 
     const data = await response.json();
     console.log("RAIDER DATA:", data.raid_progression);
@@ -619,7 +719,6 @@ bosses.forEach((boss: any) => {
         mythic_plus_color: mythicPlusColor,
         mythic_bosses: mythicBosses,
         avatar_url: data.thumbnail_url || char.avatar_url || "",
-        gear: data.gear || null,
       })
       .eq("id", char.id);
 
@@ -729,6 +828,15 @@ const groupedCharacters = useMemo(() => {
 }, [characters]);
 const selectedCharacter =
   groupedCharacters[selectedCharacterIndex] || groupedCharacters[0];
+  useEffect(() => {
+  if (
+    viewMode === "showcase" &&
+    selectedCharacter?.id &&
+    !selectedCharacter.gear
+  ) {
+    loadCharacterGear(selectedCharacter.id);
+  }
+}, [viewMode, selectedCharacter?.id]);
 const highestRioScore = useMemo(() => {
   return Math.max(
     0,
@@ -762,7 +870,33 @@ const totalExperience = useMemo(() => {
 
   return `${bestMythicProgress}/9M`;
 }, [characters]);
+const promotionColor =
+  balance >= 325000000
+    ? "#ef4444" // Dreadlord
+    : balance >= 250000000
+    ? "#a855f7" // Nightblade
+    : "#38bdf8"; // Soulreaper
+const approvedRank =
+  profile?.site_role === "Dreadlord" || profile?.site_role === "admin"
+    ? "Dreadlord"
+    : profile?.site_role === "Nightblade" || profile?.site_role === "officer"
+    ? "Nightblade"
+    : profile?.site_role === "Soulreaper"
+    ? "Soulreaper"
+    : "Soulreaper";
+const promotionGradient =
+  balance >= 325000000
+    ? "linear-gradient(90deg,#dc2626,#f97316)"
+    : balance >= 250000000
+    ? "linear-gradient(90deg,#7e22ce,#c084fc)"
+    : "linear-gradient(90deg,#0284c7,#38bdf8)";
 
+const promotionShadow =
+  balance >= 325000000
+    ? "rgba(239,68,68,.85)"
+    : balance >= 250000000
+    ? "rgba(168,85,247,.85)"
+    : "rgba(56,189,248,.85)";
 return (
   <div
     style={{
@@ -1113,13 +1247,20 @@ justifyContent: isOwnProfile ? "unset" : "center",
 
   <div style={balanceLabel}>Total Balance</div>
 
-  <div style={balanceAmount}>
+  <div
+    style={{
+      color: "#facc15",
+      fontSize: 19,
+      fontWeight: 1000,
+      lineHeight: 1,
+      whiteSpace: "nowrap",
+      textAlign: "center",
+      textShadow: "0 0 14px rgba(250,204,21,.45)",
+      marginTop: 10,
+    }}
+  >
     {Number(balance || 0).toLocaleString()} 🟡
   </div>
-
-  <button style={paymentBtn}>
-    💰 Request Early Payment
-  </button>
 </div>
 
 <div style={discordBox}>
@@ -1129,21 +1270,41 @@ justifyContent: isOwnProfile ? "unset" : "center",
     Stay updated with raid announcements and guild activity.
   </p>
 
-  <button style={discordBtn}>
-    JOIN DISCORD
-  </button>
+<a
+  href="https://discord.gg/SrfFKm2Xkw"
+  target="_blank"
+  rel="noopener noreferrer"
+  style={{
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 16,
+    padding: "12px 14px",
+    borderRadius: 12,
+    background: "linear-gradient(135deg, #9333ea, #d946ef)",
+    color: "#fff",
+    fontWeight: 1000,
+    fontSize: 18,
+    textDecoration: "none",
+    boxShadow: "0 0 20px rgba(168,85,247,.35)",
+    transition: ".2s",
+  }}
+>
+  JOIN DISCORD
+</a>
 </div>
         </aside>
 )}
         <main style={main}>
-          <div style={headerRow}>
-            <div>
+<div style={headerRow}>
+  <div>
               <h1 style={title}>
   {isOwnProfile
     ? "My Characters"
     : `${viewedProfile?.discord_name || "User"}'s Garrison`}
 </h1>
               <p style={subtitle}>View all your characters and their raid availability.</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
               {characters.find((c) => c.is_main) && (
 <div
   style={mainCharacterBadge}
@@ -1207,9 +1368,126 @@ justifyContent: isOwnProfile ? "unset" : "center",
 </b>
   </div>
 )}
-</div>
 
+</div>
+)}    
+{isOwnProfile && (
+<button
+  onClick={() => setPromotionOpen(true)}
+  style={{
+    ...mainCharacterBadge,
+    width: 390,
+    height: 110,
+    padding: "0 22px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: 18,
+border: `1px solid ${promotionColor}`,
+boxShadow: `0 0 26px ${promotionShadow}`,
+    background:
+      "linear-gradient(135deg, rgba(10,6,20,.92), rgba(32,12,48,.78))",
+  }}
+>
+<img
+src={
+  approvedRank === "Dreadlord"
+    ? "/dreadlord.png"
+    : approvedRank === "Nightblade"
+    ? "/nightblade.png"
+    : "/soulreaper.png"
+}
+
+    alt="Promotion"
+    style={{
+      width: 92,
+      height: 92,
+      objectFit: "contain",
+      animation: "float 4s ease-in-out infinite",
+      filter:
+        balance >= 325000000
+          ? "drop-shadow(0 0 18px rgba(239,68,68,.95))"
+          : balance >= 250000000
+          ? "drop-shadow(0 0 18px rgba(168,85,247,.95))"
+          : "drop-shadow(0 0 18px rgba(56,189,248,.95))",
+    }}
+  />
+
+  <div style={{ flex: 1 }}>
+    <div
+      style={{
+        ...mainCharacterName,
+        fontSize: 26,
+        color:
+          balance >= 325000000
+            ? "#ff5555"
+            : balance >= 250000000
+            ? "#c084fc"
+            : "#38bdf8",
+        marginBottom: 6,
+      }}
+    >
+{approvedRank}
+    </div>
+
+    <div
+      style={{
+        height: 12,
+        width: "100%",
+        borderRadius: 999,
+        background: "rgba(255,255,255,.10)",
+        border: "1px solid rgba(168,85,247,.45)",
+        overflow: "hidden",
+        boxShadow: "inset 0 0 10px rgba(0,0,0,.65)",
+      }}
+    >
+      <div
+        style={{
+          height: "100%",
+          width: `${Math.min(
+            100,
+            balance >= 325000000
+              ? 100
+              : balance >= 250000000
+              ? (balance / 325000000) * 100
+              : (balance / 250000000) * 100
+          )}%`,
+          borderRadius: 999,
+          background:
+            balance >= 325000000
+              ? "linear-gradient(90deg,#ef4444,#f97316)"
+              : balance >= 250000000
+              ? "linear-gradient(90deg,#7e22ce,#c084fc)"
+              : "linear-gradient(90deg,#0284c7,#38bdf8)",
+          boxShadow: "0 0 18px rgba(168,85,247,.9)",
+        }}
+      />
+    </div>
+
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        marginTop: 6,
+        fontSize: 11,
+        fontWeight: 900,
+        color: "#d4d4d8",
+      }}
+    >
+      <span>{Number(balance || 0).toLocaleString()} GOLD</span>
+      <span>
+        {balance >= 325000000
+          ? "MAX"
+          : balance >= 250000000
+          ? "325M"
+          : "250M"}
+      </span>
+    </div>
+  </div>
+</button>
 )}
+
+</div>
             </div>
           </div>
 
@@ -1285,7 +1563,6 @@ justifyContent: isOwnProfile ? "unset" : "center",
 </div>
           </div>
 </div>
-
 )}
 <div
   style={{
@@ -2381,7 +2658,237 @@ top: tooltipPos.y,
     </div>
   </div>
 )}
-      {popup && (
+{promotionOpen && (() => {
+  const SOULREAPER = 150000000;
+  const NIGHTBLADE = 250000000;
+  const DREADLORD = 325000000;
+
+  const currentRank =
+    balance >= DREADLORD
+      ? "Dreadlord"
+      : balance >= NIGHTBLADE
+      ? "Nightblade"
+      : "Soulreaper";
+
+  const nextTarget =
+    balance >= DREADLORD
+      ? DREADLORD
+      : balance >= NIGHTBLADE
+      ? DREADLORD
+      : NIGHTBLADE;
+
+  const nextName =
+    balance >= DREADLORD
+      ? "Dreadlord"
+      : balance >= NIGHTBLADE
+      ? "Dreadlord"
+      : "Nightblade";
+
+  const left = Math.max(nextTarget - balance, 0);
+  const percent = Math.min((balance / nextTarget) * 100, 100);
+
+  return (
+    <div style={popupOverlay}>
+      <div
+        style={{
+          position: "relative",
+          width: 900,
+          
+          minHeight: 720,
+          borderRadius: 28,
+          padding: 34,
+          overflow: "hidden",
+background: currentTheme.video
+  ? "rgba(0,0,0,.72)"
+  : `linear-gradient(rgba(2,2,8,.55), rgba(0,0,0,.88)), url(${currentTheme.image}) center / cover`,
+backdropFilter: "blur(10px)",
+          border: "1px solid rgba(168,85,247,.65)",
+          boxShadow: "0 0 55px rgba(168,85,247,.35)",
+        }}
+      >
+        <button
+          onClick={() => setPromotionOpen(false)}
+          style={{
+            position: "absolute",
+            top: 18,
+            right: 18,
+            width: 38,
+            height: 38,
+            borderRadius: "50%",
+            border: "1px solid rgba(250,204,21,.65)",
+            background: "rgba(0,0,0,.65)",
+            color: "#facc15",
+            fontWeight: 900,
+            cursor: "pointer",
+          }}
+        >
+          ✕
+        </button>
+
+        <div style={{ textAlign: "center", color: "#facc15", fontWeight: 1000, letterSpacing: 3 }}>
+          👑 PROMOTION PROGRESS
+        </div>
+
+        <h1 style={{ textAlign: "center", color: "white", marginTop: 22, fontSize: 40 }}>
+          Eligible for{" "}
+          <span style={{ color: promotionColor }}>
+            {currentRank.toUpperCase()}
+          </span>
+        </h1>
+
+        <div style={{ textAlign: "center" }}>
+          <img
+            src={
+              currentRank === "Dreadlord"
+                ? "/dreadlord.png"
+                : currentRank === "Nightblade"
+                ? "/nightblade.png"
+                : "/soulreaper.png"
+            }
+            style={{
+              width: 118,
+              height: 118,
+              objectFit: "contain",
+              filter: `drop-shadow(0 0 24px ${promotionShadow})`,
+              animation: "float 4s ease-in-out infinite",
+            }}
+          />
+        </div>
+
+        <div style={{ margin: "18px auto", width: 560 }}>
+          <div style={{ textAlign: "center", fontSize: 25, fontWeight: 1000 }}>
+            <span style={{ color: promotionColor }}>
+              {Number(balance || 0).toLocaleString()}g
+            </span>{" "}
+            <span style={{ color: "#d4d4d8" }}>
+              / {Number(nextTarget).toLocaleString()}g
+            </span>
+          </div>
+
+          <div
+            style={{
+              height: 18,
+              borderRadius: 999,
+              background: "rgba(255,255,255,.10)",
+              border: `1px solid ${promotionColor}`,
+              overflow: "hidden",
+              marginTop: 10,
+            }}
+          >
+            <div
+              style={{
+                width: `${percent}%`,
+                height: "100%",
+                background: promotionGradient,
+                boxShadow: `0 0 22px ${promotionShadow}`,
+              }}
+            />
+          </div>
+
+          <h2 style={{ textAlign: "center", color: "white", marginTop: 20 }}>
+            <span style={{ color: promotionColor }}>
+              {Number(left).toLocaleString()}g
+            </span>{" "}
+            left for {nextName}
+          </h2>
+        </div>
+
+<div style={{ display: "flex", justifyContent: "space-around", marginTop: 34 }}>
+  {[
+    ["Soulreaper", SOULREAPER, "/soulreaper.png", "#38bdf8"],
+    ["Nightblade", NIGHTBLADE, "/nightblade.png", "#a855f7"],
+    ["Dreadlord", DREADLORD, "/dreadlord.png", "#ef4444"],
+  ].map(([role, amount, icon, color]: any) => {
+    const isPassed = balance >= amount;
+    const isNext = amount === nextTarget;
+    const canRequest = isNext && balance >= amount;
+
+    return (
+      <button
+        key={role}
+onClick={() => {
+  if (isPassed && !isNext) {
+    setPopup({
+      title: "Rank Already Received",
+      message: `You already received ${role}.`,
+    });
+    return;
+  }
+
+  if (!isNext || balance < amount) {
+    setPopup({
+      title: "Requirement Not Met",
+      message: `You do not meet the requirement to get ${role}.`,
+    });
+    return;
+  }
+
+  requestPromotion(role as "Soulreaper" | "Nightblade" | "Dreadlord");
+}}
+        style={{
+          width: 150,
+          background: "transparent",
+          border: "none",
+          color: "white",
+          cursor: "pointer",
+          fontWeight: 900,
+          opacity: isPassed && !isNext ? 0.28 : isNext ? 1 : 0.35,
+          transform: isNext ? "scale(1.08)" : "scale(1)",
+        }}
+      >
+        <img
+          src={icon}
+          style={{
+            width: isNext ? 88 : 78,
+            height: isNext ? 88 : 78,
+            objectFit: "contain",
+            borderRadius: "50%",
+            border: `1px solid ${isNext ? color : "rgba(255,255,255,.18)"}`,
+            boxShadow: isNext ? `0 0 34px ${color}` : `0 0 8px ${color}`,
+            filter: isPassed && !isNext ? "grayscale(1)" : "none",
+            padding: 8,
+            animation: isNext ? "float 2.4s ease-in-out infinite" : "none",
+          }}
+        />
+
+        <div style={{ color, fontSize: 24, fontWeight: 1000 }}>
+          {Number(amount / 1000000)}M
+        </div>
+
+        <div>{role}</div>
+
+        {isNext && <div style={{ color, fontSize: 11, marginTop: 4 }}>NEXT TARGET</div>}
+        {isPassed && !isNext && <div style={{ color: "#9ca3af", fontSize: 11, marginTop: 4 }}>PASSED</div>}
+      </button>
+    );
+  })}
+</div>
+
+<div
+  style={{
+    marginTop: 34,
+    padding: 20,
+    borderRadius: 18,
+    border: "1px solid rgba(168,85,247,.45)",
+    background: "rgba(0,0,0,.48)",
+  }}
+>
+  <div style={{ textAlign: "center", color: "#a855f7", fontWeight: 1000, marginBottom: 16 }}>
+    REWARDS & BENEFITS
+  </div>
+
+  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, textAlign: "center" }}>
+    <div>🏷️ Unique Title</div>
+    <div>✅ Role Access</div>
+    <div>👑 Discord Rank</div>
+    <div>⭐ Gold Reward</div>
+  </div>
+</div>
+      </div>
+    </div>
+  );
+})()}
+{popup && (
         <div style={popupOverlay}>
           <div style={popupBox}>
             <div style={popupIcon}>☠</div>

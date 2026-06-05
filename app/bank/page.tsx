@@ -19,9 +19,14 @@ type Cut = {
 export default function BankPage() {
   const [balance, setBalance] = useState(0);
   const [cuts, setCuts] = useState<Cut[]>([]);
-  const [muted, setMuted] = useState(() => {
+const [muted, setMuted] = useState(() => {
   if (typeof window !== "undefined") {
-    return localStorage.getItem("bankVideoMuted") === "true";
+    const saved = localStorage.getItem("bankVideoMuted");
+
+    // first visit = muted
+    if (saved === null) return true;
+
+    return saved === "true";
   }
 
   return true;
@@ -31,8 +36,14 @@ useEffect(() => {
 }, [muted]);
  const [activeTab, setActiveTab] = useState("This Week");
 const [history, setHistory] = useState<any[]>([]);
- const filteredCuts = useMemo(() => {
-  if (activeTab === "Midnight Season 1 History") return [];
+const filteredCuts = useMemo(() => {
+  if (
+    activeTab === "Midnight Season 1 History" ||
+    activeTab === "All Seasons History"
+  ) {
+    return [];
+  }
+
   return cuts;
 }, [cuts, activeTab]);
 
@@ -178,22 +189,50 @@ function formatRunType(run: string) {
       <div style={layout}>
         <aside style={sidebar}>
 <SideNav active="Bank" />
-          <div style={balanceBox}>
-            <div style={balanceTitle}>BALANCE OVERVIEW</div>
-            <div style={balanceLabel}>Total Balance</div>
-            <div style={balanceAmount}>
-              {Number(balance || 0).toLocaleString()} 🟡
-            </div>
-            <button style={paymentBtn}>💰 Request Early Payment</button>
-          </div>
+<div style={balanceBox}>
+  <div style={balanceTitle}>BALANCE OVERVIEW</div>
 
-          <div style={discordBox}>
-            <b>Join our Discord</b>
-            <p style={mutedSmall}>
-              Stay updated with raid announcements and guild activity.
-            </p>
-            <button style={discordBtn}>JOIN DISCORD</button>
-          </div>
+  <div style={balanceLabel}>Total Balance</div>
+
+  <div
+    style={{
+      color: "#facc15",
+      fontSize: 19,
+      fontWeight: 1000,
+      lineHeight: 1,
+      whiteSpace: "nowrap",
+      textAlign: "center",
+      textShadow: "0 0 14px rgba(250,204,21,.45)",
+      marginTop: 10,
+    }}
+  >
+    {Number(balance || 0).toLocaleString()} 🟡
+  </div>
+</div>
+
+<div style={discordBox}>
+  <b>Join our Discord</b>
+
+  <p style={mutedSmall}>
+    Stay updated with raid announcements and guild activity.
+  </p>
+
+  <a
+    href="https://discord.gg/SrfFKm2Xkw"
+    target="_blank"
+    rel="noopener noreferrer"
+    style={{
+      ...discordBtn,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      textDecoration: "none",
+      boxSizing: "border-box",
+    }}
+  >
+    JOIN DISCORD
+  </a>
+</div>
         </aside>
 
         <main>
@@ -239,7 +278,11 @@ function formatRunType(run: string) {
             <PaymentStatusCard cuts={cuts} />
           </div>
 <div style={tabs}>
- {["This Week", "Midnight Season 1 History"].map((tabName) => (
+ {[
+  "This Week",
+  "Midnight Season 1 History",
+  "All Seasons History",
+].map((tabName) => (
     <button
       key={tabName}
       onClick={() => setActiveTab(tabName)}
@@ -288,49 +331,60 @@ function formatRunType(run: string) {
       gap: 14,
     }}
   >
+{history.map((week: any, index: number) => (
+  <div key={index} style={tableRow}>
+    <div>{week.week}</div>
 
+    <div>
+      <span style={runBadge("MYTHIC")}>
+        MYTHIC
+      </span>
+    </div>
 
-    {history.map((week: any, index: number) => (
-      <div
-        key={index}
-style={{
-  background:
-    "linear-gradient(90deg, rgba(88,28,135,.28), rgba(5,10,20,.92))",
-  border: "1px solid rgba(168,85,247,.32)",
-  borderRadius: 18,
-  padding: "22px 28px",
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  boxShadow: "0 0 22px rgba(168,85,247,.16)",
-  transition: "all .2s ease",
-  backdropFilter: "blur(6px)",
-}}
-      >
-        <div
-          style={{
-            fontWeight: 900,
-            color: "#d8b4fe",
-            fontSize: 24,
-letterSpacing: .5,
-          }}
-        >
-          {week.week}
-        </div>
+    <div style={charText}>Koyjin-kazzak</div>
 
-        <div
-          style={{
-            color: "#facc15",
-            fontWeight: 900,
-            fontSize: 28,
-textShadow: "0 0 14px rgba(250,204,21,.35)",
-          }}
-        >
-          {Number(week.amount || 0).toLocaleString()}g
-        </div>
-      </div>
-    ))}
+    <div style={goldText}>
+      {Number(week.amount || 0).toLocaleString()}g
+    </div>
+
+<div>
+  <span
+    style={
+      index === history.length - 1
+        ? pendingBadge
+        : paidBadge
+    }
+  >
+    {index === history.length - 1 ? "Pending" : "Paid"}
+  </span>
+</div>
+    <div>Bot (/cuts)</div>
+
+    <div>-</div>
   </div>
+))}
+  </div>
+  ) : activeTab === "All Seasons History" ? (
+<div style={allSeasonsBox}>
+<button
+  style={showHistoryBtn}
+  onClick={() => {
+    window.location.href = "/history";
+  }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.transform = "scale(1.08)";
+    e.currentTarget.style.boxShadow =
+      "0 0 38px rgba(217,70,239,.75), 0 0 90px rgba(168,85,247,.45)";
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.transform = "scale(1)";
+    e.currentTarget.style.boxShadow =
+      "0 0 22px rgba(217,70,239,.45), 0 0 55px rgba(168,85,247,.28)";
+  }}
+>
+    Show me my history
+  </button>
+</div>
 ) : (
   filteredCuts.map((cut) => (
               <div key={cut.id} style={tableRow}>
@@ -827,16 +881,6 @@ const balanceAmount: React.CSSProperties = {
   marginBottom: 18,
 };
 
-const paymentBtn: React.CSSProperties = {
-  width: "100%",
-  minHeight: 46,
-  border: "1px solid rgba(139,92,246,0.35)",
-  borderRadius: 10,
-  background: "linear-gradient(90deg,#3b0764,#6d28d9)",
-  color: "white",
-  fontWeight: 900,
-  cursor: "pointer",
-};
 
 const discordBox: React.CSSProperties = {
   marginTop: 28,
@@ -915,4 +959,24 @@ const runBadge = (type: string): React.CSSProperties => {
       ? "0 0 18px rgba(34,211,238,0.65)"
       : "0 0 18px rgba(168,85,247,0.65)",
   };
+};
+const allSeasonsBox: React.CSSProperties = {
+  minHeight: 420,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const showHistoryBtn: React.CSSProperties = {
+  padding: "24px 54px",
+  borderRadius: 20,
+  border: "1px solid rgba(217,70,239,.9)",
+  background: "linear-gradient(135deg,#7c3aed,#d946ef)",
+  color: "white",
+  fontSize: 26,
+  fontWeight: 1000,
+  cursor: "pointer",
+  transition: "all .22s ease",
+  boxShadow:
+    "0 0 22px rgba(217,70,239,.45), 0 0 55px rgba(168,85,247,.28)",
 };

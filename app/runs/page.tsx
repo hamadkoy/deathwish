@@ -42,7 +42,11 @@ type Signup = {
   discord_id?: string;
   attendance?: "pending" | "present" | "missing";
 };
-
+type RaidLog = {
+  id: number;
+  run_id: number;
+  log_url: string;
+};
 type Profile = {
   user_id: string;
   discord_name: string;
@@ -192,6 +196,7 @@ function normalizeRole(role?: string | null) {
 }
 export default function RunsPage() {
   const [runs, setRuns] = useState<Run[]>([]);
+  const [logs, setLogs] = useState<RaidLog[]>([]);
   const [signups, setSignups] = useState<Signup[]>([]);
   const [user, setUser] = useState<any>(null);
   const [editRunBackground, setEditRunBackground] = useState("mythic-red");
@@ -296,6 +301,10 @@ const isOfficer =
 
 const canFinishRun = isAdmin || isOfficer;
 
+const canMarkAttendance =
+  fixedRole === "Dreadlord" ||
+  fixedRole === "Nightblade";
+
 const canUseRunCards =
   signupApproved &&
   fixedRole !== "Lost_soul";
@@ -338,7 +347,15 @@ async function loadRuns(weekToLoad = selectedWeek) {
     if (error) return alert(error.message);
     setSignups(data || []);
   }
+async function loadLogs() {
+  const { data, error } = await supabase
+    .from("raid_logs")
+    .select("id, run_id, log_url");
 
+  if (error) return alert(error.message);
+
+  setLogs(data || []);
+}
   async function loadCharacters(userId: string) {
     const { data, error } = await supabase
       .from("characters")
@@ -405,6 +422,7 @@ await supabase.from("profiles").upsert({
   useEffect(() => {
     loadRuns();
     loadSignups();
+    loadLogs();
     loadUserAndProfile();
 
 const channel = supabase
@@ -661,16 +679,19 @@ if (alreadySigned) {
     return;
   }
 
-setBanishLogs((prev) =>
-  prev.filter(
-    (log) =>
-      !(
-        log.runId === runId &&
-        log.discord_id === discordId
-      )
+await supabase
+  .from("banish_logs")
+  .delete()
+  .eq("run_id", runId)
+  .or(
+    `discord_id.eq.${discordId},player.ilike.${selectedCharacter.name}%`
   )
-);
+  .gte(
+    "unsigned_at",
+    new Date(Date.now() - 10 * 60 * 1000).toISOString()
+  );
 
+await loadBanishLogs();
 await loadSignups();
 } 
 
@@ -924,19 +945,36 @@ async function sendChatMessage() {
 const [banishLogs, setBanishLogs] = useState<any[]>([]);
 const [banishOpen, setBanishOpen] = useState(false);
 useEffect(() => {
-  const saved = localStorage.getItem("banishLogs");
+  loadBanishLogs();
 
-  if (saved) {
-    setBanishLogs(JSON.parse(saved));
-  }
+  const channel = supabase
+    .channel("realtime-banish-logs")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "banish_logs" },
+      () => loadBanishLogs()
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }, []);
 
-useEffect(() => {
-  localStorage.setItem(
-    "banishLogs",
-    JSON.stringify(banishLogs)
-  );
-}, [banishLogs]);
+async function loadBanishLogs() {
+  const { data, error } = await supabase
+    .from("banish_logs")
+    .select("*")
+    .order("unsigned_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setBanishLogs(data || []);
+}
+
 
 async function removeSignup(signupId: number) {
   const signup = signups.find((s) => s.id === signupId);
@@ -961,18 +999,31 @@ if (run?.finished) {
 
   const signedForMoreThanOneHour = signedForMs >= 60 * 60 * 1000;
 
-if (signup && run) {
-const newLog = {
-  id: Date.now(),
-  player: signup.player,
-  discord_id: signup.discord_id,
-  runId: run.id,
-  runTitle: run.title,
-  week: run.week,
-  unsignedAt: now.toLocaleString("en-GB"),
-};
+if (
+  signup &&
+  run &&
+  signup.role !== "Loot Body" &&
+  signup.role !== "Bench"
+) {
 
-    setBanishLogs((prev) => [newLog, ...prev]);
+
+const { error: banishError } = await supabase
+  .from("banish_logs")
+  .insert({
+    player: signup.player,
+    discord_id: signup.discord_id,
+    run_id: run.id,
+    run_title: run.title,
+    week: run.week,
+    unsigned_at: now.toISOString(),
+  });
+
+if (banishError) {
+  alert("Banish insert error: " + banishError.message);
+  return;
+}
+
+await loadBanishLogs();
   }
 
   const { error } = await supabase
@@ -985,7 +1036,7 @@ const newLog = {
   await loadSignups();
 }
 async function markAttendance(signupId: number, status: "present" | "missing") {
-  if (!isAdmin) return;
+  if (!isAdmin && !isOfficer) return;
 
   const { error } = await supabase
     .from("signups")
@@ -2059,11 +2110,11 @@ style={{
         </div>
 
         <div style={{ color: "#c084fc", fontSize: 12 }}>
-          {log.runTitle} — Run ID #{log.runId}
+          {log.run_title} — Run ID #{log.run_id}
         </div>
 
         <div style={{ color: "#9ca3af", fontSize: 11 }}>
-          Unsigned: {log.unsignedAt}
+          Unsigned: {new Date(log.unsigned_at).toLocaleString("en-GB")}
         </div>
       </div>
     ))}
@@ -2280,6 +2331,13 @@ style={{
         <section style={runsGrid}>
           {filteredRuns.map((run, index) => {
             const theme = getRunTheme(run, index);
+            const runUnsignedLogs = banishLogs.filter(
+  (log) =>
+    log.run_id === run.id &&
+    Number(log.week) === Number(selectedWeek)
+);
+
+const isLeftCard = index % 2 === 0;
             const limits = getLimits(run);
             const boosterCount = signups.filter(
   (s) =>
@@ -2294,51 +2352,108 @@ const signupLocked =
   signupLocked && run.signup_open_at
     ? formatCountdown(run.signup_open_at)
     : null;
-                  return (
-                  <div
-                  key={run.id}
+    const runLog = logs.find((l) => l.run_id === run.id);
+return (
+  <div
+    style={{
+      position: "relative",
+    }}
+  >
+    <div
+      key={run.id}
 style={{
   ...runCard,
   minHeight: signupLocked ? 340 : 560,
-                  background: `linear-gradient(rgba(0,0,0,.18), rgba(0,0,0,.28)), url(${theme.bg}) center/cover`,
-                  boxShadow: run.finished
-  ? "0 0 26px rgba(255,255,255,.18), inset 0 0 20px rgba(255,255,255,.10)"
-  : `0 0 34px ${theme.glow}, inset 0 0 18px ${theme.glow}`,
-                  transition: "all .22s ease",
-                  cursor: "pointer",
-             opacity: 1,
-position: "relative",
-overflow: "hidden",
+  background: `linear-gradient(rgba(0,0,0,.18), rgba(0,0,0,.28)), url(${theme.bg}) center/cover`,
+  boxShadow: run.finished
+    ? "0 0 26px rgba(255,255,255,.18), inset 0 0 20px rgba(255,255,255,.10)"
+    : `0 0 34px ${theme.glow}, inset 0 0 18px ${theme.glow}`,
+  transition: "all .22s ease",
+  cursor: "pointer",
+  opacity: 1,
+  position: "relative",
+  overflow: "hidden",
+}}
 
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform =
-                    "translateY(-6px) scale(1.01)";
-                  e.currentTarget.style.boxShadow = run.finished
-  ? "0 0 30px rgba(255,255,255,.22), inset 0 0 22px rgba(255,255,255,.12)"
-  : `0 0 50px ${theme.glow}, inset 0 0 24px ${theme.glow}`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform =
-                    "translateY(0) scale(1)";
-                  e.currentTarget.style.boxShadow = run.finished
-  ? "0 0 26px rgba(255,255,255,.18), inset 0 0 20px rgba(255,255,255,.10)"
-  : `0 0 34px ${theme.glow}, inset 0 0 18px ${theme.glow}`;
-                }}
-                >
-                {run.finished && (
+onMouseEnter={(e) => {
+  e.currentTarget.style.transform =
+    "translateY(-6px) scale(1.01)";
+
+  e.currentTarget.style.boxShadow = run.finished
+    ? "0 0 30px rgba(255,255,255,.22), inset 0 0 22px rgba(255,255,255,.12)"
+    : `0 0 50px ${theme.glow}, inset 0 0 24px ${theme.glow}`;
+}}
+
+onMouseLeave={(e) => {
+  e.currentTarget.style.transform =
+    "translateY(0) scale(1)";
+
+  e.currentTarget.style.boxShadow = run.finished
+    ? "0 0 26px rgba(255,255,255,.18), inset 0 0 20px rgba(255,255,255,.10)"
+    : `0 0 34px ${theme.glow}, inset 0 0 18px ${theme.glow}`;
+}}
+>
+{run.finished && (
   <div
     style={{
       position: "absolute",
       inset: 0,
       background: "rgba(0,0,0,.58)",
       backdropFilter: "grayscale(100%) brightness(65%)",
-      zIndex: 1,
+      zIndex: 5,
       pointerEvents: "none",
     }}
   />
 )}
-             
+ {runLog && (
+  <a
+    href={runLog.log_url}
+    target="_blank"
+    rel="noreferrer"
+    style={{
+      position: "absolute",
+      top: 28,
+      left: "50%",
+      transform: "translateX(-50%)",
+
+      zIndex: 10,
+
+     width: 120,
+height: 120,
+
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      transition: "all .18s ease",
+      textDecoration: "none",
+overflow: "visible",
+    }}
+
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform =
+        "translateX(-50%) scale(1.08)";
+
+    }}
+
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform =
+        "translateX(-50%) scale(1)";
+
+    }}
+  >
+    <img
+      src="/Logs2.png"
+      alt="Warcraft Logs"
+      style={{
+        width: "100%",
+        height: "100%",
+        objectFit: "contain",
+        pointerEvents: "none",
+        filter: "drop-shadow(0 0 12px rgba(255,255,255,.25))",
+      }}
+    />
+  </a>
+)}  
                 <div
                   style={{
                     ...runBanner,
@@ -2719,8 +2834,54 @@ setAdminAddSpec={setAdminAddSpec}
                   />
                </div>
 )}
-              </div>
-            );
+</div>
+{runUnsignedLogs.length > 0 && (
+  <div
+    style={{
+      ...unsignedSidePanel,
+      left: isLeftCard ? -285 : "auto",
+      right: isLeftCard ? "auto" : -285,
+    }}
+  >
+    <div style={unsignedTitle}>
+      UNSIGNED ({runUnsignedLogs.length})
+    </div>
+
+    {runUnsignedLogs.map((log) => (
+      <div key={log.id} style={unsignedItem}>
+        <div style={unsignedConnector} />
+
+        <div style={unsignedIconBox}>
+          <SpecIcon player={log.player} />
+        </div>
+
+        <div>
+          <div style={unsignedName}>
+            {log.player.split(" - ")[0]}
+          </div>
+
+          <div style={unsignedSpec}>
+            {log.player.split(" - ")[1] || ""}
+          </div>
+
+          <div style={unsignedTime}>
+            {new Date(log.unsignedAtRaw).toLocaleTimeString(
+              "en-GB",
+              {
+                hour: "2-digit",
+                minute: "2-digit",
+              }
+            )}
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
+
+
+</div>
+);
           })}
         </section>
       </DndContext>
@@ -3222,19 +3383,20 @@ const canDelete =
   signup.discord_id === discordId ||
   signup.character_id === selectedCharacter?.id ||
   isAdmin;
-
-          return (
-            <DraggableSignup
-              key={signup.id}
-              signup={signup}
-              parsedName={parsed.character}
-              color={color}
-              canDelete={canDelete}
-              canDrag={isAdmin || isOfficer}
-              removeSignup={removeSignup}
-              markAttendance={markAttendance}
-              setPlayerPopup={setPlayerPopup}
-            />
+const canMarkAttendance = isAdmin || isOfficer;
+return (
+  <DraggableSignup
+  key={signup.id}
+  signup={signup}
+  parsedName={parsed.character}
+  color={color}
+  canDelete={canDelete}
+  canDrag={isAdmin || isOfficer}
+  canMarkAttendance={canMarkAttendance}
+  removeSignup={removeSignup}
+  markAttendance={markAttendance}
+  setPlayerPopup={setPlayerPopup}
+/>
           );
         })}
       </div>
@@ -3288,9 +3450,9 @@ onMouseLeave={(e) => {
   e.currentTarget.style.boxShadow =
     "0 0 12px rgba(217,70,239,.55)";
 }}
-    style={{
-      ...roleButton,
-      marginTop: 6,
+style={{
+  ...roleButton,
+  marginTop: 6,
       background: "linear-gradient(90deg,#7c3aed,#d946ef)",
       boxShadow: "0 0 12px rgba(217,70,239,.55)",
       transition: "all .18s ease",
@@ -3309,6 +3471,7 @@ function DraggableSignup({
   color,
   canDelete,
   canDrag,
+  canMarkAttendance,
   removeSignup,
   markAttendance,
   setPlayerPopup,
@@ -3317,8 +3480,9 @@ function DraggableSignup({
   parsedName: string;
   color: string;
   canDelete: boolean;
-  canDrag: boolean;
-  removeSignup: (signupId: number) => void;
+canDrag: boolean;
+canMarkAttendance: boolean;
+removeSignup: (signupId: number) => void;
   markAttendance: (
   signupId: number,
   status: "present" | "missing"
@@ -3345,7 +3509,8 @@ setPlayerPopup: (signup: Signup) => void;
         transform: CSS.Translate.toString(transform),
         opacity: isDragging ? 0.6 : 1,
         cursor: canDrag ? "grab" : "default",
-        zIndex: isDragging ? 9999 : 1,
+        zIndex: isDragging ? 9999 : 20,
+position: "relative",
       }}
     >
 <div
@@ -3385,7 +3550,7 @@ setPlayerPopup: (signup: Signup) => void;
           ×
         </button>
       )}
-      {canDrag && (
+      {true && (
   <div
     style={{
       display: "flex",
@@ -3408,13 +3573,14 @@ setPlayerPopup: (signup: Signup) => void;
             ? "#22c55e"
             : "rgba(255,255,255,.08)",
         color: "white",
+        position: "relative",
+zIndex: 30,
+filter: "none",
+opacity: 1,
         cursor: "pointer",
         fontWeight: 900,
-        filter: "none",
 isolation: "isolate",
 mixBlendMode: "normal",
-position: "relative",
-zIndex: 20,
 
       }}
     >
@@ -3438,11 +3604,12 @@ zIndex: 20,
         color: "white",
         cursor: "pointer",
         fontWeight: 900,
-        filter: "none",
 isolation: "isolate",
 mixBlendMode: "normal",
 position: "relative",
-zIndex: 20,
+zIndex: 30,
+filter: "none",
+opacity: 1,
 
       }}
     >
@@ -4459,4 +4626,73 @@ const sideNavFixed: React.CSSProperties = {
   left: 24,
   width: 260,
   zIndex: 20,
+};
+const unsignedSidePanel: React.CSSProperties = {
+  position: "absolute",
+  top: 58,
+  width: 245,
+  zIndex: 80,
+  pointerEvents: "none",
+};
+
+const unsignedTitle: React.CSSProperties = {
+  color: "#ff4040",
+  fontSize: 16,
+  fontWeight: 900,
+  marginBottom: 12,
+  textShadow: "0 0 12px rgba(239,68,68,.9)",
+};
+
+const unsignedItem: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 14,
+  marginBottom: 12,
+  padding: "14px 16px",
+  borderRadius: 12,
+  background: "rgba(10,0,0,.88)",
+  border: "1px solid rgba(239,68,68,.65)",
+  boxShadow: "0 0 20px rgba(239,68,68,.45)",
+  backdropFilter: "blur(8px)",
+};
+const unsignedConnector: React.CSSProperties = {
+  position: "absolute",
+  right: -24,
+  top: "50%",
+  width: 24,
+  height: 3,
+  borderRadius: 999,
+  background: "#ef4444",
+  transform: "translateY(-50%)",
+  boxShadow: "0 0 12px rgba(239,68,68,.9)",
+};
+
+const unsignedIconBox: React.CSSProperties = {
+  width: 46,
+  height: 46,
+  minWidth: 46,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  transform: "scale(1.45)",
+};
+
+const unsignedName: React.CSSProperties = {
+  color: "#fff",
+  fontWeight: 900,
+  fontSize: 16,
+  lineHeight: 1.1,
+};
+
+const unsignedSpec: React.CSSProperties = {
+  color: "#c084fc",
+  fontWeight: 800,
+  fontSize: 12,
+  marginTop: 4,
+};
+
+const unsignedTime: React.CSSProperties = {
+  color: "#fca5a5",
+  fontSize: 11,
+  marginTop: 4,
 };

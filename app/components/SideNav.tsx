@@ -6,45 +6,69 @@ import { supabase } from "@/lib/supabase";
 
 export default function SideNav({ active }: { active: string }) {
   const [pendingCount, setPendingCount] = useState(0);
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
-useEffect(() => {
-  loadPendingApplicants();
+  useEffect(() => {
+    loadPendingApplicants();
+    loadUnreadMessages();
 
-  const channel = supabase
-    .channel("realtime-pending-applications")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "profiles",
-      },
-      () => {
-        loadPendingApplicants();
-      }
-    )
-    .subscribe();
+    const channel = supabase
+      .channel("realtime-side-nav")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        () => loadPendingApplicants()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "guild_messages" },
+        () => loadUnreadMessages()
+      )
+      .subscribe();
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, []);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
-async function loadPendingApplicants() {
-  const { count } = await supabase
-    .from("profiles")
-    .select("*", { count: "exact", head: true })
-    .eq("signup_approved", false)
-    .not("applied_at", "is", null);
+  async function loadPendingApplicants() {
+    const { count } = await supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("signup_approved", false)
+      .not("applied_at", "is", null);
 
-  setPendingCount(count || 0);
-}
+    setPendingCount(count || 0);
+  }
+
+  async function loadUnreadMessages() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { data: readData } = await supabase
+      .from("guild_message_reads")
+      .select("last_read_at")
+      .eq("user_id", user.id)
+      .single();
+
+    const lastRead = readData?.last_read_at || "1970-01-01";
+
+    const { count } = await supabase
+      .from("guild_messages")
+      .select("*", { count: "exact", head: true })
+      .gt("created_at", lastRead);
+
+    setUnreadMessages(count || 0);
+  }
 
   const items = [
     { name: "My Runs", href: "/my-signups" },
-    { name: "Messages", href: "#" },
+    { name: "Messages", href: "/messages", badge: unreadMessages },
     { name: "Raid Logs", href: "/raid-logs" },
-    { name: "Leaderboard", href: "#" },
+    { name: "Leaderboard", href: "/leaderboard" },
     { name: "👑 Users", href: "/admin/users", badge: pendingCount },
     { name: "My Garrison", href: "/profile" },
     { name: "Bank", href: "/bank" },
@@ -55,7 +79,8 @@ async function loadPendingApplicants() {
       <div style={smallTitle}>NAVIGATION</div>
 
       {items.map((item) => {
-        const isActive = active === item.name || active === item.name.replace("👑 ", "");
+        const isActive =
+          active === item.name || active === item.name.replace("👑 ", "");
 
         return (
           <Link key={item.name} href={item.href} style={{ textDecoration: "none" }}>

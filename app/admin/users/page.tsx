@@ -18,7 +18,6 @@ type Profile = {
   avatar_url?: string;
   site_role?: string;
   signup_approved?: boolean;
-
   main_character?: string;
   main_realm?: string;
   raider_io?: string;
@@ -26,35 +25,54 @@ type Profile = {
   applied_at?: string | null;
 };
 
+type PromotionRequest = {
+  id: number;
+  user_id: string;
+  discord_name?: string;
+  discord_id?: string;
+  current_balance?: number;
+  requested_role: SiteRole;
+  status: string;
+  created_at?: string;
+};
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"team" | "applicants">("team");
+  const [promotionRequests, setPromotionRequests] = useState<PromotionRequest[]>([]);
+  const [activeTab, setActiveTab] =
+    useState<"team" | "applicants" | "promotions">("team");
+
   const [currentUserRole, setCurrentUserRole] =
     useState<SiteRole>("Lost_soul");
 
   useEffect(() => {
     loadCurrentUser();
     loadUsers();
+    loadPromotionRequests();
 
-    const channel = supabase
+    const profilesChannel = supabase
       .channel("realtime-profiles")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "profiles",
-        },
-        () => {
-          loadUsers();
-        }
+        { event: "*", schema: "public", table: "profiles" },
+        () => loadUsers()
+      )
+      .subscribe();
+
+    const promotionsChannel = supabase
+      .channel("realtime-promotion-requests")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "promotion_requests" },
+        () => loadPromotionRequests()
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(promotionsChannel);
     };
   }, []);
 
@@ -92,6 +110,21 @@ export default function AdminUsersPage() {
     setLoading(false);
   }
 
+  async function loadPromotionRequests() {
+    const { data, error } = await supabase
+      .from("promotion_requests")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setPromotionRequests(data || []);
+  }
+
   async function updateUser(userId: string, updates: Partial<Profile>) {
     if (currentUserRole !== "Dreadlord") {
       alert("Only Dreadlords can manage user access.");
@@ -109,6 +142,49 @@ export default function AdminUsersPage() {
     }
 
     await loadUsers();
+  }
+
+  async function approvePromotion(req: PromotionRequest) {
+    if (!isAdmin) return;
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ site_role: req.requested_role })
+      .eq("user_id", req.user_id);
+
+    if (profileError) {
+      alert(profileError.message);
+      return;
+    }
+
+    const { error: requestError } = await supabase
+      .from("promotion_requests")
+      .update({ status: "approved" })
+      .eq("id", req.id);
+
+    if (requestError) {
+      alert(requestError.message);
+      return;
+    }
+
+    await loadUsers();
+    await loadPromotionRequests();
+  }
+
+  async function rejectPromotion(req: PromotionRequest) {
+    if (!isAdmin) return;
+
+    const { error } = await supabase
+      .from("promotion_requests")
+      .update({ status: "rejected" })
+      .eq("id", req.id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await loadPromotionRequests();
   }
 
   const filteredUsers = useMemo(() => {
@@ -146,12 +222,22 @@ export default function AdminUsersPage() {
 
   const totalUsers = users.length;
   const approvedUsers = users.filter((u) => u.signup_approved).length;
-  const applicants = users.filter((u) => u.applied_at && !u.signup_approved).length;
+  const applicants = users.filter(
+    (u) => u.applied_at && !u.signup_approved
+  ).length;
 
-  const dreadlords = users.filter((u) => normalizeRole(u.site_role) === "Dreadlord").length;
-  const nightblades = users.filter((u) => normalizeRole(u.site_role) === "Nightblade").length;
-  const soulreapers = users.filter((u) => normalizeRole(u.site_role) === "Soulreaper").length;
-  const reapers = users.filter((u) => normalizeRole(u.site_role) === "Reaper").length;
+  const dreadlords = users.filter(
+    (u) => normalizeRole(u.site_role) === "Dreadlord"
+  ).length;
+  const nightblades = users.filter(
+    (u) => normalizeRole(u.site_role) === "Nightblade"
+  ).length;
+  const soulreapers = users.filter(
+    (u) => normalizeRole(u.site_role) === "Soulreaper"
+  ).length;
+  const reapers = users.filter(
+    (u) => normalizeRole(u.site_role) === "Reaper"
+  ).length;
 
   const isAdmin = currentUserRole === "Dreadlord";
   const canSeeApplicants =
@@ -174,6 +260,7 @@ export default function AdminUsersPage() {
             <Stat title="Total Users" value={totalUsers} color="#c084fc" />
             <Stat title="Approved" value={approvedUsers} color="#22c55e" />
             <Stat title="Applicants" value={applicants} color="#f97316" />
+            <Stat title="Promotions" value={promotionRequests.length} color="#a855f7" />
             <Stat title="Dreadlords" value={dreadlords} color="#fb7185" />
             <Stat title="Nightblades" value={nightblades} color="#facc15" />
             <Stat title="Soulreapers" value={soulreapers} color="#a78bfa" />
@@ -197,168 +284,236 @@ export default function AdminUsersPage() {
                   New Applicants
                 </button>
               )}
+
+              {isAdmin && (
+                <button
+                  onClick={() => setActiveTab("promotions")}
+                  style={activeTab === "promotions" ? tabActive : tab}
+                >
+                  Promotions ({promotionRequests.length})
+                </button>
+              )}
             </div>
 
-            <div style={topRow}>
-              <input
-                placeholder="Search by Discord name..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={input}
-              />
-            </div>
+            {activeTab !== "promotions" && (
+              <div style={topRow}>
+                <input
+                  placeholder="Search by Discord name..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={input}
+                />
+              </div>
+            )}
 
-            <div style={tableHead}>
-              <div>User</div>
-              <div>Main / Raider.IO</div>
-              <div>Role</div>
-              <div>Signup Access</div>
-              <div>Actions</div>
-            </div>
-
-            {loading ? (
-              <div style={empty}>Loading users...</div>
-            ) : filteredUsers.length === 0 ? (
-              <div style={empty}>No users found.</div>
-            ) : (
-              filteredUsers.map((user) => (
-                <div key={user.user_id} style={tableRow}>
-                  <div style={userCell}>
-                    <img
-                      src={user.avatar_url || "/logo.png"}
-                      style={avatar}
-                      alt=""
-                    />
-
-                    <div>
-                      <div style={userName}>
-                        {getRoleIcon(user.site_role)}{" "}
-                        {user.discord_name || "Unknown"}
-                      </div>
-                      <div style={userId}>{user.user_id}</div>
-                    </div>
-                  </div>
-
-                  <div style={mainInfo}>
-                    <div style={mainChar}>
-                      {user.main_character ? (
-                        <>
-                          {user.main_character}
-                          {user.main_realm ? ` - ${user.main_realm}` : ""}
-                        </>
-                      ) : (
-                        <span style={muted}>No main linked</span>
-                      )}
-                    </div>
-
-                    {user.raider_io ? (
-                      <a
-                        href={user.raider_io}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={rioLink}
-                      >
-                        Raider.IO ↗
-                      </a>
-                    ) : (
-                      <div style={muted}>No Raider.IO</div>
-                    )}
-
-                    {!user.signup_approved && user.application_note && (
-                      <div style={note}>“{user.application_note}”</div>
-                    )}
-
-                    {!user.signup_approved && user.applied_at && (
-                      <div style={appliedAt}>
-                        Applied: {new Date(user.applied_at).toLocaleString()}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <select
-                      value={normalizeRole(user.site_role)}
-                      onChange={(e) =>
-                        updateUser(user.user_id, {
-                          site_role: e.target.value as SiteRole,
-                        })
-                      }
-                      style={select}
-                      disabled={!isAdmin || isOwner(user)}
-                    >
-                      <option value="Dreadlord">Dreadlord</option>
-                      <option value="Nightblade">Nightblade</option>
-                      <option value="Soulreaper">Soulreaper</option>
-                      <option value="Reaper">Reaper</option>
-                      <option value="Lost_soul">Lost Soul</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    {user.signup_approved ? (
-                      <span style={approved}>✓ Approved</span>
-                    ) : (
-                      <span style={notApproved}>✕ Pending</span>
-                    )}
-                  </div>
-
-                  <div style={actions}>
-                    {!isAdmin ? (
-                      <span style={muted}>Dreadlord only</span>
-                    ) : isOwner(user) ? (
-                      <button style={ownerBtn} disabled>
-                        👑 Owner
-                      </button>
-                    ) : user.signup_approved ? (
-                      <button
-                        onClick={() =>
-                          updateUser(user.user_id, {
-                            signup_approved: false,
-                            site_role:
-                              normalizeRole(user.site_role) === "Dreadlord" ||
-                              normalizeRole(user.site_role) === "Nightblade"
-                                ? normalizeRole(user.site_role)
-                                : "Lost_soul",
-                          })
-                        }
-                        style={revokeBtn}
-                      >
-                        Revoke Access
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() =>
-                            updateUser(user.user_id, {
-                              signup_approved: true,
-                              site_role: "Reaper",
-                              application_note: "",
-                              applied_at: null,
-                            })
-                          }
-                          style={approveBtn}
-                        >
-                          Approve Signup
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            updateUser(user.user_id, {
-                              signup_approved: false,
-                              applied_at: null,
-                              application_note: "",
-                              site_role: "Lost_soul",
-                            })
-                          }
-                          style={revokeBtn}
-                        >
-                          Decline
-                        </button>
-                      </>
-                    )}
-                  </div>
+            {activeTab === "promotions" ? (
+              <div>
+                <div style={promotionHead}>
+                  <div>User</div>
+                  <div>Balance</div>
+                  <div>Requested Rank</div>
+                  <div>Date</div>
+                  <div>Actions</div>
                 </div>
-              ))
+
+                {promotionRequests.length === 0 ? (
+                  <div style={empty}>No promotion requests.</div>
+                ) : (
+                  promotionRequests.map((req) => (
+                    <div key={req.id} style={promotionRow}>
+                      <div>
+                        <div style={userName}>{req.discord_name || "Unknown"}</div>
+                        <div style={userId}>{req.discord_id || req.user_id}</div>
+                      </div>
+
+                      <div style={{ color: "#facc15", fontWeight: 900 }}>
+                        {Number(req.current_balance || 0).toLocaleString()} gold
+                      </div>
+
+                      <div style={{ fontWeight: 900 }}>
+                        {getRoleIcon(req.requested_role)} {req.requested_role}
+                      </div>
+
+                      <div style={muted}>
+                        {req.created_at
+                          ? new Date(req.created_at).toLocaleString()
+                          : "-"}
+                      </div>
+
+                      <div style={actions}>
+                        <button
+                          style={approveBtn}
+                          onClick={() => approvePromotion(req)}
+                        >
+                          Approve
+                        </button>
+
+                        <button
+                          style={revokeBtn}
+                          onClick={() => rejectPromotion(req)}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : (
+              <>
+                <div style={tableHead}>
+                  <div>User</div>
+                  <div>Main / Raider.IO</div>
+                  <div>Role</div>
+                  <div>Signup Access</div>
+                  <div>Actions</div>
+                </div>
+
+                {loading ? (
+                  <div style={empty}>Loading users...</div>
+                ) : filteredUsers.length === 0 ? (
+                  <div style={empty}>No users found.</div>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <div key={user.user_id} style={tableRow}>
+                      <div style={userCell}>
+                        <img
+                          src={user.avatar_url || "/logo.png"}
+                          style={avatar}
+                          alt=""
+                        />
+
+                        <div>
+                          <div style={userName}>
+                            {getRoleIcon(user.site_role)}{" "}
+                            {user.discord_name || "Unknown"}
+                          </div>
+                          <div style={userId}>{user.user_id}</div>
+                        </div>
+                      </div>
+
+                      <div style={mainInfo}>
+                        <div style={mainChar}>
+                          {user.main_character ? (
+                            <>
+                              {user.main_character}
+                              {user.main_realm ? ` - ${user.main_realm}` : ""}
+                            </>
+                          ) : (
+                            <span style={muted}>No main linked</span>
+                          )}
+                        </div>
+
+                        {user.raider_io ? (
+                          <a
+                            href={user.raider_io}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={rioLink}
+                          >
+                            Raider.IO ↗
+                          </a>
+                        ) : (
+                          <div style={muted}>No Raider.IO</div>
+                        )}
+
+                        {!user.signup_approved && user.application_note && (
+                          <div style={note}>“{user.application_note}”</div>
+                        )}
+
+                        {!user.signup_approved && user.applied_at && (
+                          <div style={appliedAt}>
+                            Applied: {new Date(user.applied_at).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <select
+                          value={normalizeRole(user.site_role)}
+                          onChange={(e) =>
+                            updateUser(user.user_id, {
+                              site_role: e.target.value as SiteRole,
+                            })
+                          }
+                          style={select}
+                          disabled={!isAdmin || isOwner(user)}
+                        >
+                          <option value="Dreadlord">Dreadlord</option>
+                          <option value="Nightblade">Nightblade</option>
+                          <option value="Soulreaper">Soulreaper</option>
+                          <option value="Reaper">Reaper</option>
+                          <option value="Lost_soul">Lost Soul</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        {user.signup_approved ? (
+                          <span style={approved}>✓ Approved</span>
+                        ) : (
+                          <span style={notApproved}>✕ Pending</span>
+                        )}
+                      </div>
+
+                      <div style={actions}>
+                        {!isAdmin ? (
+                          <span style={muted}>Dreadlord only</span>
+                        ) : isOwner(user) ? (
+                          <button style={ownerBtn} disabled>
+                            👑 Owner
+                          </button>
+                        ) : user.signup_approved ? (
+                          <button
+                            onClick={() =>
+                              updateUser(user.user_id, {
+                                signup_approved: false,
+                                site_role:
+                                  normalizeRole(user.site_role) === "Dreadlord" ||
+                                  normalizeRole(user.site_role) === "Nightblade"
+                                    ? normalizeRole(user.site_role)
+                                    : "Lost_soul",
+                              })
+                            }
+                            style={revokeBtn}
+                          >
+                            Revoke Access
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() =>
+                                updateUser(user.user_id, {
+                                  signup_approved: true,
+                                  site_role: "Reaper",
+                                  application_note: "",
+                                  applied_at: null,
+                                })
+                              }
+                              style={approveBtn}
+                            >
+                              Approve Signup
+                            </button>
+
+                            <button
+                              onClick={() =>
+                                updateUser(user.user_id, {
+                                  signup_approved: false,
+                                  applied_at: null,
+                                  application_note: "",
+                                  site_role: "Lost_soul",
+                                })
+                              }
+                              style={revokeBtn}
+                            >
+                              Decline
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </>
             )}
           </div>
         </main>
@@ -543,6 +698,24 @@ const tableRow: React.CSSProperties = {
   borderTop: "1px solid rgba(255,255,255,.06)",
 };
 
+const promotionHead: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1.4fr 1fr 1fr 1.2fr 1fr",
+  padding: "16px 20px",
+  background: "rgba(168,85,247,.08)",
+  color: "#f0abfc",
+  fontWeight: 900,
+  marginTop: 16,
+};
+
+const promotionRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1.4fr 1fr 1fr 1.2fr 1fr",
+  alignItems: "center",
+  padding: "16px 20px",
+  borderTop: "1px solid rgba(255,255,255,.06)",
+};
+
 const userCell: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -625,6 +798,7 @@ const notApproved: React.CSSProperties = {
 const actions: React.CSSProperties = {
   display: "flex",
   gap: 10,
+  flexWrap: "wrap",
 };
 
 const approveBtn: React.CSSProperties = {

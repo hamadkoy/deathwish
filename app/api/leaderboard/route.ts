@@ -28,7 +28,6 @@ function parseNumber(value: any) {
     .replace(/[^\d.-]/g, "");
 
   const num = Number(cleaned);
-
   return Number.isNaN(num) ? 0 : num;
 }
 
@@ -37,24 +36,45 @@ export async function GET() {
     const auth = new google.auth.GoogleAuth({
       credentials: {
         client_email: process.env.GOOGLE_CLIENT_EMAIL,
-        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(
-          /\\n/g,
-          "\n"
-        ),
+        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
       },
-      scopes: [
-        "https://www.googleapis.com/auth/spreadsheets.readonly",
-      ],
+      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
     });
 
     const authClient = await auth.getClient();
+    const sheets = google.sheets({ version: "v4", auth: authClient as any });
 
-    const sheets = google.sheets({
-      version: "v4",
-      auth: authClient as any,
+    const totalRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'Total'!A2:D500",
     });
 
-    const playerMap = new Map();
+    const totalRows = totalRes.data.values || [];
+
+    const allPlayers = totalRows
+      .map((row) => ({
+        name: row[0]?.toString().trim(),
+        discordId: row[1]?.toString().trim(),
+        totalGold: parseNumber(row[2]),
+        runs: parseNumber(row[3]),
+      }))
+      .filter((p) => p.name && p.totalGold > 0);
+
+    const validPlayers = allPlayers.filter(
+      (p) =>
+        p.name &&
+        p.name.toLowerCase() !== "unknown" &&
+        p.discordId
+    );
+
+    let highestWeek = {
+      name: "",
+      season: "",
+      week: "",
+      amount: 0,
+    };
+
+    const highestWeekByPlayer: Record<string, any> = {};
 
     for (const season of SEASONS) {
       const res = await sheets.spreadsheets.values.get({
@@ -63,56 +83,86 @@ export async function GET() {
       });
 
       const rows = res.data.values || [];
+      if (!rows.length) continue;
 
-      if (rows.length < 3) continue;
-
-      const headers = rows[1] || [];
-
-      const totalIndex = headers.findIndex((h: any) =>
-        h?.toString().toLowerCase().includes("total")
+      const headerIndex = rows.findIndex((row) =>
+        row.some((cell: any) =>
+          cell?.toString().toLowerCase().includes("week")
+        )
       );
 
-      if (totalIndex === -1) continue;
+      if (headerIndex === -1) continue;
 
-      const players = rows.slice(2);
+      const headers = rows[headerIndex];
+      const playerRows = rows.slice(headerIndex + 1);
 
-      for (const row of players) {
-        const name = row[0]?.toString().trim();
-        const discordId = row[1]?.toString().trim();
+      headers.forEach((header: any, index: number) => {
+        const h = header?.toString() || "";
+        if (!h.toLowerCase().includes("week")) return;
 
-        if (!name || !discordId) continue;
+        for (const row of playerRows) {
+          const name = row[0]?.toString().trim();
+          const amount = parseNumber(row[index]);
 
-        const totalGold = parseNumber(row[totalIndex]);
+          if (name && amount > highestWeek.amount) {
+            highestWeek = { name, season, week: h, amount };
+          }
 
-        if (totalGold <= 0) continue;
-
-        if (!playerMap.has(discordId)) {
-          playerMap.set(discordId, {
-            name,
-            discordId,
-            totalGold: 0,
-          });
+          if (
+            name &&
+            (!highestWeekByPlayer[name] ||
+              amount > highestWeekByPlayer[name].amount)
+          ) {
+            highestWeekByPlayer[name] = {
+              name,
+              season,
+              week: h,
+              amount,
+            };
+          }
         }
-
-        const player = playerMap.get(discordId);
-
-        player.totalGold += totalGold;
-      }
+      });
     }
 
-    const leaderboard = Array.from(
-      playerMap.values()
-    )
-      .sort(
-        (a: any, b: any) =>
-          b.totalGold - a.totalGold
-      )
-      .slice(0, 10);
+    const leaderboard = validPlayers
+      .slice()
+      .sort((a, b) => b.totalGold - a.totalGold)
+      .slice(0, 10)
+      .map((p) => ({
+        ...p,
+        highestWeek: highestWeekByPlayer[p.name] || null,
+      }));
 
-    return NextResponse.json(leaderboard);
+    const totalAllGold = allPlayers.reduce(
+      (sum, p) => sum + p.totalGold,
+      0
+    );
+
+    const topBooster = validPlayers
+      .slice()
+      .sort((a, b) => b.totalGold - a.totalGold)[0];
+
+    const topRuns = validPlayers
+      .slice()
+      .sort((a, b) => b.runs - a.runs)[0];
+
+    return NextResponse.json(
+      {
+        leaderboard,
+        stats: {
+          topBooster,
+          topRuns,
+          totalAllGold,
+          highestWeek,
+        },
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   } catch (err: any) {
-    return NextResponse.json({
-      error: err.message,
-    });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
