@@ -440,7 +440,7 @@ const roleOrder = {
 };
 
 const requiredGold = {
-  Soulreaper: 150000000,
+  Soulreaper: 120000000,
   Nightblade: 250000000,
   Dreadlord: 325000000,
 };
@@ -870,12 +870,6 @@ const totalExperience = useMemo(() => {
 
   return `${bestMythicProgress}/9M`;
 }, [characters]);
-const promotionColor =
-  balance >= 325000000
-    ? "#ef4444" // Dreadlord
-    : balance >= 250000000
-    ? "#a855f7" // Nightblade
-    : "#38bdf8"; // Soulreaper
 const approvedRank =
   profile?.site_role === "Dreadlord" || profile?.site_role === "admin"
     ? "Dreadlord"
@@ -883,7 +877,25 @@ const approvedRank =
     ? "Nightblade"
     : profile?.site_role === "Soulreaper"
     ? "Soulreaper"
-    : "Soulreaper";
+    : profile?.site_role === "Reaper" || profile?.site_role === "booster"
+    ? "Reaper"
+    : "Reaper";
+
+const promotionColor =
+  approvedRank === "Dreadlord"
+    ? "#ef4444"
+    : approvedRank === "Nightblade"
+    ? "#a855f7"
+    : "#38bdf8";
+
+    const approvedTarget =
+  approvedRank === "Reaper"
+    ? 120000000
+    : approvedRank === "Soulreaper"
+    ? 250000000
+    : approvedRank === "Nightblade"
+    ? 325000000
+    : 325000000;
 const promotionGradient =
   balance >= 325000000
     ? "linear-gradient(90deg,#dc2626,#f97316)"
@@ -1395,7 +1407,9 @@ src={
     ? "/dreadlord.png"
     : approvedRank === "Nightblade"
     ? "/nightblade.png"
-    : "/soulreaper.png"
+    : approvedRank === "Soulreaper"
+    ? "/soulreaper.png"
+    : "/reaper.png"
 }
 
     alt="Promotion"
@@ -1443,15 +1457,8 @@ src={
     >
       <div
         style={{
-          height: "100%",
-          width: `${Math.min(
-            100,
-            balance >= 325000000
-              ? 100
-              : balance >= 250000000
-              ? (balance / 325000000) * 100
-              : (balance / 250000000) * 100
-          )}%`,
+height: "100%",
+width: `${Math.min((balance / approvedTarget) * 100, 100)}%`,
           borderRadius: 999,
           background:
             balance >= 325000000
@@ -1476,11 +1483,13 @@ src={
     >
       <span>{Number(balance || 0).toLocaleString()} GOLD</span>
       <span>
-        {balance >= 325000000
-          ? "MAX"
-          : balance >= 250000000
-          ? "325M"
-          : "250M"}
+{approvedRank === "Reaper"
+  ? "120M"
+  : approvedRank === "Soulreaper"
+  ? "250M"
+  : approvedRank === "Nightblade"
+  ? "325M"
+  : "MAX"}
       </span>
     </div>
   </div>
