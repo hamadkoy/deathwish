@@ -899,18 +899,22 @@ const promotionColor =
     ? 325000000
     : 325000000;
 const promotionGradient =
-  balance >= 325000000
-    ? "linear-gradient(90deg,#dc2626,#f97316)"
-    : balance >= 250000000
+  approvedRank === "Dreadlord"
+    ? "linear-gradient(90deg,#ef4444,#f97316)"
+    : approvedRank === "Nightblade"
     ? "linear-gradient(90deg,#7e22ce,#c084fc)"
-    : "linear-gradient(90deg,#0284c7,#38bdf8)";
+    : approvedRank === "Soulreaper"
+    ? "linear-gradient(90deg,#0284c7,#38bdf8)"
+    : "linear-gradient(90deg,#ca8a04,#facc15)";
 
 const promotionShadow =
-  balance >= 325000000
+  approvedRank === "Dreadlord"
     ? "rgba(239,68,68,.85)"
-    : balance >= 250000000
+    : approvedRank === "Nightblade"
     ? "rgba(168,85,247,.85)"
-    : "rgba(56,189,248,.85)";
+    : approvedRank === "Soulreaper"
+    ? "rgba(56,189,248,.85)"
+    : "rgba(250,204,21,.85)";
 return (
   <div
     style={{
@@ -1420,12 +1424,14 @@ src={
       height: 92,
       objectFit: "contain",
       animation: "float 4s ease-in-out infinite",
-      filter:
-        balance >= 325000000
-          ? "drop-shadow(0 0 18px rgba(239,68,68,.95))"
-          : balance >= 250000000
-          ? "drop-shadow(0 0 18px rgba(168,85,247,.95))"
-          : "drop-shadow(0 0 18px rgba(56,189,248,.95))",
+filter:
+  approvedRank === "Dreadlord"
+    ? "drop-shadow(0 0 18px rgba(239,68,68,.95))"
+    : approvedRank === "Nightblade"
+    ? "drop-shadow(0 0 18px rgba(168,85,247,.95))"
+    : approvedRank === "Soulreaper"
+    ? "drop-shadow(0 0 18px rgba(56,189,248,.95))"
+    : "drop-shadow(0 0 18px rgba(250,204,21,.95))",
     }}
   />
 
@@ -1434,12 +1440,7 @@ src={
       style={{
         ...mainCharacterName,
         fontSize: 26,
-        color:
-          balance >= 325000000
-            ? "#ff5555"
-            : balance >= 250000000
-            ? "#c084fc"
-            : "#38bdf8",
+color: promotionColor,
         marginBottom: 6,
       }}
     >
@@ -1470,7 +1471,7 @@ background:
     : approvedRank === "Soulreaper"
     ? "linear-gradient(90deg,#0284c7,#38bdf8)"
     : "linear-gradient(90deg,#ca8a04,#facc15)",
-          boxShadow: "0 0 18px rgba(168,85,247,.9)",
+          boxShadow: `0 0 18px ${promotionShadow}`,
         }}
       />
     </div>
