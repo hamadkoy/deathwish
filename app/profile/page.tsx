@@ -886,7 +886,9 @@ const promotionColor =
     ? "#ef4444"
     : approvedRank === "Nightblade"
     ? "#a855f7"
-    : "#38bdf8";
+    : approvedRank === "Soulreaper"
+    ? "#38bdf8"
+    : "#facc15";
 
     const approvedTarget =
   approvedRank === "Reaper"
@@ -1460,12 +1462,14 @@ src={
 height: "100%",
 width: `${Math.min((balance / approvedTarget) * 100, 100)}%`,
           borderRadius: 999,
-          background:
-            balance >= 325000000
-              ? "linear-gradient(90deg,#ef4444,#f97316)"
-              : balance >= 250000000
-              ? "linear-gradient(90deg,#7e22ce,#c084fc)"
-              : "linear-gradient(90deg,#0284c7,#38bdf8)",
+background:
+  approvedRank === "Dreadlord"
+    ? "linear-gradient(90deg,#ef4444,#f97316)"
+    : approvedRank === "Nightblade"
+    ? "linear-gradient(90deg,#7e22ce,#c084fc)"
+    : approvedRank === "Soulreaper"
+    ? "linear-gradient(90deg,#0284c7,#38bdf8)"
+    : "linear-gradient(90deg,#ca8a04,#facc15)",
           boxShadow: "0 0 18px rgba(168,85,247,.9)",
         }}
       />
