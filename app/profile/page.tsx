@@ -2673,33 +2673,32 @@ top: tooltipPos.y,
   </div>
 )}
 {promotionOpen && (() => {
-  const SOULREAPER = 150000000;
-  const NIGHTBLADE = 250000000;
-  const DREADLORD = 325000000;
+const SOULREAPER = 120000000;
+const NIGHTBLADE = 250000000;
+const DREADLORD = 325000000;
 
-  const currentRank =
-    balance >= DREADLORD
-      ? "Dreadlord"
-      : balance >= NIGHTBLADE
-      ? "Nightblade"
-      : "Soulreaper";
+const nextTarget =
+  approvedRank === "Reaper"
+    ? SOULREAPER
+    : approvedRank === "Soulreaper"
+    ? NIGHTBLADE
+    : approvedRank === "Nightblade"
+    ? DREADLORD
+    : DREADLORD;
 
-  const nextTarget =
-    balance >= DREADLORD
-      ? DREADLORD
-      : balance >= NIGHTBLADE
-      ? DREADLORD
-      : NIGHTBLADE;
+const nextName =
+  approvedRank === "Reaper"
+    ? "Soulreaper"
+    : approvedRank === "Soulreaper"
+    ? "Nightblade"
+    : approvedRank === "Nightblade"
+    ? "Dreadlord"
+    : "Dreadlord";
 
-  const nextName =
-    balance >= DREADLORD
-      ? "Dreadlord"
-      : balance >= NIGHTBLADE
-      ? "Dreadlord"
-      : "Nightblade";
+const currentRank = nextName;
 
-  const left = Math.max(nextTarget - balance, 0);
-  const percent = Math.min((balance / nextTarget) * 100, 100);
+const left = Math.max(nextTarget - balance, 0);
+const percent = Math.min((balance / nextTarget) * 100, 100);
 
   return (
     <div style={popupOverlay}>
