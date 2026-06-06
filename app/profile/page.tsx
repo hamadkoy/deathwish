@@ -654,7 +654,7 @@ async function updateCharacter(char: Character) {
     setUpdatingId(char.id);
 
 const response = await fetch(
-  `https://raider.io/api/v1/characters/profile?region=eu&realm=${char.realm}&name=${char.name}&fields=raid_progression,mythic_plus_scores_by_season_current`
+  `https://raider.io/api/v1/characters/profile?region=eu&realm=${char.realm}&name=${char.name}&fields=gear,raid_progression,mythic_plus_best_runs,mythic_plus_scores_by_season_current`
 );
 
     const data = await response.json();
