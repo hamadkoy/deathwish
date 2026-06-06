@@ -88,11 +88,11 @@ metalic: {
     secondary: "#84cc16",
   },
 
-  peaceful: {
-    image: "/peaceful.png",
-    primary: "#14b8a6",
-    secondary: "#22c55e",
-  },
+peaceful: {
+  image: "/peaceful.png",
+  primary: "#14b8a6",
+  secondary: "#22c55e",
+},
 
   zugzug: {
     image: "/zugzug.png",
@@ -118,11 +118,11 @@ metalic: {
     secondary: "#312e81",
   },
 
-  stormwind: {
-    image: "/Stormwind.png",
-    primary: "#60a5fa",
-    secondary: "#2563eb",
-  },
+ stormwind: {
+  image: "/Stormwindd.png",
+  primary: "#60a5fa",
+  secondary: "#2563eb",
+},
 
   hcBlue: {
     image: "/hc-bg.png",
@@ -148,23 +148,23 @@ metalic: {
     secondary: "#60a5fa",
   },
 
-  oldgods: {
-    image: "/oldgods.png",
-    primary: "#2e003e",
-    secondary: "#a855f7",
-  },
+oldgods: {
+  image: "/oldgods.png",
+  primary: "#2e003e",
+  secondary: "#a855f7",
+},
 
-  orgrimmar: {
-    image: "/orgimmar.png",
-    primary: "#7f1d1d",
-    secondary: "#f97316",
-  },
+orgrimmar: {
+  image: "/orgimmar.png", // your file is orgimmar.png, not orgrimmar.png
+  primary: "#7f1d1d",
+  secondary: "#f97316",
+},
 
-  argus: {
-    image: "/argus.png",
-    primary: "#4c1d95",
-    secondary: "#c084fc",
-  },
+argus: {
+  image: "/argus.png",
+  primary: "#4c1d95",
+  secondary: "#c084fc",
+},
 
   ironforge: {
     image: "/Ironforge.png",
@@ -172,18 +172,19 @@ metalic: {
     secondary: "#f59e0b",
   },
 
-  thunderbluff: {
-    image: "/thunderbluff.png",
-    primary: "#713f12",
-    secondary: "#facc15",
-  },
+thunderbluff: {
+  image: "/thunderbluff.png",
+  primary: "#713f12",
+  secondary: "#facc15",
+},
 
-  archimonde: {
-    image: "/archimonde.png",
-    primary: "#14532d",
-    secondary: "#22c55e",
-    position: "center 18%",
-  },
+
+archimonde: {
+  image: "/archimonde.png",
+  primary: "#14532d",
+  secondary: "#22c55e",
+  position: "center 18%",
+},
 
   voljin: {
     image: "/Voljin.png",
