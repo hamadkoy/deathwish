@@ -1439,12 +1439,18 @@ filter:
     <div
       style={{
         ...mainCharacterName,
-        fontSize: 26,
+fontSize:
+  balance >= approvedTarget && approvedRank !== "Dreadlord"
+    ? 22
+    : 26,
 color: promotionColor,
-        marginBottom: 6,
+marginBottom: 6,
+whiteSpace: "nowrap",
       }}
     >
-{approvedRank}
+{balance >= approvedTarget && approvedRank !== "Dreadlord"
+  ? "Click for promotion"
+  : approvedRank}
     </div>
 
     <div
