@@ -16,13 +16,13 @@ export const themes: Record<string, Theme> = {
     secondary: "#d946ef",
   },
 
-nerion: {
-  image: "/Nerion.png",
-  primary: "#f59e0b",
-  secondary: "#facc15",
-  position: "center top",
-  size: "110%",
-},
+  nerion: {
+    image: "/Nerion.png",
+    primary: "#f59e0b",
+    secondary: "#facc15",
+    position: "center top",
+    size: "110%",
+  },
 
   citygold: {
     image: "/citygold.png",
@@ -30,17 +30,21 @@ nerion: {
     secondary: "#f59e0b",
   },
 
-  garrosh: {
-    image: "/garrosh.png",
-    primary: "#dc2626",
-    secondary: "#f97316",
-  },
+garrosh: {
+  image: "/garrosh.png",
+  primary: "#dc2626",
+  secondary: "#f97316",
+  position: "center top",
+  size: "110%",
+},
 
-  metalic: {
-    image: "/Metalic.png",
-    primary: "#a855f7",
-    secondary: "#ec4899",
-  },
+metalic: {
+  image: "/Metalic.png",
+  primary: "#a855f7",
+  secondary: "#ec4899",
+  position: "center 15%",
+  size: "115%",
+},
 
   illidan: {
     image: "/Illidan.png",
@@ -85,16 +89,16 @@ nerion: {
   },
 
   peaceful: {
-    image: "/Peaceful.png",
+    image: "/peaceful.png",
     primary: "#14b8a6",
     secondary: "#22c55e",
   },
 
-zugzug: {
-  image: "/zugzug.png",
-  primary: "#dc2626",
-  secondary: "#ea580c",
-},
+  zugzug: {
+    image: "/zugzug.png",
+    primary: "#dc2626",
+    secondary: "#ea580c",
+  },
 
   alliance: {
     image: "/alliance.png",
@@ -102,25 +106,23 @@ zugzug: {
     secondary: "#60a5fa",
   },
 
-stars: {
-  image: "/stars.png",
-  primary: "#8b5cf6",
-  secondary: "#6366f1",
-},
+  stars: {
+    image: "/stars.png",
+    primary: "#8b5cf6",
+    secondary: "#6366f1",
+  },
 
-nightfall: {
-  image: "/nightfall.png",
-  primary: "#1e3a8a",
-  secondary: "#312e81",
-},
+  nightfall: {
+    image: "/nightfall.png",
+    primary: "#1e3a8a",
+    secondary: "#312e81",
+  },
 
   stormwind: {
     image: "/Stormwind.png",
     primary: "#60a5fa",
     secondary: "#2563eb",
   },
-
-  /* NEW THEMES */
 
   hcBlue: {
     image: "/hc-bg.png",
@@ -140,75 +142,77 @@ nightfall: {
     secondary: "#ef4444",
   },
 
- pantheon: {
-  image: "/pantheon.png",
-  primary: "#1e3a8a",
-  secondary: "#60a5fa",
- },
+  pantheon: {
+    image: "/Pantheon.png",
+    primary: "#1e3a8a",
+    secondary: "#60a5fa",
+  },
 
   oldgods: {
-  image: "/oldgods.png",
-  primary: "#2e003e",
-  secondary: "#a855f7",
- },
+    image: "/oldgods.png",
+    primary: "#2e003e",
+    secondary: "#a855f7",
+  },
 
- orgimmar: {
-  image: "/orgrimmar.png",
-  primary: "#7f1d1d",
-  secondary: "#f97316",
- },
+  orgrimmar: {
+    image: "/orgimmar.png",
+    primary: "#7f1d1d",
+    secondary: "#f97316",
+  },
 
-   argus: {
+  argus: {
     image: "/argus.png",
     primary: "#4c1d95",
     secondary: "#c084fc",
-   },
+  },
 
-   ironforge: {
-    image: "/ironforge.png",
+  ironforge: {
+    image: "/Ironforge.png",
     primary: "#431407",
     secondary: "#f59e0b",
-   },
+  },
 
-   thunderbluff: {
+  thunderbluff: {
     image: "/thunderbluff.png",
     primary: "#713f12",
     secondary: "#facc15",
-   },
+  },
 
-   archimonde: {
-  image: "/archimonde.png",
-  primary: "#14532d",
-  secondary: "#22c55e",
-  position: "center 18%",
-},
+  archimonde: {
+    image: "/archimonde.png",
+    primary: "#14532d",
+    secondary: "#22c55e",
+    position: "center 18%",
+  },
 
   voljin: {
-    image: "/voljin.png",
+    image: "/Voljin.png",
     primary: "#7c2d12",
     secondary: "#fb923c",
   },
 
   guldanfel: {
-    image: "/guldanfel.png",
+    image: "/Guldanfel.png",
     primary: "#14532d",
     secondary: "#84cc16",
   },
 
   guldan: {
-    image: "/guldan.png",
+    image: "/Guldan.png",
     primary: "#581c87",
     secondary: "#a855f7",
   },
 
-  lichking: {
-    image: "/lichking.png",
-    primary: "#082f49",
-    secondary: "#38bdf8",
-  },
+lichking: {
+  image: "/Lichking.png",
+  primary: "#082f49",
+  secondary: "#38bdf8",
+  position: "center top",
+  size: "115%",
+},
 
   deathwing: {
-    image: "/deathwing.png",
+    image: "/Deathwing.png",
     primary: "#431407",
     secondary: "#f97316",
   },
