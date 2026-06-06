@@ -5,6 +5,7 @@ type Theme = {
   primary: string;
   secondary: string;
   position?: string;
+  size?: string;
 };
 
 export const themes: Record<string, Theme> = {
@@ -19,7 +20,8 @@ nerion: {
   image: "/Nerion.png",
   primary: "#f59e0b",
   secondary: "#facc15",
-  position: "center 25%",
+  position: "center top",
+  size: "110%",
 },
 
   citygold: {
@@ -138,43 +140,43 @@ nightfall: {
     secondary: "#ef4444",
   },
 
-pantheon: {
+ pantheon: {
   image: "/pantheon.png",
   primary: "#1e3a8a",
   secondary: "#60a5fa",
-},
+ },
 
-oldgods: {
+  oldgods: {
   image: "/oldgods.png",
   primary: "#2e003e",
   secondary: "#a855f7",
-},
+ },
 
- orgrimmar: {
+ orgimmar: {
   image: "/orgrimmar.png",
   primary: "#7f1d1d",
   secondary: "#f97316",
-},
+ },
 
-  argus: {
+   argus: {
     image: "/argus.png",
     primary: "#4c1d95",
     secondary: "#c084fc",
-  },
+   },
 
-  ironforge: {
+   ironforge: {
     image: "/ironforge.png",
     primary: "#431407",
     secondary: "#f59e0b",
-  },
+   },
 
-  thunderbluff: {
+   thunderbluff: {
     image: "/thunderbluff.png",
     primary: "#713f12",
     secondary: "#facc15",
-  },
+   },
 
-archimonde: {
+   archimonde: {
   image: "/archimonde.png",
   primary: "#14532d",
   secondary: "#22c55e",
