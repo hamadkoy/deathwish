@@ -88,11 +88,11 @@ nerion: {
     secondary: "#22c55e",
   },
 
-  zugzug: {
-    image: "/Zugzug.png",
-    primary: "#dc2626",
-    secondary: "#ea580c",
-  },
+zugzug: {
+  image: "/zugzug.png",
+  primary: "#dc2626",
+  secondary: "#ea580c",
+},
 
   alliance: {
     image: "/alliance.png",
@@ -100,17 +100,17 @@ nerion: {
     secondary: "#60a5fa",
   },
 
-  stars: {
-    image: "/Stars.png",
-    primary: "#8b5cf6",
-    secondary: "#6366f1",
-  },
+stars: {
+  image: "/stars.png",
+  primary: "#8b5cf6",
+  secondary: "#6366f1",
+},
 
-  nightfall: {
-    image: "/Nightfall.png",
-    primary: "#1e3a8a",
-    secondary: "#312e81",
-  },
+nightfall: {
+  image: "/nightfall.png",
+  primary: "#1e3a8a",
+  secondary: "#312e81",
+},
 
   stormwind: {
     image: "/Stormwind.png",
@@ -138,23 +138,23 @@ nerion: {
     secondary: "#ef4444",
   },
 
-  pantheon: {
-    image: "/pantheon.png",
-    primary: "#1e3a8a",
-    secondary: "#60a5fa",
-  },
+pantheon: {
+  image: "/pantheon.png",
+  primary: "#1e3a8a",
+  secondary: "#60a5fa",
+},
 
-  oldgods: {
-    image: "/oldgods.png",
-    primary: "#2e003e",
-    secondary: "#a855f7",
-  },
+oldgods: {
+  image: "/oldgods.png",
+  primary: "#2e003e",
+  secondary: "#a855f7",
+},
 
-  orgrimmar: {
-    image: "/orgrimmar.png",
-    primary: "#7f1d1d",
-    secondary: "#f97316",
-  },
+ orgrimmar: {
+  image: "/orgrimmar.png",
+  primary: "#7f1d1d",
+  secondary: "#f97316",
+},
 
   argus: {
     image: "/argus.png",
