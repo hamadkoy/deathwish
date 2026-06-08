@@ -1151,10 +1151,24 @@ if (nextWeeks.length > 0) {
 }
   return (
     <main style={page}>
-<div style={runsLayout}>
+<div
+  style={{
+    ...runsLayout,
+    ...(isMobile
+      ? {
+          display: "block",
+          paddingLeft: 0,
+          paddingRight: 0,
+          width: "100%",
+        }
+      : {}),
+  }}
+>
+{!isMobile && (
   <div style={sideNavFixed}>
     <SideNav active="My Runs" />
   </div>
+)}
 
   <div>
       <div style={magicFog} />
