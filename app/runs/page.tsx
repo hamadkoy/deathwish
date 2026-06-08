@@ -1855,7 +1855,13 @@ onClick={deleteSelectedWeek}
 </div>
 
 <div style={weekButtons}>
-  {weeks.map((week) => {
+ {weeks
+  .filter((week) =>
+    isMobile
+      ? week === selectedWeek || week === selectedWeek + 1
+      : true
+  )
+  .map((week) => {
     const isOldWeek = week < getCurrentWeek();
 
     return (
@@ -2409,6 +2415,16 @@ return (
       key={run.id}
 style={{
   ...runCard,
+    ...(isMobile
+    ? {
+        width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+        padding: 10,
+        transform: "scale(0.92)",
+        transformOrigin: "top center",
+      }
+    : {}),
   minHeight: signupLocked ? 340 : 560,
   background: `linear-gradient(rgba(0,0,0,.18), rgba(0,0,0,.28)), url(${theme.bg}) center/cover`,
   boxShadow: run.finished
@@ -2768,7 +2784,18 @@ setEditRunSignupOpenAt(toDatetimeLocal(run.signup_open_at));
     </div>
   </div>
 ) : (
-  <div style={roleGrid}>
+<div
+  style={{
+    ...roleGrid,
+    ...(isMobile
+      ? {
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gap: 8,
+          width: "100%",
+        }
+      : {}),
+  }}
+>
                   <RoleBox
                     runId={run.id}
                     role="Tank"
