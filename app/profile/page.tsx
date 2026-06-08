@@ -220,12 +220,16 @@ const { data: viewedProfileData } = await supabase
 
   if (viewedProfileData) {
     setViewedProfile(viewedProfileData);
-const bankDiscordId =
-  viewedProfileData?.discord_id ||
-  viewedProfileData?.user_id;
+const bankDiscordId = viewedProfileData?.discord_id;
 
 console.log("VIEWED PROFILE DATA:", viewedProfileData);
 console.log("BANK DISCORD ID USED:", bankDiscordId);
+
+if (bankDiscordId) {
+  loadBalance(bankDiscordId);
+} else {
+  setBalance(0);
+}
     if (viewedProfileData.profile_theme) {
       setSelectedTheme(viewedProfileData.profile_theme);
     }
@@ -499,10 +503,13 @@ async function loadBalance(discordId: string) {
     .then((res) => res.json())
     .then((data) => {
       console.log("BALANCE DATA:", data);
+
+      setBalanceData(data);
       setBalance(Number(data.balance || 0));
     })
     .catch((err) => {
       console.error(err);
+      setBalanceData(null);
       setBalance(0);
     });
 }
@@ -1382,7 +1389,7 @@ justifyContent: isOwnProfile ? "unset" : "center",
   <div style={miniStat}>
     <span style={miniStatLabel}>Balance</span>
 <b style={balanceValue}>
-  {Number(balanceData?.balance || 0).toLocaleString()} 🟡
+  {Number(balance || 0).toLocaleString()} 🟡
 </b>
   </div>
 )}

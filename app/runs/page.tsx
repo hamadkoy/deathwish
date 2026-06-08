@@ -219,7 +219,9 @@ const [signupApproved, setSignupApproved] = useState(false);
     useState<Character | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<number>(getCurrentWeek());
   const selectedWeekRef = useRef(selectedWeek);
-
+const isMobile =
+  typeof window !== "undefined" &&
+  window.innerWidth <= 768;
 useEffect(() => {
   selectedWeekRef.current = selectedWeek;
 }, [selectedWeek]);
@@ -2269,11 +2271,29 @@ style={{
   style={createInput}
 />
 <div style={fieldLabel}>Run Day</div>
-            <input
-              value={editRunDay}
-              onChange={(e) => setEditRunDay(e.target.value)}
-              style={createInput}
-            />
+<select
+  value={editRunDay}
+  onChange={(e) => {
+    const day = e.target.value;
+
+    setEditRunDay(day);
+
+    if (editingRun?.week) {
+      setEditRunDate(
+        getRunDateFromWeekAndDay(editingRun.week, day)
+      );
+    }
+  }}
+  style={createInput}
+>
+  <option value="Wednesday">Wednesday</option>
+  <option value="Thursday">Thursday</option>
+  <option value="Friday">Friday</option>
+  <option value="Saturday">Saturday</option>
+  <option value="Sunday">Sunday</option>
+  <option value="Monday">Monday</option>
+  <option value="Tuesday">Tuesday</option>
+</select>
 <div style={fieldLabel}>Run Date</div>
             <input
               type="date"
@@ -2328,7 +2348,19 @@ style={{
         collisionDetection={pointerWithin}
         onDragEnd={handleDragEnd}
       >
-        <section style={runsGrid}>
+       <section
+  style={{
+    ...runsGrid,
+    ...(isMobile
+      ? {
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+          width: "100%",
+        }
+      : {}),
+  }}
+>
           {filteredRuns.map((run, index) => {
             const theme = getRunTheme(run, index);
             const runUnsignedLogs = banishLogs.filter(
