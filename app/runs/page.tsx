@@ -2368,14 +2368,14 @@ style={{
         collisionDetection={pointerWithin}
         onDragEnd={handleDragEnd}
       >
-       <section
+<section
   style={{
     ...runsGrid,
     ...(isMobile
       ? {
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
           width: "100%",
         }
       : {}),
