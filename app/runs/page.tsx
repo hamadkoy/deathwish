@@ -2046,7 +2046,7 @@ style={{
   ))}
 </div>
       </section>
-{isAdmin && !banishOpen && (
+{isAdmin && !isMobile && !banishOpen && (
   <button
     onClick={() => setBanishOpen(true)}
     style={{
@@ -2068,7 +2068,7 @@ style={{
     ☠
   </button>
 )}
-{isAdmin && banishOpen && (
+{isAdmin && !isMobile && banishOpen && (
   <div
     style={{
       position: "fixed",
@@ -2421,8 +2421,6 @@ style={{
         maxWidth: "100%",
         minWidth: 0,
         padding: 10,
-        transform: "scale(0.92)",
-        transformOrigin: "top center",
       }
     : {}),
   minHeight: signupLocked ? 340 : 560,
@@ -2983,7 +2981,7 @@ setAdminAddSpec={setAdminAddSpec}
           </div>
         </div>
       </footer>
-   {!chatOpen && (
+{!isMobile && !chatOpen && (
   <button
     onClick={() => setChatOpen(true)}
     style={{
@@ -3006,7 +3004,7 @@ setAdminAddSpec={setAdminAddSpec}
   </button>
 )}
 
-{chatOpen && (
+{!isMobile && chatOpen && (
   <div
     style={{
       position: "fixed",
