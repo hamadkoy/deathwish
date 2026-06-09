@@ -2373,10 +2373,11 @@ style={{
     ...runsGrid,
     ...(isMobile
       ? {
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 8,
-          width: "100%",
+display: "grid",
+gridTemplateColumns: "1fr 1fr",
+gap: 8,
+width: "100%",
+padding: "0 6px 40px",
         }
       : {}),
   }}
@@ -2787,8 +2788,8 @@ setEditRunSignupOpenAt(toDatetimeLocal(run.signup_open_at));
     ...roleGrid,
     ...(isMobile
       ? {
-          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-          gap: 8,
+          gridTemplateColumns: "1fr",
+          gap: 6,
           width: "100%",
         }
       : {}),
