@@ -1150,15 +1150,14 @@ if (nextWeeks.length > 0) {
   });
 }
   return (
-   <main
+<main
   style={{
     ...page,
-    ...(isMobile
-      ? {
-          minWidth: 920,
-          overflowX: "auto",
-        }
-      : {}),
+    width: isMobile ? "920px" : "100%",
+    minWidth: isMobile ? "920px" : "100%",
+    overflowX: "auto",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
   }}
 >
 <div
@@ -1169,8 +1168,8 @@ if (nextWeeks.length > 0) {
       display: "block",
       paddingLeft: 0,
       paddingRight: 0,
-      width: 920,
-      minWidth: 920,
+width: "100%",
+minWidth: 920,
     }
   : {}),
   }}
