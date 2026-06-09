@@ -1150,18 +1150,29 @@ if (nextWeeks.length > 0) {
   });
 }
   return (
-    <main style={page}>
+   <main
+  style={{
+    ...page,
+    ...(isMobile
+      ? {
+          minWidth: 920,
+          overflowX: "auto",
+        }
+      : {}),
+  }}
+>
 <div
   style={{
     ...runsLayout,
-    ...(isMobile
-      ? {
-          display: "block",
-          paddingLeft: 0,
-          paddingRight: 0,
-          width: "100%",
-        }
-      : {}),
+...(isMobile
+  ? {
+      display: "block",
+      paddingLeft: 0,
+      paddingRight: 0,
+      width: 920,
+      minWidth: 920,
+    }
+  : {}),
   }}
 >
 {!isMobile && (
@@ -2937,7 +2948,7 @@ setAdminAddSpec={setAdminAddSpec}
           </div>
 
           <div style={unsignedTime}>
-            {new Date(log.unsignedAtRaw).toLocaleTimeString(
+            {new Date(log.unsigned_at).toLocaleTimeString(
               "en-GB",
               {
                 hour: "2-digit",
