@@ -2374,10 +2374,10 @@ style={{
     ...(isMobile
       ? {
 display: "grid",
-gridTemplateColumns: "1fr 1fr",
-gap: 8,
-width: "100%",
-padding: "0 6px 40px",
+gridTemplateColumns: "repeat(2, 430px)",
+gap: 12,
+width: "max-content",
+padding: "0 12px 40px",
         }
       : {}),
   }}
@@ -2958,7 +2958,8 @@ setAdminAddSpec={setAdminAddSpec}
         </section>
       </DndContext>
 
-      <footer style={footer}>
+     {!isMobile && (
+  <footer style={footer}>
         <div style={footerLeft}>
           <img src="/mythic-emblem.png" style={footerLogo} />
           <div>
@@ -2982,6 +2983,7 @@ setAdminAddSpec={setAdminAddSpec}
           </div>
         </div>
       </footer>
+)}
 {!isMobile && !chatOpen && (
   <button
     onClick={() => setChatOpen(true)}
