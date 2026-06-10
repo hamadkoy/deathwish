@@ -1153,8 +1153,8 @@ if (nextWeeks.length > 0) {
 <main
   style={{
     ...page,
-    width: isMobile ? "920px" : "100%",
-    minWidth: isMobile ? "920px" : "100%",
+width: "100%",
+minWidth: "100%",
     overflowX: "auto",
     backgroundSize: "cover",
     backgroundPosition: "center",
@@ -2378,20 +2378,7 @@ style={{
         collisionDetection={pointerWithin}
         onDragEnd={handleDragEnd}
       >
-<section
-  style={{
-    ...runsGrid,
-    ...(isMobile
-      ? {
-display: "grid",
-gridTemplateColumns: "repeat(2, 430px)",
-gap: 12,
-width: "max-content",
-padding: "0 12px 40px",
-        }
-      : {}),
-  }}
->
+<section style={runsGrid}>
           {filteredRuns.map((run, index) => {
             const theme = getRunTheme(run, index);
             const runUnsignedLogs = banishLogs.filter(
