@@ -28,8 +28,7 @@ const hideNavbar =
 const [profile, setProfile] = useState<Profile | null>(null);
 
 const canUseRunCards =
-  profile?.signup_approved &&
-  ["booster", "officer", "admin"].includes(profile?.site_role || "");
+  profile?.signup_approved === true;
 
   useEffect(() => {
     loadUser();
@@ -278,7 +277,7 @@ style={{
 >
   My runs
 </a>
-{["officer", "admin"].includes(profile?.site_role || "") && (
+{["Nightblade", "Dreadlord"].includes(profile?.site_role || "") && (
 <a
   href="/booking"
   style={navLink}
