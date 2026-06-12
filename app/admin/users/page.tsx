@@ -6,6 +6,7 @@ import SideNav from "@/app/components/SideNav";
 
 type SiteRole =
   | "Lost_soul"
+  | "Wandering_soul"
   | "Reaper"
   | "Soulreaper"
   | "Nightblade"
@@ -193,13 +194,14 @@ export default function AdminUsersPage() {
     if (activeTab === "team") {
       list = list.filter((u) => u.signup_approved);
 
-      const roleOrder: Record<SiteRole, number> = {
-        Dreadlord: 0,
-        Nightblade: 1,
-        Soulreaper: 2,
-        Reaper: 3,
-        Lost_soul: 4,
-      };
+const roleOrder: Record<SiteRole, number> = {
+  Dreadlord: 0,
+  Nightblade: 1,
+  Soulreaper: 2,
+  Reaper: 3,
+  Wandering_soul: 4,
+  Lost_soul: 5,
+};
 
       list.sort((a, b) => {
         const roleA = roleOrder[normalizeRole(a.site_role)];
@@ -229,6 +231,9 @@ export default function AdminUsersPage() {
   const dreadlords = users.filter(
     (u) => normalizeRole(u.site_role) === "Dreadlord"
   ).length;
+  const wanderingSouls = users.filter(
+  (u) => normalizeRole(u.site_role) === "Wandering_soul"
+).length;
   const nightblades = users.filter(
     (u) => normalizeRole(u.site_role) === "Nightblade"
   ).length;
@@ -265,6 +270,7 @@ export default function AdminUsersPage() {
             <Stat title="Nightblades" value={nightblades} color="#facc15" />
             <Stat title="Soulreapers" value={soulreapers} color="#a78bfa" />
             <Stat title="Reapers" value={reapers} color="#38bdf8" />
+            <Stat title="Wandering Souls" value={wanderingSouls} color="#c4b5fd" />
           </div>
 
           <div style={panel}>
@@ -429,22 +435,23 @@ export default function AdminUsersPage() {
                       </div>
 
                       <div>
-                        <select
-                          value={normalizeRole(user.site_role)}
-                          onChange={(e) =>
-                            updateUser(user.user_id, {
-                              site_role: e.target.value as SiteRole,
-                            })
-                          }
-                          style={select}
-                          disabled={!isAdmin || isOwner(user)}
-                        >
-                          <option value="Dreadlord">Dreadlord</option>
-                          <option value="Nightblade">Nightblade</option>
-                          <option value="Soulreaper">Soulreaper</option>
-                          <option value="Reaper">Reaper</option>
-                          <option value="Lost_soul">Lost Soul</option>
-                        </select>
+<select
+  value={normalizeRole(user.site_role)}
+  onChange={(e) =>
+    updateUser(user.user_id, {
+      site_role: e.target.value as SiteRole,
+    })
+  }
+  style={select}
+  disabled={!isAdmin || isOwner(user)}
+>
+  <option value="Dreadlord">Dreadlord</option>
+  <option value="Nightblade">Nightblade</option>
+  <option value="Soulreaper">Soulreaper</option>
+  <option value="Reaper">Reaper</option>
+  <option value="Wandering_soul">Wandering Soul</option>
+  <option value="Lost_soul">Lost Soul</option>
+</select>
                       </div>
 
                       <div>
@@ -484,7 +491,7 @@ export default function AdminUsersPage() {
                               onClick={() =>
                                 updateUser(user.user_id, {
                                   signup_approved: true,
-                                  site_role: "Reaper",
+                                  site_role: "Wandering_soul",
                                   application_note: "",
                                   applied_at: null,
                                 })
@@ -539,6 +546,10 @@ function normalizeRole(role?: string | null): SiteRole {
     return "Reaper";
   }
 
+  if (role === "Wandering_soul" || role === "Wandering Soul") {
+    return "Wandering_soul";
+  }
+
   return "Lost_soul";
 }
 
@@ -553,6 +564,8 @@ function getRoleIcon(role?: string | null) {
   if (fixedRole === "Nightblade") return "☠️";
   if (fixedRole === "Soulreaper") return "💀";
   if (fixedRole === "Reaper") return "⚔️";
+  if (fixedRole === "Wandering_soul") return "👻";
+
   return "👻";
 }
 
