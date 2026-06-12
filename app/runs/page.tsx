@@ -383,7 +383,7 @@ async function loadLogs() {
       setSelectedCharacter(null);
       return;
     }
-
+setUser(data.user);
 await supabase.from("profiles").upsert(
   {
     user_id: data.user.id,
