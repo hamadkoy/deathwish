@@ -51,7 +51,8 @@ type Profile = {
   user_id: string;
   discord_name: string;
   avatar_url: string;
-  site_role?: "viewer" | "booster" | "officer" | "admin";
+  site_role?: string;
+  signup_approved?: boolean;
 };
 
 type Character = {
@@ -191,7 +192,9 @@ function normalizeRole(role?: string | null) {
   if (role === "Reaper" || role === "Booster" || role === "booster") {
     return "Reaper";
   }
-
+if (role === "Wandering_soul" || role === "Wandering Soul") {
+  return "Wandering_soul";
+}
   return "Lost_soul";
 }
 export default function RunsPage() {
@@ -308,8 +311,7 @@ const canMarkAttendance =
   fixedRole === "Nightblade";
 
 const canUseRunCards =
-  signupApproved &&
-  fixedRole !== "Lost_soul";
+  profile?.signup_approved === true;
 
   const [editingRun, setEditingRun] = useState<Run | null>(null);
   const [editRunTitle, setEditRunTitle] = useState("");
@@ -382,16 +384,21 @@ async function loadLogs() {
       return;
     }
 
-    setUser(data.user);
-await supabase.from("profiles").upsert({
-  user_id: data.user.id,
-  discord_name:
-    data.user.user_metadata?.full_name ||
-    data.user.user_metadata?.name ||
-    data.user.user_metadata?.preferred_username ||
-    "Unknown",
-  avatar_url: data.user.user_metadata?.avatar_url || "",
-});
+await supabase.from("profiles").upsert(
+  {
+    user_id: data.user.id,
+    discord_name:
+      data.user.user_metadata?.full_name ||
+      data.user.user_metadata?.name ||
+      data.user.user_metadata?.preferred_username ||
+      "Unknown",
+    avatar_url: data.user.user_metadata?.avatar_url || "",
+  },
+  {
+    onConflict: "user_id",
+    ignoreDuplicates: true,
+  }
+);
     const { data: profileData } = await supabase
       .from("profiles")
       .select("*")
@@ -583,7 +590,14 @@ if (run?.finished) {
     setShowAccessPopup(true);
     return;
   }
-
+if (fixedRole === "Wandering_soul" && role !== "Loot Body") {
+  setPopup({
+    title: "LB Only",
+    message: "Wandering Souls can only sign as Loot Body.",
+    type: "error",
+  });
+  return;
+}
   if (!selectedCharacter) {
     alert("Select a character first.");
     return;
@@ -2378,7 +2392,20 @@ style={{
         collisionDetection={pointerWithin}
         onDragEnd={handleDragEnd}
       >
-<section style={runsGrid}>
+<section
+  style={{
+    ...runsGrid,
+    ...(isMobile
+      ? {
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+          width: "100%",
+          padding: "0 10px 40px",
+        }
+      : {}),
+  }}
+>
           {filteredRuns.map((run, index) => {
             const theme = getRunTheme(run, index);
             const runUnsignedLogs = banishLogs.filter(
@@ -2415,10 +2442,10 @@ style={{
   ...runCard,
     ...(isMobile
     ? {
-        width: "100%",
-        maxWidth: "100%",
-        minWidth: 0,
-        padding: 10,
+width: "100%",
+maxWidth: "100%",
+minWidth: 0,
+padding: 8,
       }
     : {}),
   minHeight: signupLocked ? 340 : 560,
