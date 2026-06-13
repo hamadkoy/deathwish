@@ -1183,10 +1183,10 @@ minWidth: "100%",
 ...(isMobile
   ? {
       display: "block",
-      paddingLeft: 0,
-      paddingRight: 0,
 width: "100%",
-minWidth: 920,
+minWidth: 1100,
+paddingLeft: 80,
+paddingRight: 80,
     }
   : {}),
   }}
@@ -3607,6 +3607,7 @@ setPlayerPopup: (signup: Signup) => void;
       style={{
         ...signupPill,
         borderColor: `${color}55`,
+        minWidth: 120,
         transform: CSS.Translate.toString(transform),
         opacity: isDragging ? 0.6 : 1,
         cursor: canDrag ? "grab" : "default",
@@ -3620,7 +3621,7 @@ position: "relative",
     alignItems: "center",
     gap: 6,
     overflow: "hidden",
-    minWidth: 0,
+    minWidth: 80,
     flex: 1,
   }}
 >
