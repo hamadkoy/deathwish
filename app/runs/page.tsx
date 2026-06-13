@@ -1182,15 +1182,15 @@ minWidth: "100%",
   style={{
     ...runsLayout,
 ...(isMobile
-  ? {
-      display: "block",
+? {
+display: "block",
 width: "100%",
 minWidth: 1300,
-paddingLeft: 180,
-paddingRight: 180,
-marginLeft: 180,
-    }
-  : {}),
+paddingLeft: 80,
+paddingRight: 80,
+}
+: {}),
+
   }}
 >
 {!isPhone && (
