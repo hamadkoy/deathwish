@@ -232,13 +232,6 @@ const isMobile =
 useEffect(() => {
   selectedWeekRef.current = selectedWeek;
 }, [selectedWeek]);
-useEffect(() => {
-  if (isPhone) {
-    setTimeout(() => {
-      window.scrollTo({ left: 220, top: 0 });
-    }, 300);
-  }
-}, [isPhone]);
 const [weeks, setWeeks] = useState<number[]>([]);
 
 useEffect(() => {
@@ -444,16 +437,6 @@ await supabase.from("profiles").upsert(
     loadSignups();
     loadLogs();
     loadUserAndProfile();
-useEffect(() => {
-  if (!isPhone) return;
-
-  setTimeout(() => {
-    pageScrollRef.current?.scrollTo({
-      left: 180,
-      top: 0,
-    });
-  }, 500);
-}, [isPhone]);
 const channel = supabase
   .channel("realtime-runs-and-signups")
   .on(
