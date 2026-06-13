@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import SideNav from "@/app/components/SideNav";
@@ -44,6 +45,7 @@ const [newComment, setNewComment] = useState("");
 const [viewedProfile, setViewedProfile] = useState<any>(null);
 const [visitorCount, setVisitorCount] = useState(0);
 const isMobile = useMobile();
+const searchParams = useSearchParams();
 const [isOwnProfile, setIsOwnProfile] = useState(true);
   const [balance, setBalance] = useState(0);
 const [savedStatus, setSavedStatus] = useState<
@@ -98,8 +100,11 @@ const currentTheme = themes[selectedTheme] || themes.midnight;
 const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 useEffect(() => {
   loadUserAndProfile();
-  loadCharacters();
 }, []);
+
+useEffect(() => {
+  loadCharacters();
+}, [searchParams.toString()]);
 
 useEffect(() => {
   if (viewedProfile?.user_id || profile?.user_id) {
