@@ -1187,6 +1187,7 @@ width: "100%",
 minWidth: 1300,
 paddingLeft: 180,
 paddingRight: 180,
+marginLeft: 180,
     }
   : {}),
   }}
