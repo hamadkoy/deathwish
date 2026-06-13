@@ -222,6 +222,7 @@ const [signupApproved, setSignupApproved] = useState(false);
     useState<Character | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<number>(getCurrentWeek());
   const selectedWeekRef = useRef(selectedWeek);
+  const pageScrollRef = useRef<HTMLDivElement | null>(null);
 const isMobile =
   typeof window !== "undefined" &&
   window.innerWidth <= 768;
@@ -443,7 +444,16 @@ await supabase.from("profiles").upsert(
     loadSignups();
     loadLogs();
     loadUserAndProfile();
+useEffect(() => {
+  if (!isPhone) return;
 
+  setTimeout(() => {
+    pageScrollRef.current?.scrollTo({
+      left: 180,
+      top: 0,
+    });
+  }, 500);
+}, [isPhone]);
 const channel = supabase
   .channel("realtime-runs-and-signups")
   .on(
@@ -1175,6 +1185,7 @@ if (nextWeeks.length > 0) {
 }
   return (
 <main
+  ref={pageScrollRef}
   style={{
     ...page,
 width: "100%",
