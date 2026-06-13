@@ -222,7 +222,6 @@ const [signupApproved, setSignupApproved] = useState(false);
     useState<Character | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<number>(getCurrentWeek());
   const selectedWeekRef = useRef(selectedWeek);
-  const pageScrollRef = useRef<HTMLDivElement | null>(null);
 const isMobile =
   typeof window !== "undefined" &&
   window.innerWidth <= 768;
@@ -437,6 +436,7 @@ await supabase.from("profiles").upsert(
     loadSignups();
     loadLogs();
     loadUserAndProfile();
+
 const channel = supabase
   .channel("realtime-runs-and-signups")
   .on(
@@ -1168,7 +1168,6 @@ if (nextWeeks.length > 0) {
 }
   return (
 <main
-  ref={pageScrollRef}
   style={{
     ...page,
 width: "100%",
@@ -1181,16 +1180,15 @@ minWidth: "100%",
 <div
   style={{
     ...runsLayout,
-...(isPhone
-? {
-display: "block",
+...(isMobile
+  ? {
+      display: "block",
+      paddingLeft: 0,
+      paddingRight: 0,
 width: "100%",
-minWidth: 1300,
-paddingLeft: 180,
-paddingRight: 180,
-}
-: {}),
-
+minWidth: 920,
+    }
+  : {}),
   }}
 >
 {!isPhone && (
@@ -1885,11 +1883,11 @@ onClick={deleteSelectedWeek}
 
 <div style={weekButtons}>
  {weeks
-.filter((week) =>
-  isPhone
-    ? week >= selectedWeek - 3 && week <= selectedWeek + 1
-    : true
-)
+  .filter((week) =>
+    isMobile
+      ? week === selectedWeek || week === selectedWeek + 1
+      : true
+  )
   .map((week) => {
     const isOldWeek = week < getCurrentWeek();
 
@@ -2400,15 +2398,15 @@ style={{
 <section
   style={{
     ...runsGrid,
-...(isPhone
-  ? {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 20,
-      width: "max-content",
-      padding: "0 120px 40px",
-    }
-  : {}),
+    ...(isMobile
+      ? {
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+          width: "100%",
+          padding: "0 10px 40px",
+        }
+      : {}),
   }}
 >
           {filteredRuns.map((run, index) => {
@@ -2445,13 +2443,14 @@ return (
       key={run.id}
 style={{
   ...runCard,
-...(isPhone
-  ? {
-      width: 700,
-      minWidth: 700,
-      padding: 8,
-    }
-  : {}),
+    ...(isMobile
+    ? {
+width: "100%",
+maxWidth: "100%",
+minWidth: 0,
+padding: 8,
+      }
+    : {}),
   minHeight: signupLocked ? 340 : 560,
   background: `linear-gradient(rgba(0,0,0,.18), rgba(0,0,0,.28)), url(${theme.bg}) center/cover`,
   boxShadow: run.finished
@@ -3608,7 +3607,6 @@ setPlayerPopup: (signup: Signup) => void;
       style={{
         ...signupPill,
         borderColor: `${color}55`,
-        minWidth: 120,
         transform: CSS.Translate.toString(transform),
         opacity: isDragging ? 0.6 : 1,
         cursor: canDrag ? "grab" : "default",
@@ -3622,7 +3620,7 @@ position: "relative",
     alignItems: "center",
     gap: 6,
     overflow: "hidden",
-    minWidth: 80,
+    minWidth: 0,
     flex: 1,
   }}
 >
