@@ -926,7 +926,7 @@ return (
   <div
     style={{
       position: "relative",
-      overflowX: "hidden",
+      overflowX: "auto",
 minHeight: isMobile ? 2600 : "100vh",
     }}
   >
@@ -982,9 +982,9 @@ backgroundRepeat: "no-repeat",
 <div
   style={{
     ...page,
-width: isMobile ? 1000 : "100%",
-maxWidth: isMobile ? 1000 : "100vw",
-transform: isMobile ? "scale(0.39)" : "scale(1)",
+    width: "1600px",
+    maxWidth: "1600px",
+    transform: isMobile ? "scale(0.39)" : "scale(1)",
     transformOrigin: "top left",
   }}
 >
@@ -1244,9 +1244,7 @@ onClick={async () => {
 <div
   style={{
     ...layout,
-gridTemplateColumns: isMobile
-  ? "1fr"
-  : isOwnProfile
+gridTemplateColumns: isOwnProfile
   ? "220px minmax(0,1fr) 260px"
   : "minmax(0,1400px)",
 
