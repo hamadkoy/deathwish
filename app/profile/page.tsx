@@ -3826,8 +3826,7 @@ const activeViewBtn: React.CSSProperties = {
   cursor: "pointer",
   minWidth: 210,
 };
-const isMobile =
-  typeof window !== "undefined" && window.innerWidth < 768;
+const isMobile = false;
 
 const normalViewBtn: React.CSSProperties = {
   padding: "14px 34px",

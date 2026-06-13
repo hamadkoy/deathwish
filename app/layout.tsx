@@ -4,8 +4,11 @@ import "./globals.css";
 import Navbar from "./components/Navbar";
 import AuthGuard from "./components/AuthGuard";
 export const viewport = {
-  width: "device-width",
-  initialScale: 1,
+  width: 1600,
+  initialScale: 0.35,
+  minimumScale: 0.25,
+  maximumScale: 2,
+  userScalable: true,
 };
 const geistSans = Geist({
   variable: "--font-geist-sans",
