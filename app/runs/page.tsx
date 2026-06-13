@@ -1186,8 +1186,8 @@ minWidth: "100%",
 display: "block",
 width: "100%",
 minWidth: 1300,
-paddingLeft: 80,
-paddingRight: 80,
+paddingLeft: 180,
+paddingRight: 180,
 }
 : {}),
 
@@ -2400,15 +2400,15 @@ style={{
 <section
   style={{
     ...runsGrid,
-    ...(isPhone
-      ? {
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
-          width: "100%",
-          padding: "0 120px 40px",
-        }
-      : {}),
+...(isPhone
+  ? {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 20,
+      width: "max-content",
+      padding: "0 120px 40px",
+    }
+  : {}),
   }}
 >
           {filteredRuns.map((run, index) => {
@@ -2445,7 +2445,7 @@ return (
       key={run.id}
 style={{
   ...runCard,
-    ...(isMobile
+  ...(isPhone
     ? {
 width: "100%",
 maxWidth: "100%",
