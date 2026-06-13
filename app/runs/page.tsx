@@ -2445,14 +2445,13 @@ return (
       key={run.id}
 style={{
   ...runCard,
-  ...(isPhone
-    ? {
-width: "100%",
-maxWidth: "100%",
-minWidth: 0,
-padding: 8,
-      }
-    : {}),
+...(isPhone
+  ? {
+      width: 700,
+      minWidth: 700,
+      padding: 8,
+    }
+  : {}),
   minHeight: signupLocked ? 340 : 560,
   background: `linear-gradient(rgba(0,0,0,.18), rgba(0,0,0,.28)), url(${theme.bg}) center/cover`,
   boxShadow: run.finished
