@@ -982,8 +982,8 @@ backgroundRepeat: "no-repeat",
 <div
   style={{
     ...page,
-    width: "1600px",
-    maxWidth: "1600px",
+    width: isMobile ? "1600px" : "100%",
+    maxWidth: isMobile ? "1600px" : "100vw",
     transform: isMobile ? "scale(0.39)" : "scale(1)",
     transformOrigin: "top left",
   }}
