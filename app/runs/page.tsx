@@ -231,6 +231,13 @@ const isMobile =
 useEffect(() => {
   selectedWeekRef.current = selectedWeek;
 }, [selectedWeek]);
+useEffect(() => {
+  if (isPhone) {
+    setTimeout(() => {
+      window.scrollTo({ left: 220, top: 0 });
+    }, 300);
+  }
+}, [isPhone]);
 const [weeks, setWeeks] = useState<number[]>([]);
 
 useEffect(() => {
