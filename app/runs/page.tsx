@@ -225,6 +225,9 @@ const [signupApproved, setSignupApproved] = useState(false);
 const isMobile =
   typeof window !== "undefined" &&
   window.innerWidth <= 768;
+  const isPhone =
+  typeof navigator !== "undefined" &&
+  /iPhone|Android|Mobile/i.test(navigator.userAgent);
 useEffect(() => {
   selectedWeekRef.current = selectedWeek;
 }, [selectedWeek]);
@@ -1188,7 +1191,7 @@ minWidth: 920,
   : {}),
   }}
 >
-{!isMobile && (
+{!isPhone && (
   <div style={sideNavFixed}>
     <SideNav active="My Runs" />
   </div>
@@ -1880,11 +1883,11 @@ onClick={deleteSelectedWeek}
 
 <div style={weekButtons}>
  {weeks
-  .filter((week) =>
-    isMobile
-      ? week === selectedWeek || week === selectedWeek + 1
-      : true
-  )
+.filter((week) =>
+  isPhone
+    ? week >= selectedWeek - 3 && week <= selectedWeek + 1
+    : true
+)
   .map((week) => {
     const isOldWeek = week < getCurrentWeek();
 
