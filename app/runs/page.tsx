@@ -1181,7 +1181,7 @@ minWidth: "100%",
 <div
   style={{
     ...runsLayout,
-...(isMobile
+...(isPhone
 ? {
 display: "block",
 width: "100%",
@@ -2400,7 +2400,7 @@ style={{
 <section
   style={{
     ...runsGrid,
-    ...(isMobile
+    ...(isPhone
       ? {
           display: "flex",
           flexDirection: "column",
