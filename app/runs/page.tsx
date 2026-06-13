@@ -1184,9 +1184,9 @@ minWidth: "100%",
   ? {
       display: "block",
 width: "100%",
-minWidth: 1100,
-paddingLeft: 80,
-paddingRight: 80,
+minWidth: 1300,
+paddingLeft: 180,
+paddingRight: 180,
     }
   : {}),
   }}
@@ -2404,7 +2404,7 @@ style={{
           flexDirection: "column",
           gap: 16,
           width: "100%",
-          padding: "0 10px 40px",
+          padding: "0 120px 40px",
         }
       : {}),
   }}
