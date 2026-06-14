@@ -94,13 +94,12 @@ useEffect(() => {
         </div>
 
         <div style={cards}>
-          <HomeCard
-            href="https://docs.google.com/forms/d/1NiBzQe2cC5Db5vL6UdR7zjOwPdD2WpfKnJM_pyNrw2I/edit"
-            icon="/icons/guild-icon.png"
-            title="2-DAYS RAIDING GUILD"
-            buttonText="Guild Section"
-            external
-          />
+<HomeCard
+  href="/guild"
+  icon="/icons/guild-icon.png"
+  title="2-DAYS RAIDING GUILD"
+  buttonText="Guild Section"
+/>
 
           <HomeCard
             href="/profile"

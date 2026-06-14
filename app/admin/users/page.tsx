@@ -36,22 +36,31 @@ type PromotionRequest = {
   status: string;
   created_at?: string;
 };
-
+type DeclinedUser = {
+  id: number;
+  user_id: string;
+  discord_name?: string;
+  avatar_url?: string;
+  application_note?: string;
+  declined_at?: string;
+};
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [promotionRequests, setPromotionRequests] = useState<PromotionRequest[]>([]);
-  const [activeTab, setActiveTab] =
-    useState<"team" | "applicants" | "promotions">("team");
+  const [declinedUsers, setDeclinedUsers] = useState<DeclinedUser[]>([]);
+const [activeTab, setActiveTab] =
+  useState<"team" | "applicants" | "promotions" | "declined">("team");
 
   const [currentUserRole, setCurrentUserRole] =
     useState<SiteRole>("Lost_soul");
 
-  useEffect(() => {
-    loadCurrentUser();
-    loadUsers();
-    loadPromotionRequests();
+useEffect(() => {
+  loadCurrentUser();
+  loadUsers();
+  loadPromotionRequests();
+  loadDeclinedUsers();
 
     const profilesChannel = supabase
       .channel("realtime-profiles")
@@ -125,7 +134,19 @@ export default function AdminUsersPage() {
 
     setPromotionRequests(data || []);
   }
+async function loadDeclinedUsers() {
+  const { data, error } = await supabase
+    .from("declined_applications")
+    .select("*")
+    .order("declined_at", { ascending: false });
 
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setDeclinedUsers(data || []);
+}
   async function updateUser(userId: string, updates: Partial<Profile>) {
     if (currentUserRole !== "Dreadlord") {
       alert("Only Dreadlords can manage user access.");
@@ -216,7 +237,6 @@ const roleOrder: Record<SiteRole, number> = {
     if (activeTab === "applicants") {
       list = list.filter((u) => u.applied_at && !u.signup_approved);
     }
-
     return list.filter((u) =>
       (u.discord_name || "").toLowerCase().includes(search.toLowerCase())
     );
@@ -245,6 +265,10 @@ const roleOrder: Record<SiteRole, number> = {
   ).length;
 
   const isAdmin = currentUserRole === "Dreadlord";
+  const isOwnerUser = users.some(
+  (u) =>
+    (u.discord_name || "").toLowerCase() === "koyjin"
+);
   const canSeeApplicants =
     currentUserRole === "Dreadlord" || currentUserRole === "Nightblade";
 
@@ -299,9 +323,17 @@ const roleOrder: Record<SiteRole, number> = {
                   Promotions ({promotionRequests.length})
                 </button>
               )}
+              {isAdmin && (
+  <button
+    onClick={() => setActiveTab("declined")}
+    style={activeTab === "declined" ? tabActive : tab}
+  >
+    Declined
+  </button>
+)}
             </div>
 
-            {activeTab !== "promotions" && (
+            {activeTab !== "promotions" && activeTab !== "declined" && (
               <div style={topRow}>
                 <input
                   placeholder="Search by Discord name..."
@@ -312,7 +344,7 @@ const roleOrder: Record<SiteRole, number> = {
               </div>
             )}
 
-            {activeTab === "promotions" ? (
+        {activeTab === "promotions" ? (
               <div>
                 <div style={promotionHead}>
                   <div>User</div>
@@ -321,11 +353,10 @@ const roleOrder: Record<SiteRole, number> = {
                   <div>Date</div>
                   <div>Actions</div>
                 </div>
-
-                {promotionRequests.length === 0 ? (
-                  <div style={empty}>No promotion requests.</div>
-                ) : (
-                  promotionRequests.map((req) => (
+{promotionRequests.length === 0 ? (
+  <div style={empty}>No promotion requests.</div>
+) : (
+  promotionRequests.map((req) => (
                     <div key={req.id} style={promotionRow}>
                       <div>
                         <div style={userName}>{req.discord_name || "Unknown"}</div>
@@ -365,7 +396,42 @@ const roleOrder: Record<SiteRole, number> = {
                   ))
                 )}
               </div>
-            ) : (
+) : activeTab === "declined" ? (
+  <>
+    <div style={tableHead}>
+      <div>User</div>
+      <div>Application Note</div>
+      <div>Declined At</div>
+      <div></div>
+      <div></div>
+    </div>
+
+    {declinedUsers.length === 0 ? (
+      <div style={empty}>No declined users.</div>
+    ) : (
+      declinedUsers.map((user) => (
+        <div key={user.id} style={tableRow}>
+          <div style={userCell}>
+            <img src={user.avatar_url || "/logo.png"} style={avatar} alt="" />
+            <div>
+              <div style={userName}>{user.discord_name || "Unknown"}</div>
+              <div style={userId}>{user.user_id}</div>
+            </div>
+          </div>
+
+          <div style={note}>{user.application_note || "No note"}</div>
+
+          <div style={muted}>
+            {user.declined_at ? new Date(user.declined_at).toLocaleString() : "-"}
+          </div>
+
+          <div></div>
+          <div></div>
+        </div>
+      ))
+    )}
+  </>
+) : (
               <>
                 <div style={tableHead}>
                   <div>User</div>
@@ -502,14 +568,23 @@ const roleOrder: Record<SiteRole, number> = {
                             </button>
 
                             <button
-                              onClick={() =>
-                                updateUser(user.user_id, {
-                                  signup_approved: false,
-                                  applied_at: null,
-                                  application_note: "",
-                                  site_role: "Lost_soul",
-                                })
-                              }
+onClick={async () => {
+  await supabase.from("declined_applications").insert({
+    user_id: user.user_id,
+    discord_name: user.discord_name,
+    avatar_url: user.avatar_url,
+    application_note: user.application_note,
+  });
+
+  await updateUser(user.user_id, {
+    signup_approved: false,
+    applied_at: null,
+    application_note: "",
+    site_role: "Lost_soul",
+  });
+
+  await loadDeclinedUsers();
+}}
                               style={revokeBtn}
                             >
                               Decline
