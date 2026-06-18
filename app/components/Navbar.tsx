@@ -24,7 +24,7 @@ const navLink: React.CSSProperties = {
   const [user, setUser] = useState<any>(null);
   const pathname = usePathname();
 const hideNavbar =
-  pathname === "/" || pathname === "/login";
+  pathname === "/" || pathname === "/login" || pathname === "/guild";
 const [profile, setProfile] = useState<Profile | null>(null);
 
 const canUseRunCards =

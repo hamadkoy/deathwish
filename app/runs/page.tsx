@@ -793,39 +793,43 @@ async function adminAddSignup(runId: number, role: string, playerName: string) {
 
   await loadSignups();
 }
-  async function deleteRun(runId: number) {
-setPopup({
-  title: "Delete Run",
-  message:
-    "Are you sure you want to delete this run?\nThis will also delete all signups.",
-  type: "error",
-  confirmText: "DELETE",
-  cancelText: "CANCEL",
-  onConfirm: async () => {
-    await supabase
-      .from("signups")
-      .delete()
-      .eq("run_id", runId);
+async function deleteRun(runId: number) {
+  setPopup({
+    title: "Delete Run",
+    message:
+      "Are you sure you want to delete this run?\nThis will also delete all signups.",
+    type: "error",
+    confirmText: "DELETE",
+    cancelText: "CANCEL",
+    onConfirm: async () => {
+      const { error: signupError } = await supabase
+        .from("signups")
+        .delete()
+        .eq("run_id", runId);
 
-    const { error } = await supabase
-      .from("runs")
-      .delete()
-      .eq("id", runId);
+      if (signupError) {
+        alert("Signup delete error: " + signupError.message);
+        return;
+      }
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
+      const { error: runError } = await supabase
+        .from("runs")
+        .delete()
+        .eq("id", runId);
 
-await loadRuns(selectedWeekRef.current);
-await loadSignups();
-  },
-});
+      if (runError) {
+        alert("Run delete error: " + runError.message);
+        return;
+      }
 
-return;
+      setSignups((prev) => prev.filter((s) => s.run_id !== runId));
+      setRuns((prev) => prev.filter((r) => r.id !== runId));
 
-
-  }
+      await loadRuns(selectedWeekRef.current);
+      await loadSignups();
+    },
+  });
+}
 async function finishRun(run: Run) {
   if (!canFinishRun) return;
 
