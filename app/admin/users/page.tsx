@@ -554,14 +554,21 @@ const roleOrder: Record<SiteRole, number> = {
                         ) : (
                           <>
                             <button
-                              onClick={() =>
-                                updateUser(user.user_id, {
-                                  signup_approved: true,
-                                  site_role: "Wandering_soul",
-                                  application_note: "",
-                                  applied_at: null,
-                                })
-                              }
+onChange={async (e) => {
+  const newRole = e.target.value as SiteRole;
+
+  setUsers((prev) =>
+    prev.map((u) =>
+      u.user_id === user.user_id
+        ? { ...u, site_role: newRole }
+        : u
+    )
+  );
+
+  await updateUser(user.user_id, {
+    site_role: newRole,
+  });
+}}
                               style={approveBtn}
                             >
                               Approve Signup
