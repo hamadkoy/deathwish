@@ -215,6 +215,10 @@ const [mainCharacterInput, setMainCharacterInput] = useState("");
 const [mainRealmInput, setMainRealmInput] = useState("Kazzak");
 const [raiderIoInput, setRaiderIoInput] = useState("");
 const [applicationNote, setApplicationNote] = useState("");
+const [appName, setAppName] = useState("");
+const [appProgress, setAppProgress] = useState("");
+const [appAlts, setAppAlts] = useState("");
+const [appRoles, setAppRoles] = useState("");
 const [playerPopup, setPlayerPopup] =
   useState<Signup | null>(null);
 const [signupApproved, setSignupApproved] = useState(false);
@@ -250,7 +254,7 @@ useEffect(() => {
     ).sort((a, b) => a - b);
 const savedWeeks = JSON.parse(localStorage.getItem("weeks") || "[]");
 
-const mergedWeeks = Array.from(
+  const mergedWeeks = Array.from(
   new Set([...uniqueWeeks, ...savedWeeks])
 ).sort((a, b) => a - b);
 
@@ -716,10 +720,13 @@ await loadSignups();
 
 
 async function sendAccessApplication() {
-  if (
-    !mainCharacterInput.trim() ||
-    !raiderIoInput.trim()
-  ) {
+if (
+  !appName.trim() ||
+  !appProgress.trim() ||
+  !appAlts.trim() ||
+  !appRoles.trim() ||
+  !raiderIoInput.trim()
+) {
     alert("Please fill required fields.");
     return;
   }
@@ -751,10 +758,18 @@ setPopup({
   const { error } = await supabase
     .from("profiles")
     .update({
-      main_character: mainCharacterInput,
-      main_realm: mainRealmInput,
-      raider_io: raiderIoInput,
-      application_note: applicationNote,
+app_name: appName,
+app_progress: appProgress,
+app_alts: appAlts,
+app_roles: appRoles,
+raider_io: raiderIoInput,
+application_note: `
+Name: ${appName}
+Progress: ${appProgress}
+Alts: ${appAlts}
+Roles: ${appRoles}
+Raider.IO: ${raiderIoInput}
+`,
       signup_approved: false,
       applied_at: new Date().toISOString(),
     })
@@ -1224,137 +1239,170 @@ paddingRight: 80,
   }}
 />{showAccessPopup && (
   <div style={popupOverlay}>
+  <div
+  style={{
+    width: 760,
+    maxHeight: "90vh",
+    overflowY: "auto",
+    borderRadius: 26,
+    padding: 34,
+    background:
+      "linear-gradient(180deg, rgba(12,8,18,.98), rgba(5,0,15,.98))",
+    border: "1px solid rgba(201,170,113,.45)",
+    boxShadow:
+      "0 0 55px rgba(168,85,247,.45), inset 0 0 35px rgba(201,170,113,.06)",
+  }}
+>
+  <div
+    style={{
+      textAlign: "center",
+      marginBottom: 26,
+    }}
+  >
     <div
       style={{
-        width: 520,
-        borderRadius: 24,
-        padding: 30,
-        background:
-          "linear-gradient(180deg, rgba(15,0,35,.98), rgba(5,0,20,.98))",
-        border: "1px solid rgba(168,85,247,.45)",
-        boxShadow:
-          "0 0 45px rgba(168,85,247,.45)",
+        fontSize: 44,
+        fontWeight: 900,
+        color: "#c9aa71",
+        fontFamily: "Georgia, serif",
+        letterSpacing: 3,
+        textShadow: "0 0 22px rgba(201,170,113,.35)",
       }}
     >
-      <div
-        style={{
-          fontSize: 36,
-          fontWeight: 900,
-          color: "#fff",
-          marginBottom: 10,
-          textAlign: "center",
-        }}
-      >
-        Signup Access Request
-      </div>
+      DEATH WISH
+    </div>
 
-      <div
-        style={{
-          color: "#c084fc",
-          textAlign: "center",
-          marginBottom: 24,
-          fontSize: 15,
-        }}
-      >
-        Link your Raider.IO main character to apply.
-      </div>
-<input
-  placeholder="Your Name"
-  value={mainCharacterInput}
-  onChange={(e) =>
-    setMainCharacterInput(e.target.value)
-  }
-  style={createInput}
-/>
+    <div
+      style={{
+        marginTop: 8,
+        fontSize: 30,
+        fontWeight: 900,
+        color: "white",
+        letterSpacing: 2,
+      }}
+    >
+      APPLICATION
+    </div>
 
-<input
-  placeholder="Progress (example: 8/8M)"
-  value={mainRealmInput}
-  onChange={(e) =>
-    setMainRealmInput(e.target.value)
-  }
-  style={createInput}
-/>
-
-<input
-  placeholder="Number of Alts"
-  value={applicationNote}
-  onChange={(e) =>
-    setApplicationNote(e.target.value)
-  }
-  style={createInput}
-/>
-
-<input
-  placeholder="Most roles you will be playing"
-  value={editRunTitle}
-  onChange={(e) =>
-    setEditRunTitle(e.target.value)
-  }
-  style={createInput}
-/>
-
-<input
-  placeholder="Raider.IO Link"
-  value={raiderIoInput}
-  onChange={(e) =>
-    setRaiderIoInput(e.target.value)
-  }
-  style={createInput}
-/>
-    
-
-      <div
-        style={{
-          display: "flex",
-          gap: 14,
-          marginTop: 18,
-        }}
-      >
-        <button
-          onClick={sendAccessApplication}
-          style={{
-            flex: 1,
-            height: 54,
-            border: "none",
-            borderRadius: 14,
-            background:
-              "linear-gradient(90deg,#16a34a,#22c55e)",
-            color: "white",
-            fontWeight: 900,
-            fontSize: 16,
-            cursor: "pointer",
-            boxShadow:
-              "0 0 20px rgba(34,197,94,.45)",
-          }}
-        >
-          Send Application
-        </button>
-
-        <button
-          onClick={() =>
-            setShowAccessPopup(false)
-          }
-          style={{
-            flex: 1,
-            height: 54,
-            border: "1px solid rgba(255,255,255,.1)",
-            borderRadius: 14,
-            background: "rgba(255,255,255,.06)",
-            color: "white",
-            fontWeight: 900,
-            fontSize: 16,
-            cursor: "pointer",
-          }}
-        >
-          Cancel
-        </button>
-      </div>
+    <div
+      style={{
+        marginTop: 10,
+        color: "#c084fc",
+        fontSize: 14,
+        fontWeight: 800,
+      }}
+    >
+      Fill the questions below to request signup access.
     </div>
   </div>
+
+  <div style={field}>
+    <label style={label}>👤 YOUR NAME</label>
+    <input
+      placeholder="Enter your name"
+      value={appName}
+      onChange={(e) => setAppName(e.target.value)}
+      style={applicationInput}
+    />
+  </div>
+
+  <div style={field}>
+    <label style={label}>📊 PROGRESS</label>
+    <input
+      placeholder="Example: 7/9M"
+      value={appProgress}
+      onChange={(e) => setAppProgress(e.target.value)}
+      style={applicationInput}
+    />
+  </div>
+
+  <div style={field}>
+    <label style={label}>👥 NUMBER OF ALTS</label>
+    <input
+      type="number"
+      min="0"
+      placeholder="Example: 3"
+      value={appAlts}
+      onChange={(e) => setAppAlts(e.target.value)}
+      style={applicationInput}
+    />
+  </div>
+
+  <div style={field}>
+    <label style={label}>🛡️ MOST ROLES YOU WILL BE PLAYING</label>
+    <select
+      value={appRoles}
+      onChange={(e) => setAppRoles(e.target.value)}
+      style={applicationInput}
+    >
+      <option value="">Select role</option>
+      <option value="Tank">Tank</option>
+      <option value="Healer">Healer</option>
+      <option value="DPS">DPS</option>
+      <option value="Tank / DPS">Tank / DPS</option>
+      <option value="Healer / DPS">Healer / DPS</option>
+      <option value="All Roles">All Roles</option>
+    </select>
+  </div>
+
+  <div style={field}>
+    <label style={label}>🔗 RAIDER.IO</label>
+    <input
+      placeholder="Paste your Raider.IO link"
+      value={raiderIoInput}
+      onChange={(e) => setRaiderIoInput(e.target.value)}
+      style={applicationInput}
+    />
+  </div>
+
+  <div
+    style={{
+      display: "flex",
+      gap: 18,
+      marginTop: 28,
+    }}
+  >
+    <button
+      onClick={() => setShowAccessPopup(false)}
+      style={{
+        flex: 1,
+        height: 58,
+        borderRadius: 14,
+        border: "1px solid rgba(168,85,247,.45)",
+        background: "rgba(20,10,35,.9)",
+        color: "#c084fc",
+        fontWeight: 900,
+        fontSize: 16,
+        cursor: "pointer",
+      }}
+    >
+      Cancel
+    </button>
+
+    <button
+      onClick={sendAccessApplication}
+      style={{
+        flex: 1.4,
+        height: 58,
+        border: "1px solid rgba(255,255,255,.25)",
+        borderRadius: 14,
+        background: "linear-gradient(180deg,#f5d27a,#a66a1f)",
+        color: "#160b02",
+        fontWeight: 900,
+        fontSize: 17,
+        cursor: "pointer",
+        boxShadow: "0 0 26px rgba(201,170,113,.55)",
+      }}
+    >
+      Submit Application
+    </button>
+  </div>
+</div>
+</div>
 )}
+
 {playerPopup && (
-  <div style={popupOverlay}>
+<div style={popupOverlay}>
     <div
       style={{
         width: 520,
@@ -4807,4 +4855,28 @@ const unsignedTime: React.CSSProperties = {
   color: "#fca5a5",
   fontSize: 11,
   marginTop: 4,
+};
+const field: React.CSSProperties = {
+  marginBottom: 18,
+};
+
+const label: React.CSSProperties = {
+  display: "block",
+  marginBottom: 8,
+  color: "#c084fc",
+  fontWeight: 900,
+  fontSize: 15,
+  letterSpacing: 1.5,
+};
+
+const applicationInput: React.CSSProperties = {
+  width: "100%",
+  height: 56,
+  borderRadius: 12,
+  border: "1px solid rgba(201,170,113,.55)",
+  background: "rgba(5,0,15,.72)",
+  color: "white",
+  padding: "0 16px",
+  fontSize: 16,
+  outline: "none",
 };
