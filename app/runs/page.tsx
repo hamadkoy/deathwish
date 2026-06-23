@@ -1258,46 +1258,51 @@ paddingRight: 80,
       >
         Link your Raider.IO main character to apply.
       </div>
+<input
+  placeholder="Your Name"
+  value={mainCharacterInput}
+  onChange={(e) =>
+    setMainCharacterInput(e.target.value)
+  }
+  style={createInput}
+/>
 
-      <input
-        placeholder="Main Character"
-        value={mainCharacterInput}
-        onChange={(e) =>
-          setMainCharacterInput(e.target.value)
-        }
-        style={createInput}
-      />
+<input
+  placeholder="Progress (example: 8/8M)"
+  value={mainRealmInput}
+  onChange={(e) =>
+    setMainRealmInput(e.target.value)
+  }
+  style={createInput}
+/>
 
-      <input
-        placeholder="Realm"
-        value={mainRealmInput}
-        onChange={(e) =>
-          setMainRealmInput(e.target.value)
-        }
-        style={createInput}
-      />
+<input
+  placeholder="Number of Alts"
+  value={applicationNote}
+  onChange={(e) =>
+    setApplicationNote(e.target.value)
+  }
+  style={createInput}
+/>
 
-      <input
-        placeholder="Raider.IO Link"
-        value={raiderIoInput}
-        onChange={(e) =>
-          setRaiderIoInput(e.target.value)
-        }
-        style={createInput}
-      />
+<input
+  placeholder="Most roles you will be playing"
+  value={editRunTitle}
+  onChange={(e) =>
+    setEditRunTitle(e.target.value)
+  }
+  style={createInput}
+/>
 
-      <textarea
-        placeholder="Application Note (optional)"
-        value={applicationNote}
-        onChange={(e) =>
-          setApplicationNote(e.target.value)
-        }
-        style={{
-          ...createInput,
-          minHeight: 110,
-          resize: "none",
-        }}
-      />
+<input
+  placeholder="Raider.IO Link"
+  value={raiderIoInput}
+  onChange={(e) =>
+    setRaiderIoInput(e.target.value)
+  }
+  style={createInput}
+/>
+    
 
       <div
         style={{
