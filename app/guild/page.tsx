@@ -57,103 +57,82 @@ useEffect(() => {
 }, []);
   return (
     <main className="page">
-      <nav className="guildNav">
-        <div className="brand">☠ DEATH WISH</div>
+ <nav className="guildNav">
+  <div className="brand">☠ DEATH WISH</div>
 
-<div className="navLinks">
-  <Link href="/">
-    HOME
-  </Link>
-
-  <Link href="/guild">
-    GUILD PAGE
-  </Link>
-
-  <Link href="/application-forums">
-    APPLICATION FORUMS
-  </Link>
-
-  <Link href="/mount-order">
-    MOUNT ORDER
-  </Link>
-
-  <Link href="/epgp">
-    EPGP
-  </Link>
-
-  <Link href="/garrisons">
-    ROSTER
-  </Link>
-
-  <Link href="/profile">
-    MY GARRISON
-  </Link>
-
-  <Link href="/apply">
-    APPLY
-  </Link>
-</div>
-{user ? (
-  <div className="navUser">
-<div
-  className="onlineWrap"
-  onMouseEnter={() => setOnlineOpen(true)}
-  onMouseLeave={() => setOnlineOpen(false)}
->
-  <div className="onlineBadge">
-    <span className="onlineDot" />
-    {onlineCount} Online
-  </div>
-
-  {onlineOpen && (
-    <div className="onlineDropdown">
-      <h3>Online Now</h3>
-
-      {onlineUsers.map((member) => (
-        <div key={member.discord_name} className="onlineMember">
-          <img
-            src={member.avatar_url || "/default-avatar.png"}
-            className="onlineAvatar"
-            alt=""
-          />
-
-          <div>
-            <strong>{member.discord_name}</strong>
-            <p>{member.site_role || "Guild Member"}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  )}
-</div>
-
-    <img
-      src={profile?.avatar_url || "/default-avatar.png"}
-      alt=""
-      className="navAvatar"
-    />
-
-    <span className="navName">
-      {profile?.discord_name || "Player"}
-    </span>
-
-    <button
-      className="signOutBtn"
-      onClick={async () => {
-        await supabase.auth.signOut();
-        window.location.href = "/";
-      }}
+  <div className="navRight">
+    <div
+      className="onlineWrap"
+      onMouseEnter={() => setOnlineOpen(true)}
+      onMouseLeave={() => setOnlineOpen(false)}
     >
-      Sign Out
-    </button>
-  </div>
-) : (
-  <Link href="/login" className="applyTop">
-    APPLY
-  </Link>
-)}
+      <div className="onlineBadge">
+        <span className="onlineDot" />
+        {onlineCount} Online
+      </div>
 
-      </nav>
+      {onlineOpen && (
+        <div className="onlineDropdown">
+          <h3>Online Now</h3>
+
+          {onlineUsers.map((member) => (
+            <div key={member.discord_name} className="onlineMember">
+              <img
+                src={member.avatar_url || "/default-avatar.png"}
+                className="onlineAvatar"
+                alt=""
+              />
+
+              <div>
+                <strong>{member.discord_name}</strong>
+                <p>{member.site_role || "Guild Member"}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    <div className="navLinks">
+      <Link href="/">HOME</Link>
+      <Link href="/guild">GUILD PAGE</Link>
+      <Link href="/application-forums">APPLICATION FORUMS</Link>
+      <Link href="/mount-order">MOUNT ORDER</Link>
+      <Link href="/epgp">EPGP</Link>
+      <Link href="/garrisons">ROSTER</Link>
+      <Link href="/profile">MY GARRISON</Link>
+      <Link href="/apply">APPLY</Link>
+    </div>
+
+    {user ? (
+      <>
+        <img
+          src={profile?.avatar_url || "/default-avatar.png"}
+          alt=""
+          className="navAvatar"
+        />
+
+        <span className="navName">
+          {profile?.discord_name || "Player"}
+        </span>
+
+        <button
+          className="signOutBtn"
+          onClick={async () => {
+            await supabase.auth.signOut();
+            window.location.href = "/";
+          }}
+        >
+          Sign Out
+        </button>
+      </>
+    ) : (
+      <Link href="/login" className="applyTop">
+        APPLY
+      </Link>
+    )}
+  </div>
+</nav>
 
       <section className="hero">
         <h1>DEATH WISH</h1>
@@ -601,9 +580,13 @@ useEffect(() => {
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-left: 30px;
 }
-
+.navRight {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
 .onlineBadge {
   display: flex;
   align-items: center;
