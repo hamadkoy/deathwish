@@ -14,6 +14,7 @@ type ApplyCharacter = {
   score: number;
   avatar_url: string;
   warcraftlogs_url: string;
+  faction: string;
 };
 
 function getClassColor(className: string) {
@@ -58,6 +59,7 @@ const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [whyLeftGuild, setWhyLeftGuild] = useState("");
   const [splitAltAnswer, setSplitAltAnswer] = useState("");
   const [thirdDayAnswer, setThirdDayAnswer] = useState("");
+  const [errorPopup, setErrorPopup] = useState("");
   const [extraInfo, setExtraInfo] = useState("");
 
   async function fetchCharacter(
@@ -105,19 +107,20 @@ const [showSuccessPopup, setShowSuccessPopup] = useState(false);
           0
       );
 
-      setChar({
-        name: data.name,
-        realm: data.realm,
-        class: data.class,
-        spec: data.active_spec_name,
-        ilvl: Math.floor(
-          data.gear?.item_level_equipped || data.gear?.item_level || 0
-        ),
-        progress: `${bestMythic}/9M`,
-        score: rioScore,
-        avatar_url: data.thumbnail_url || "",
-        warcraftlogs_url: `https://www.warcraftlogs.com/character/eu/${data.realm.toLowerCase()}/${data.name.toLowerCase()}`,
-      });
+setChar({
+  name: data.name,
+  realm: data.realm,
+  class: data.class,
+  spec: data.active_spec_name,
+  ilvl: Math.floor(
+    data.gear?.item_level_equipped || data.gear?.item_level || 0
+  ),
+  progress: `${bestMythic}/9M`,
+  score: rioScore,
+  avatar_url: data.thumbnail_url || "",
+  warcraftlogs_url: `https://www.warcraftlogs.com/character/eu/${data.realm.toLowerCase()}/${data.name.toLowerCase()}`,
+  faction: data.faction || "alliance",
+});
     } catch {
       alert("Failed to fetch character.");
     } finally {
@@ -129,62 +132,62 @@ async function submitApplication(e: React.FormEvent) {
   e.preventDefault();
 
   if (!character) {
-    alert("Please add your main character.");
-    return;
+setErrorPopup("Please enter your name.");
+return;
   }
 
   if (!playerName.trim()) {
-    alert("Please enter your name.");
+  setErrorPopup("Please enter your name.");
     return;
   }
 
   if (!age.trim()) {
-    alert("Please enter your age.");
+   setErrorPopup("Please enter your age.");
     return;
   }
 
   if (!country.trim()) {
-    alert("Please enter your country/timezone.");
+   setErrorPopup("Please enter your country/timezone.");
     return;
   }
 
   if (!raidAvailability) {
-    alert("Please answer the raid availability question.");
+   setErrorPopup("Please answer the raid availability question.");
     return;
   }
 
   if (!previousGuilds.trim()) {
-    alert("Please enter your previous guilds.");
+    setErrorPopup("Please enter your previous guilds.");
     return;
   }
 
   if (!whyLeftGuild.trim()) {
-    alert("Please explain why you left your previous guild.");
+    setErrorPopup("Please explain why you left your previous guild.");
     return;
   }
 
   if (!experience.trim()) {
-    alert("Please tell us about your raiding experience.");
+    setErrorPopup("Please tell us about your raiding experience.");
     return;
   }
 
   if (!splitAltAnswer) {
-    alert("Please answer the alt requirement question.");
+    setErrorPopup("Please answer the alt requirement question.");
     return;
   }
 
   if (!thirdDayAnswer) {
-    alert("Please answer the third day question.");
+    setErrorPopup("Please answer the third day question.");
     return;
   }
 
   if (!altCharacter) {
-    alert("Please add your alt character.");
+   setErrorPopup("Please add your alt character.");
     return;
   }
 
   if (!extraInfo.trim()) {
-    alert("Please fill 'Anything else we should know?'.");
+   setErrorPopup("Please fill 'Anything else we should know?'.");
     return;
   }
 
@@ -205,7 +208,7 @@ async function submitApplication(e: React.FormEvent) {
 
     const { error } = await supabase.from("applications").insert({
       user_id: user.id,
-
+faction: character.faction,
       character_name: character.name,
       realm: character.realm,
       class: character.class,
@@ -530,6 +533,33 @@ setShowSuccessPopup(true);
           </div>
         </form>
       </div>
+      {errorPopup && (
+  <div className="successOverlay">
+    <div className="successPopup">
+      <div className="successIcon">!</div>
+
+      <h2>REQUIRED QUESTION</h2>
+
+      <p>{errorPopup}</p>
+
+      <button
+        type="button"
+        className="successBtn"
+        onClick={() => setErrorPopup("")}
+      >
+        OK
+      </button>
+    </div>
+  </div>
+)}
+
+{showSuccessPopup && (
+  <div className="successOverlay">
+    <div className="successPopup">
+      ...
+    </div>
+  </div>
+)}
 {showSuccessPopup && (
   <div className="successOverlay">
     <div className="successPopup">
@@ -571,7 +601,7 @@ setShowSuccessPopup(true);
           font-family: Georgia, "Times New Roman", serif;
           background:
             linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.88)),
-            url("/apply.png");
+            url("/lion.png");
           background-size: cover;
           background-position: center top;
           background-attachment: fixed;

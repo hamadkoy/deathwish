@@ -15,6 +15,7 @@ export default function ApplicationDetailsPage() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
 
   useEffect(() => {
     loadPage();
@@ -86,8 +87,6 @@ export default function ApplicationDetailsPage() {
   }
 
   async function deleteMessage(messageId: string) {
-    if (!confirm("Delete this message?")) return;
-
     const { error } = await supabase
       .from("application_messages")
       .delete()
@@ -98,6 +97,7 @@ export default function ApplicationDetailsPage() {
       return;
     }
 
+    setDeleteMessageId(null);
     loadPage();
   }
 
@@ -163,27 +163,12 @@ export default function ApplicationDetailsPage() {
       className="min-h-screen bg-cover bg-center bg-fixed p-8 text-[#f5e7c8]"
       style={{ backgroundImage: "url('/forums.png')" }}
     >
-<button
-  onClick={() => router.push("/application-forums")}
-  className="
-    mb-6
-    rounded
-    border
-    border-[#6b4b1f]
-    bg-black/70
-    px-5
-    py-3
-    text-[#f5c451]
-    font-bold
-    transition-all
-    duration-300
-    hover:scale-105
-    hover:bg-[#1d1306]
-    hover:shadow-[0_0_20px_rgba(245,196,81,0.8)]
-  "
->
-  ← Back
-</button>
+      <button
+        onClick={() => router.push("/application-forums")}
+        className="mb-6 rounded border border-[#6b4b1f] bg-black/70 px-5 py-3 font-bold text-[#f5c451] transition-all duration-300 hover:scale-105 hover:bg-[#1d1306] hover:shadow-[0_0_20px_rgba(245,196,81,0.8)]"
+      >
+        ← Back
+      </button>
 
       <div className="mx-auto max-w-6xl rounded-2xl border border-[#6b4b1f] bg-black/75 p-8 shadow-[0_0_60px_rgba(214,168,79,0.25)] backdrop-blur-sm">
         <div className="flex items-center gap-6">
@@ -299,7 +284,7 @@ export default function ApplicationDetailsPage() {
 
                       <button
                         type="button"
-                        onClick={() => deleteMessage(msg.id)}
+                        onClick={() => setDeleteMessageId(msg.id)}
                         className="text-xs font-black text-red-400 hover:text-red-300"
                       >
                         Delete
@@ -401,6 +386,42 @@ export default function ApplicationDetailsPage() {
           </div>
         </div>
       </div>
+
+      {deleteMessageId && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/75 backdrop-blur-sm">
+          <div className="w-[520px] max-w-[92vw] rounded-2xl border border-[#d6a84f] bg-[#080808] p-8 text-center shadow-[0_0_50px_rgba(239,68,68,0.4)]">
+            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full border-2 border-red-500 text-5xl font-black text-red-500">
+              !
+            </div>
+
+            <h2 className="text-3xl font-black text-[#f5c451]">
+              DELETE MESSAGE?
+            </h2>
+
+            <p className="mt-4 text-white">
+              Are you sure you want to delete this message?
+            </p>
+
+            <div className="mt-7 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteMessageId(null)}
+                className="rounded-lg border border-[#d6a84f] py-3 font-black text-[#d6a84f] transition-all hover:scale-105"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() => deleteMessage(deleteMessageId)}
+                className="rounded-lg border border-red-500 bg-red-900 py-3 font-black text-white transition-all hover:scale-105"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
