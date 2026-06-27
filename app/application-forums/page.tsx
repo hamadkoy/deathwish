@@ -40,40 +40,54 @@ const classColors: Record<string, string> = {
 };
 
 export default function ApplicationForumsPage() {
+  const router = useRouter();
+
   const [tab, setTab] = useState<"pending" | "accepted" | "declined">("pending");
   const [applications, setApplications] = useState<Application[]>([]);
   const [search, setSearch] = useState("");
   const [isOfficer, setIsOfficer] = useState(false);
-const [isGuildMaster, setIsGuildMaster] = useState(false);
-  const router = useRouter();
+  const [isGuildMaster, setIsGuildMaster] = useState(false);
+
+  const [pendingCount, setPendingCount] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<Application | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     checkAdmin();
+    loadPendingCount();
   }, []);
 
   useEffect(() => {
     loadApplications();
   }, [tab]);
 
-async function checkAdmin() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  async function checkAdmin() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) return;
+    if (!user) return;
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("guild_role")
-    .eq("user_id", user.id)
-    .single();
+    const { data } = await supabase
+      .from("profiles")
+      .select("guild_role")
+      .eq("user_id", user.id)
+      .single();
 
-  const role = data?.guild_role || "";
+    const role = data?.guild_role || "";
 
-  setIsGuildMaster(role === "Guild Master");
+    setIsGuildMaster(role === "Guild Master");
+    setIsOfficer(role === "Guild Master" || role === "Officer");
+  }
 
-  setIsOfficer(role === "Guild Master" || role === "Officer");
-}
+  async function loadPendingCount() {
+    const { count, error } = await supabase
+      .from("applications")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending");
+
+    if (!error) setPendingCount(count || 0);
+  }
 
   async function loadApplications() {
     const { data, error } = await supabase
@@ -89,49 +103,57 @@ async function checkAdmin() {
 
     setApplications(data || []);
   }
-async function deleteApplication(id: string) {
-  if (!confirm("Delete this application?")) return;
 
-  const { error, count } = await supabase
-    .from("applications")
-    .delete({ count: "exact" })
-    .eq("id", id);
+  async function deleteApplication() {
+    if (!deleteTarget) return;
 
-  if (error) {
-    alert("Delete failed: " + error.message);
-    return;
+    setDeleting(true);
+
+    const { error, count } = await supabase
+      .from("applications")
+      .delete({ count: "exact" })
+      .eq("id", deleteTarget.id);
+
+    setDeleting(false);
+
+    if (error) {
+      alert("Delete failed: " + error.message);
+      return;
+    }
+
+    if (!count) {
+      alert("Delete did not remove anything. Check Supabase RLS delete policy.");
+      return;
+    }
+
+    setApplications((old) => old.filter((app) => app.id !== deleteTarget.id));
+    setDeleteTarget(null);
+    loadPendingCount();
   }
 
-  if (!count) {
-    alert("Delete did not remove anything. Check Supabase RLS delete policy.");
-    return;
+  async function updateApplicationStatus(
+    id: string,
+    newStatus: "accepted" | "declined"
+  ) {
+    const { error, count } = await supabase
+      .from("applications")
+      .update({ status: newStatus }, { count: "exact" })
+      .eq("id", id);
+
+    if (error) {
+      alert("Update failed: " + error.message);
+      return;
+    }
+
+    if (!count) {
+      alert("Update blocked by Supabase RLS policy.");
+      return;
+    }
+
+    setApplications((old) => old.filter((app) => app.id !== id));
+    loadPendingCount();
   }
 
-  setApplications((old) => old.filter((app) => app.id !== id));
-  alert("Application deleted");
-}
-
-async function updateApplicationStatus(
-  id: string,
-  newStatus: "accepted" | "declined"
-) {
-  const { error, count } = await supabase
-    .from("applications")
-    .update({ status: newStatus }, { count: "exact" })
-    .eq("id", id);
-
-  if (error) {
-    alert("Update failed: " + error.message);
-    return;
-  }
-
-  if (!count) {
-    alert("Update blocked by Supabase RLS policy.");
-    return;
-  }
-
-  setApplications((old) => old.filter((app) => app.id !== id));
-}
   const filteredApps = applications.filter((app) => {
     const q = search.toLowerCase();
 
@@ -144,20 +166,21 @@ async function updateApplicationStatus(
   });
 
   return (
-<main className="min-h-screen text-[#f5e7c8] forumPage">
-  <div className="min-h-screen forumOverlay">
-    <div className="min-h-screen p-8">
+    <main className="min-h-screen text-[#f5e7c8] forumPage">
+      <div className="min-h-screen forumOverlay">
+        <div className="min-h-screen p-8">
           <div className="mx-auto max-w-[1600px]">
             <div className="mb-10 text-center">
               <h1
-  className="text-6xl font-black"
-  style={{
-    color: "#f5d37a",
-    textShadow: "0 0 25px rgba(245,211,122,.35)",
-  }}
->
+                className="text-6xl font-black"
+                style={{
+                  color: "#f5d37a",
+                  textShadow: "0 0 25px rgba(245,211,122,.35)",
+                }}
+              >
                 APPLICATION FORUMS
               </h1>
+
               <p className="mt-3 text-[#bca38c]">
                 Review and manage applications from potential new raiders.
               </p>
@@ -175,7 +198,14 @@ async function updateApplicationStatus(
                         : "text-[#a28d68]"
                     }`}
                   >
-                    {t === "pending" ? "Pending Applications" : t}
+                    {t === "pending" ? (
+                      <span className="flex items-center gap-2">
+                        Pending Applications
+                        <span className="pendingBadge">{pendingCount}</span>
+                      </span>
+                    ) : (
+                      t
+                    )}
                   </button>
                 ))}
               </div>
@@ -203,69 +233,69 @@ async function updateApplicationStatus(
                 </div>
 
                 <div className="grid grid-cols-1 gap-7 md:grid-cols-2 xl:grid-cols-4">
-              
                   {filteredApps.map((app) => {
                     const color = classColors[app.class || ""] || "#d6a84f";
                     const discordBg =
-                      app.discord_avatar_url || app.avatar_url || "/websitelogo.png";
+                      app.discord_avatar_url ||
+                      app.avatar_url ||
+                      "/websitelogo.png";
 
                     return (
                       <div
                         key={app.id}
-                       className="relative h-[550px] overflow-hidden rounded-sm border bg-black transition hover:-translate-y-1"
+                        className="relative h-[550px] overflow-hidden rounded-sm border bg-black transition hover:-translate-y-1"
                         style={{
                           borderColor: color,
                           boxShadow: `0 0 16px ${color}44`,
                         }}
                       >
-{isGuildMaster && (
-  <button
-    type="button"
-    onClick={(e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      deleteApplication(app.id);
-    }}
-    className="absolute right-3 top-3 z-[999] flex h-8 w-8 items-center justify-center rounded-full border border-red-500 bg-black/90 font-black text-red-400 hover:bg-red-900"
-    title="Delete Application"
-  >
-    ×
-  </button>
-)}
+                        {isGuildMaster && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDeleteTarget(app);
+                            }}
+                            className="absolute right-3 top-3 z-[999] flex h-8 w-8 items-center justify-center rounded-full border border-red-500 bg-black/90 font-black text-red-400 hover:bg-red-900"
+                            title="Delete Application"
+                          >
+                            ×
+                          </button>
+                        )}
+
                         <div
                           className="absolute left-0 right-0 top-0 h-[220px] bg-cover bg-center"
                           style={{
-        backgroundImage: `
-  linear-gradient(
-    to bottom,
-    rgba(0,0,0,0),
-    rgba(0,0,0,0.6),
-    rgba(0,0,0,1)
-  ),
-  url('${discordBg}')
-`,
+                            backgroundImage: `
+                              linear-gradient(
+                                to bottom,
+                                rgba(0,0,0,0),
+                                rgba(0,0,0,0.6),
+                                rgba(0,0,0,1)
+                              ),
+                              url('${discordBg}')
+                            `,
                           }}
                         />
-
-                        
 
                         <div className="absolute left-4 top-4 text-xs font-black uppercase tracking-wide text-[#f5d37a]">
                           {formatDate(app.created_at)}
                         </div>
 
-<img
-  src={app.avatar_url || "/websitelogo.png"}
-  alt=""
-  className="absolute left-1/2 top-[170px] h-[78px] w-[78px] -translate-x-1/2 rounded-full border-2 bg-black object-cover z-20"
-  style={{
-    borderColor: color,
-    boxShadow: `0 0 14px ${color}88`,
-  }}
-/>
+                        <img
+                          src={app.avatar_url || "/websitelogo.png"}
+                          alt=""
+                          className="absolute left-1/2 top-[170px] z-20 h-[78px] w-[78px] -translate-x-1/2 rounded-full border-2 bg-black object-cover"
+                          style={{
+                            borderColor: color,
+                            boxShadow: `0 0 14px ${color}88`,
+                          }}
+                        />
 
-<div className="absolute bottom-0 left-0 right-0 px-5 pb-3 text-center">
-
-    <h2 className="mt-8 text-3xl font-black drop-shadow-[0_2px_8px_black]"
+                        <div className="absolute bottom-0 left-0 right-0 px-5 pb-3 text-center">
+                          <h2
+                            className="mt-8 text-3xl font-black drop-shadow-[0_2px_8px_black]"
                             style={{ color }}
                           >
                             {app.character_name || "Unknown"}
@@ -283,7 +313,9 @@ async function updateApplicationStatus(
                               <div className="text-2xl font-black text-[#f5d37a]">
                                 {app.raid_progress || "-"}
                               </div>
-                              <div className="text-xs text-[#a8997a]">PROGRESS</div>
+                              <div className="text-xs text-[#a8997a]">
+                                PROGRESS
+                              </div>
                             </div>
 
                             <div className="border-l border-[#2b2418]">
@@ -320,14 +352,17 @@ async function updateApplicationStatus(
                             </a>
                           </div>
 
-<button
-  type="button"
-  onClick={() => router.push(`/application-forums/${app.id}`)}
-  className="relative z-20 mt-5 w-full border border-[#6b4b1f] bg-black/70 py-3 font-black uppercase text-[#f5c451] hover:bg-[#1d1306]"
->
-  View Application
-</button>
-                        {tab === "pending" && isOfficer && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              router.push(`/application-forums/${app.id}`)
+                            }
+                            className="relative z-20 mt-5 w-full border border-[#6b4b1f] bg-black/70 py-3 font-black uppercase text-[#f5c451] hover:bg-[#1d1306]"
+                          >
+                            View Application
+                          </button>
+
+                          {tab === "pending" && isOfficer && (
                             <div className="relative z-20 mt-3 grid grid-cols-2 gap-3">
                               <button
                                 type="button"
@@ -367,6 +402,40 @@ async function updateApplicationStatus(
         </div>
       </div>
 
+      {deleteTarget && (
+        <div className="deleteOverlay">
+          <div className="deletePopup">
+            <div className="deleteIcon">!</div>
+
+            <h2>DELETE APPLICATION?</h2>
+
+            <p>
+              Are you sure you want to delete{" "}
+              <b>{deleteTarget.character_name || "this application"}</b>?
+            </p>
+
+            <div className="deleteActions">
+              <button
+                type="button"
+                className="cancelDeleteBtn"
+                onClick={() => setDeleteTarget(null)}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="confirmDeleteBtn"
+                onClick={deleteApplication}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx global>{`
         .forumInput {
           height: 46px;
@@ -376,31 +445,135 @@ async function updateApplicationStatus(
           background: rgba(0, 0, 0, 0.8);
           color: #f5e7c8;
         }
-.forumPage {
-  background-image: url("/applyg.png");
-  background-size: cover;
-  background-position: center top;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-}
 
-.forumOverlay {
-  min-height: 100vh;
+        .forumPage {
+          background-image: url("/applyg.png");
+          background-size: cover;
+          background-position: center top;
+          background-repeat: no-repeat;
+          background-attachment: fixed;
+        }
 
-  background:
-    radial-gradient(
-      circle at top,
-      rgba(168, 85, 247, 0.12),
-      transparent 35%
-    );
-}
+        .forumOverlay {
+          min-height: 100vh;
+          background: radial-gradient(
+            circle at top,
+            rgba(168, 85, 247, 0.12),
+            transparent 35%
+          );
+        }
 
-.forumPanel {
-  box-shadow:
-    0 0 45px rgba(168, 85, 247, 0.35),
-    inset 0 0 35px rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(4px);
-}
+        .forumPanel {
+          box-shadow:
+            0 0 45px rgba(168, 85, 247, 0.35),
+            inset 0 0 35px rgba(0, 0, 0, 0.75);
+          backdrop-filter: blur(4px);
+        }
+
+        .pendingBadge {
+          min-width: 26px;
+          height: 26px;
+          padding: 0 8px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid #d6a84f;
+          background: linear-gradient(180deg, #7e22ce, #3b0764);
+          color: #fff2d8;
+          font-size: 13px;
+          font-weight: 900;
+          box-shadow: 0 0 14px rgba(168, 85, 247, 0.65);
+        }
+
+        .deleteOverlay {
+          position: fixed;
+          inset: 0;
+          z-index: 99999;
+          background: rgba(0, 0, 0, 0.72);
+          backdrop-filter: blur(6px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .deletePopup {
+          width: min(540px, 92vw);
+          padding: 54px 38px 34px;
+          border-radius: 22px;
+          text-align: center;
+          border: 1px solid rgba(214, 168, 79, 0.8);
+          background:
+            radial-gradient(circle at top, rgba(220, 38, 38, 0.25), transparent 45%),
+            linear-gradient(180deg, #11111a, #030308);
+          box-shadow:
+            0 0 55px rgba(220, 38, 38, 0.45),
+            0 0 90px rgba(168, 85, 247, 0.25);
+        }
+
+        .deleteIcon {
+          width: 78px;
+          height: 78px;
+          margin: -96px auto 20px;
+          border-radius: 50%;
+          border: 3px solid #ef4444;
+          background: #09090f;
+          color: #ef4444;
+          font-size: 50px;
+          font-weight: 900;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 0 25px rgba(239, 68, 68, 0.55);
+        }
+
+        .deletePopup h2 {
+          color: #f6b83f;
+          font-size: 32px;
+          font-weight: 900;
+          letter-spacing: 1px;
+        }
+
+        .deletePopup p {
+          margin-top: 16px;
+          color: #eee;
+          font-size: 18px;
+          line-height: 1.6;
+        }
+
+        .deleteActions {
+          margin-top: 30px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+        }
+
+        .cancelDeleteBtn,
+        .confirmDeleteBtn {
+          height: 54px;
+          border-radius: 10px;
+          font-weight: 900;
+          cursor: pointer;
+          transition: 0.2s ease;
+        }
+
+        .cancelDeleteBtn {
+          border: 1px solid rgba(214, 168, 79, 0.4);
+          background: rgba(255, 255, 255, 0.04);
+          color: #d6a84f;
+        }
+
+        .confirmDeleteBtn {
+          border: 1px solid #ef4444;
+          background: linear-gradient(180deg, #7f1d1d, #450a0a);
+          color: white;
+        }
+
+        .cancelDeleteBtn:hover,
+        .confirmDeleteBtn:hover {
+          transform: translateY(-1px);
+          opacity: 0.9;
+        }
       `}</style>
     </main>
   );
