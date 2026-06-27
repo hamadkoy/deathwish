@@ -43,7 +43,8 @@ export default function ApplicationForumsPage() {
   const [tab, setTab] = useState<"pending" | "accepted" | "declined">("pending");
   const [applications, setApplications] = useState<Application[]>([]);
   const [search, setSearch] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isOfficer, setIsOfficer] = useState(false);
+const [isGuildMaster, setIsGuildMaster] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -54,25 +55,25 @@ export default function ApplicationForumsPage() {
     loadApplications();
   }, [tab]);
 
-  async function checkAdmin() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+async function checkAdmin() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    if (!user) return;
+  if (!user) return;
 
-    const { data } = await supabase
-      .from("profiles")
-      .select("site_role")
-      .eq("user_id", user.id)
-      .single();
+  const { data } = await supabase
+    .from("profiles")
+    .select("guild_role")
+    .eq("user_id", user.id)
+    .single();
 
-    setIsAdmin(
-  ["👑 Dreadlord", "☠️ Nightblade", "Dreadlord", "Nightblade"].includes(
-    data?.site_role || ""
-  )
-);
-  }
+  const role = data?.guild_role || "";
+
+  setIsGuildMaster(role === "Guild Master");
+
+  setIsOfficer(role === "Guild Master" || role === "Officer");
+}
 
   async function loadApplications() {
     const { data, error } = await supabase
@@ -217,7 +218,7 @@ async function updateApplicationStatus(
                           boxShadow: `0 0 16px ${color}44`,
                         }}
                       >
-{true && (
+{isGuildMaster && (
   <button
     type="button"
     onClick={(e) => {
@@ -326,7 +327,7 @@ async function updateApplicationStatus(
 >
   View Application
 </button>
-                         {tab === "pending" && (
+                        {tab === "pending" && isOfficer && (
                             <div className="relative z-20 mt-3 grid grid-cols-2 gap-3">
                               <button
                                 type="button"
