@@ -155,7 +155,11 @@ async function openLog(logUrl: string) {
     .single();
 
   const allowed = allowedRanks.includes(data?.guild_role || "");
-
+console.log("Role:", data?.guild_role);
+console.log("Allowed:", allowed);
+console.log("AUTH USER:", authData.user?.id);
+console.log("ROLE:", data?.guild_role);
+console.log("ALLOWED:", allowed);
   if (!allowed) {
     alert("You do not have access to view logs.");
     return;
@@ -230,32 +234,31 @@ async function openLog(logUrl: string) {
 
             {days.map((day, i) =>
               day ? (
-                <button
-                  key={i}
-                  onClick={() => setSelectedDate(dateKey(day))}
-                  className={`day ${
-                    selectedDate === dateKey(day) ? "active" : ""
-                  } ${logsForDay(day).length > 0 ? "hasLog" : ""}`}
-                >
+<div
+  key={i}
+  onClick={() => setSelectedDate(dateKey(day))}
+  className={`day ${
+    selectedDate === dateKey(day) ? "active" : ""
+  } ${logsForDay(day).length > 0 ? "hasLog" : ""}`}
+>
                   <b>{day}</b>
 
                   {logsForDay(day).length > 0 && <span className="dot" />}
 
 {logsForDay(day).map((log) => (
-  <button
-    key={log.id}
-    type="button"
-    className="logLink"
-    onClick={(e) => {
-      e.stopPropagation();
-
-openLog(log.log_url);
-    }}
-  >
-    View Logs
-  </button>
+<div
+  key={log.id}
+  className="logLink"
+onClick={(e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  openLog(log.log_url);
+}}
+>
+  View Logs
+</div>
 ))}
-                </button>
+            </div>
               ) : (
                 <div key={i} className="emptyDay" />
               )
