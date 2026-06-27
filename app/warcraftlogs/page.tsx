@@ -43,11 +43,11 @@ export default function WarcraftLogsPage() {
 
     const { data } = await supabase
       .from("profiles")
-      .select("site_role")
+      .select("guild_role")
       .eq("user_id", user.id)
       .single();
 
-    const role = data?.site_role || "";
+   const role = data?.guild_role || "";
 
     if (!allowedRanks.includes(role)) {
       setNoAccess(true);
@@ -149,45 +149,64 @@ export default function WarcraftLogsPage() {
     setSaving(false);
   }
 
-  if (checkingAccess || noAccess) {
-    return (
-      <main className="accessPage">
-        <div className={noAccess ? "deniedText" : "checkingText"}>
-          {noAccess
-            ? "You do not have access to view this page"
-            : "Checking Access..."}
-        </div>
+if (checkingAccess || noAccess) {
+  return (
+    <main className="accessPage">
+      <div className="accessBox">
+        <div className="lockIcon">🔒</div>
 
-        <style jsx>{`
-          .accessPage {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background:
-              linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.65)),
-              url("/Roster.png") center/cover fixed;
-          }
+        <h1>{checkingAccess ? "Checking Access..." : "Access Denied"}</h1>
 
-          .checkingText {
-            color: #fb7185;
-            font-size: 44px;
-            font-weight: 900;
-            text-align: center;
-            text-shadow: 0 0 18px rgba(251, 113, 133, 0.9);
-          }
+        {!checkingAccess && (
+          <p>
+            You do not meet the requirements to view this page.
+            <br />
+            Only Trial, Raider, Officer, Death Wish, and Guild Master members
+            can access this section.
+          </p>
+        )}
+      </div>
 
-          .deniedText {
-            color: #ef4444;
-            font-size: 38px;
-            font-weight: 900;
-            text-align: center;
-            text-shadow: 0 0 18px rgba(239, 68, 68, 0.9);
-          }
-        `}</style>
-      </main>
-    );
-  }
+      <style jsx>{`
+        .accessPage {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          background:
+            linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.78)),
+            url("/Roster.png") center/cover fixed;
+        }
+
+        .accessBox {
+          text-align: center;
+          padding: 40px;
+        }
+
+        .lockIcon {
+          font-size: 76px;
+          margin-bottom: 18px;
+        }
+
+        .accessBox h1 {
+          color: #ff3d6e;
+          font-size: 52px;
+          font-weight: 900;
+          text-shadow: 0 0 22px rgba(255, 61, 110, 0.9);
+        }
+
+        .accessBox p {
+          margin-top: 16px;
+          font-size: 20px;
+          line-height: 1.6;
+          color: white;
+          text-shadow: 0 0 10px black;
+        }
+      `}</style>
+    </main>
+  );
+}
 
   return (
     <main className="page">

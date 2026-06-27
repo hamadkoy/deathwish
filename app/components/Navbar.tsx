@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import OnlineUsers from "./OnlineUsers";
 import { useMobile } from "../hooks/useMobile";
 
+
 type Profile = {
   discord_name?: string;
   avatar_url?: string;
@@ -31,7 +32,7 @@ const isGuildSection =
   pathname.startsWith("/warcraftlogs");
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-
+const [guildRole, setGuildRole] = useState<string | null>(null);
   const navLink: React.CSSProperties = {
     ...link,
     padding: isMobile ? "3px 5px" : "10px 18px",
@@ -59,7 +60,7 @@ const isGuildSection =
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("discord_name, avatar_url, site_role, signup_approved")
+        .select("discord_name, avatar_url, site_role, signup_approved, guild_role")
         .eq("user_id", session.user.id)
         .single();
 
@@ -76,6 +77,7 @@ const isGuildSection =
 
         signup_approved: profileData?.signup_approved || false,
       });
+      setGuildRole(profileData?.guild_role || null);
     }
   }
 
@@ -137,11 +139,12 @@ const isGuildSection =
   Guild Garrison
 </NavButton>
 
-            {!pathname.startsWith("/apply") && (
-              <NavButton href="/apply" style={navLink}>
-                Apply
-              </NavButton>
-            )}
+{!pathname.startsWith("/apply") &&
+ !guildRole && (
+  <NavButton href="/apply" style={navLink}>
+    Apply
+  </NavButton>
+)}
           </>
         ) : (
           <>
