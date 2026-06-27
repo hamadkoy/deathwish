@@ -125,13 +125,68 @@ const [showSuccessPopup, setShowSuccessPopup] = useState(false);
     }
   }
 
-  async function submitApplication(e: React.FormEvent) {
-    e.preventDefault();
+async function submitApplication(e: React.FormEvent) {
+  e.preventDefault();
 
-    if (!character) {
-      alert("Please add your main character first.");
-      return;
-    }
+  if (!character) {
+    alert("Please add your main character.");
+    return;
+  }
+
+  if (!playerName.trim()) {
+    alert("Please enter your name.");
+    return;
+  }
+
+  if (!age.trim()) {
+    alert("Please enter your age.");
+    return;
+  }
+
+  if (!country.trim()) {
+    alert("Please enter your country/timezone.");
+    return;
+  }
+
+  if (!raidAvailability) {
+    alert("Please answer the raid availability question.");
+    return;
+  }
+
+  if (!previousGuilds.trim()) {
+    alert("Please enter your previous guilds.");
+    return;
+  }
+
+  if (!whyLeftGuild.trim()) {
+    alert("Please explain why you left your previous guild.");
+    return;
+  }
+
+  if (!experience.trim()) {
+    alert("Please tell us about your raiding experience.");
+    return;
+  }
+
+  if (!splitAltAnswer) {
+    alert("Please answer the alt requirement question.");
+    return;
+  }
+
+  if (!thirdDayAnswer) {
+    alert("Please answer the third day question.");
+    return;
+  }
+
+  if (!altCharacter) {
+    alert("Please add your alt character.");
+    return;
+  }
+
+  if (!extraInfo.trim()) {
+    alert("Please fill 'Anything else we should know?'.");
+    return;
+  }
 
     const {
       data: { user },
