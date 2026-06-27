@@ -149,20 +149,21 @@ async function openLog(logUrl: string) {
     return;
   }
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("guild_role")
-    .eq("user_id", authData.user.id)
-    .single();
-console.log("Guild Role:", data?.guild_role);
-console.log("Allowed:", allowedRanks.includes(data?.guild_role || ""));
-  const allowed = allowedRanks.includes(data?.guild_role || "");
+const { data } = await supabase
+  .from("profiles")
+  .select("guild_role")
+  .eq("user_id", authData.user.id)
+  .single();
 
-  if (!allowed) {
-    setAccessDenied(true);
-    return;
-  }
+const allowed = allowedRanks.includes(data?.guild_role || "");
 
+console.log("ROLE =", data?.guild_role);
+console.log("ALLOWED =", allowed);
+
+if (!allowed) {
+  setAccessDenied(true);
+  return;
+}
   window.open(logUrl, "_blank", "noopener,noreferrer");
 }
   async function uploadLog() {
