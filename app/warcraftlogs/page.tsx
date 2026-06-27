@@ -13,13 +13,19 @@ type LogRow = {
   created_at: string;
 };
 
+type ProfileRow = {
+  user_id: string;
+  discord_name: string | null;
+  avatar_url: string | null;
+};
+
 const allowedRanks = ["Trial", "Raider", "Death Wish", "Officer", "Guild Master"];
 
 export default function WarcraftLogsPage() {
   const [logs, setLogs] = useState<LogRow[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, ProfileRow>>({});
   const [selectedDate, setSelectedDate] = useState("");
   const [url, setUrl] = useState("");
-  const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [noAccess, setNoAccess] = useState(false);
@@ -48,9 +54,7 @@ export default function WarcraftLogsPage() {
       .eq("user_id", user.id)
       .single();
 
-    const role = data?.guild_role || "";
-
-    if (!allowedRanks.includes(role)) {
+    if (!allowedRanks.includes(data?.guild_role || "")) {
       setNoAccess(true);
       setCheckingAccess(false);
       return;
@@ -61,12 +65,29 @@ export default function WarcraftLogsPage() {
   }
 
   async function loadLogs() {
-    const { data } = await supabase
+    const { data: logsData } = await supabase
       .from("warcraft_logs_calendar")
       .select("*")
       .order("log_date", { ascending: false });
 
-    setLogs(data || []);
+    const loadedLogs = logsData || [];
+    setLogs(loadedLogs);
+
+    const userIds = [...new Set(loadedLogs.map((log) => log.user_id))];
+
+    if (userIds.length > 0) {
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("user_id, discord_name, avatar_url")
+        .in("user_id", userIds);
+
+      const map: Record<string, ProfileRow> = {};
+      (profileData || []).forEach((profile) => {
+        map[profile.user_id] = profile;
+      });
+
+      setProfiles(map);
+    }
   }
 
   const days = useMemo(() => {
@@ -78,6 +99,19 @@ export default function WarcraftLogsPage() {
       ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
     ];
   }, [month, year]);
+
+  const logsChampion = useMemo(() => {
+    const count: Record<string, number> = {};
+
+    logs.forEach((log) => {
+      count[log.user_id] = (count[log.user_id] || 0) + 1;
+    });
+
+    return Object.entries(count)
+      .map(([user_id, total]) => ({ user_id, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+  }, [logs]);
 
   function changeMonth(direction: "prev" | "next") {
     if (direction === "prev") {
@@ -109,18 +143,7 @@ export default function WarcraftLogsPage() {
   function logsForDay(day: number) {
     return logs.filter((log) => log.log_date === dateKey(day));
   }
-const logsChampion = useMemo(() => {
-  const count: Record<string, number> = {};
 
-  logs.forEach((log) => {
-    count[log.user_id] = (count[log.user_id] || 0) + 1;
-  });
-
-  return Object.entries(count)
-    .map(([user_id, total]) => ({ user_id, total }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 5);
-}, [logs]);
   async function uploadLog() {
     if (!selectedDate || !url) {
       alert("Choose a day and paste WarcraftLogs link.");
@@ -142,14 +165,12 @@ const logsChampion = useMemo(() => {
       return;
     }
 
-const { error } = await supabase
-  .from("warcraft_logs_calendar")
-  .insert({
-    user_id: authData.user.id,
-    log_date: selectedDate,
-    log_url: url,
-    note: "WarcraftLogs",
-  });
+    const { error } = await supabase.from("warcraft_logs_calendar").insert({
+      user_id: authData.user.id,
+      log_date: selectedDate,
+      log_url: url,
+      note: "WarcraftLogs",
+    });
 
     if (error) {
       alert(error.message);
@@ -158,7 +179,6 @@ const { error } = await supabase
     }
 
     setUrl("");
-    setNote("");
     await loadLogs();
     setSaving(false);
   }
@@ -253,9 +273,9 @@ const { error } = await supabase
                 <button
                   key={i}
                   onClick={() => setSelectedDate(dateKey(day))}
-className={`day ${
-  selectedDate === dateKey(day) ? "active" : ""
-} ${logsForDay(day).length > 0 ? "hasLog" : ""}`}
+                  className={`day ${
+                    selectedDate === dateKey(day) ? "active" : ""
+                  } ${logsForDay(day).length > 0 ? "hasLog" : ""}`}
                 >
                   <b>{day}</b>
 
@@ -270,7 +290,7 @@ className={`day ${
                       onClick={(e) => e.stopPropagation()}
                       className="logLink"
                     >
-                    View Logs
+                      View Logs
                     </a>
                   ))}
                 </button>
@@ -292,33 +312,47 @@ className={`day ${
             </span>
           </div>
         </div>
-<div className="logsChampion">
-  <h3>🏆 Logs Champion</h3>
 
-  {logsChampion.length === 0 ? (
-    <p>No logs uploaded yet.</p>
-  ) : (
-    logsChampion.map((u, i) => (
-      <div key={u.user_id} className="championRow">
-        <span>#{i + 1}</span>
-        <b>{u.user_id.slice(0, 8)}</b>
-        <em>{u.total} logs</em>
-      </div>
-    ))
-  )}
-</div>
-{selectedDate && (
-  <div className="uploadBox">
+        <div className="logsChampion">
+          <h3>🏆 Logs Champion</h3>
 
-    <button
-      className="closeUpload"
-      onClick={() => {
-        setSelectedDate("");
-        setUrl("");
-      }}
-    >
-      ✕
-    </button>
+          {logsChampion.length === 0 ? (
+            <p>No logs uploaded yet.</p>
+          ) : (
+            logsChampion.map((u, i) => {
+              const profile = profiles[u.user_id];
+
+              return (
+                <div key={u.user_id} className="championRow">
+                  <span>#{i + 1}</span>
+
+                  <img
+                    src={profile?.avatar_url || "/websitelogo.png"}
+                    alt=""
+                    className="championAvatar"
+                  />
+
+                  <b>{profile?.discord_name || "Unknown User"}</b>
+
+                  <em>{u.total} logs</em>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {selectedDate && (
+          <div className="uploadBox">
+            <button
+              className="closeUpload"
+              onClick={() => {
+                setSelectedDate("");
+                setUrl("");
+              }}
+            >
+              ✕
+            </button>
+
             <h3>Upload log for {selectedDate}</h3>
 
             <div className="formRow">
@@ -328,8 +362,6 @@ className={`day ${
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="https://www.warcraftlogs.com/reports/..."
                 />
-
- 
               </div>
 
               <button onClick={uploadLog} disabled={saving}>
@@ -397,9 +429,6 @@ className={`day ${
           font-weight: 900;
           border: 1px solid rgba(201, 137, 55, 0.85);
           background: linear-gradient(180deg, #111b27, #05070b);
-          box-shadow:
-            inset 0 0 20px rgba(0, 0, 0, 0.8),
-            0 0 18px rgba(255, 170, 50, 0.25);
         }
 
         .monthRow button {
@@ -412,9 +441,7 @@ className={`day ${
           font-size: 28px;
           font-weight: 900;
           cursor: pointer;
-          box-shadow:
-            inset 0 0 18px rgba(0, 0, 0, 0.7),
-            0 0 16px rgba(0, 153, 255, 0.45);
+          box-shadow: 0 0 16px rgba(0, 153, 255, 0.45);
         }
 
         .calendarFrame {
@@ -423,7 +450,6 @@ className={`day ${
           background: rgba(1, 7, 12, 0.84);
           box-shadow:
             0 0 30px rgba(0, 0, 0, 0.9),
-            0 0 26px rgba(0, 132, 255, 0.22),
             inset 0 0 35px rgba(0, 0, 0, 0.9);
         }
 
@@ -488,69 +514,37 @@ className={`day ${
         }
 
         .day:hover,
-.day.active {
-  border-color: #4bb3ff;
-  transform: translateY(-2px);
-  background:
-    radial-gradient(circle at top, rgba(77, 184, 255, 0.55), transparent 35%),
-    linear-gradient(180deg, rgba(12, 70, 130, 0.95), rgba(3, 20, 50, 0.98));
-  box-shadow:
-    0 0 22px rgba(0, 153, 255, 0.9),
-    inset 0 0 24px rgba(70, 170, 255, 0.45);
-}
+        .day.active {
+          border-color: #4bb3ff;
+          transform: translateY(-2px);
+          box-shadow:
+            0 0 22px rgba(0, 153, 255, 0.9),
+            inset 0 0 24px rgba(70, 170, 255, 0.45);
+        }
 
-.day.active::before {
-  background:
-    linear-gradient(135deg, rgba(60, 180, 255, 0.25), transparent 35%),
-    rgba(0, 25, 55, 0.35);
-}
+        .day.hasLog {
+          border-color: #2fa8ff;
+          background:
+            linear-gradient(180deg, rgba(7, 82, 145, 0.95), rgba(3, 35, 75, 0.98)) !important;
+          box-shadow:
+            inset 0 0 35px rgba(0, 0, 0, 0.8),
+            inset 0 0 18px rgba(75, 180, 255, 0.45);
+        }
 
-.day.active b {
-  color: #f7d47a;
-  font-size: 34px;
-  text-shadow:
-    0 0 8px #000,
-    0 0 14px rgba(255, 205, 70, 0.8);
-}
+        .day.hasLog::before {
+          background:
+            radial-gradient(circle at top, rgba(80, 175, 255, 0.35), transparent 45%),
+            rgba(0, 20, 45, 0.35) !important;
+        }
 
-.day.active .logLink {
-  background: linear-gradient(180deg, #1d8ee8, #07518a);
-  border-color: #7dd3fc;
-  box-shadow:
-    inset 0 0 10px rgba(255, 255, 255, 0.12),
-    0 0 12px rgba(59, 180, 255, 0.75);
-}
-.day.hasLog {
-  border-color: #2fa8ff;
-  background:
-    linear-gradient(180deg, rgba(7, 82, 145, 0.95), rgba(3, 35, 75, 0.98)) !important;
-  box-shadow:
-    inset 0 0 35px rgba(0, 0, 0, 0.8),
-    inset 0 0 18px rgba(75, 180, 255, 0.45);
-}
+        .day.hasLog b {
+          color: #f7d47a;
+          font-size: 34px;
+          text-shadow:
+            0 0 8px black,
+            0 0 16px rgba(255, 205, 70, 0.95);
+        }
 
-.day.hasLog::before {
-  background:
-    radial-gradient(circle at top, rgba(80, 175, 255, 0.35), transparent 45%),
-    rgba(0, 20, 45, 0.35) !important;
-}
-
-.day.hasLog b {
-  color: #f7d47a;
-  font-size: 34px;
-}
-
-.day.hasLog::before {
-  background: rgba(0, 25, 55, 0.25) !important;
-}
-
-.day.hasLog b {
-  color: #f7d47a;
-  font-size: 34px;
-  text-shadow:
-    0 0 8px black,
-    0 0 16px rgba(255, 205, 70, 0.95);
-}
         .dot {
           display: block;
           width: 11px;
@@ -560,48 +554,20 @@ className={`day ${
           background: #28a8ff;
           box-shadow: 0 0 12px #28a8ff;
         }
-.uploadBox {
-  position: relative;
-}
 
-.closeUpload {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 22px !important;
-  height: 22px !important;
-  padding: 0 !important;
-  border-radius: 50%;
-  border: 1px solid #ef4444 !important;
-  background: rgba(0, 0, 0, 0.85) !important;
-  color: #ef4444 !important;
-  font-size: 13px !important;
-  font-weight: 900;
-  line-height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: none !important;
-}
-
-.closeUpload:hover {
-  background: #ef4444 !important;
-  color: white !important;
-}
-.logLink {
-  display: block;
-  max-width: 105px;
-  margin: 8px auto 0;
-  padding: 7px 10px;
-  border-radius: 6px;
-  background: linear-gradient(180deg, #1d8ee8, #07518a);
-  color: white;
-  font-size: 11px;
-  font-weight: 900;
-  text-decoration: none;
-  border: 1px solid #7dd3fc;
-}
+        .logLink {
+          display: block;
+          max-width: 105px;
+          margin: 8px auto 0;
+          padding: 7px 10px;
+          border-radius: 6px;
+          background: linear-gradient(180deg, #1d8ee8, #07518a);
+          color: white;
+          font-size: 11px;
+          font-weight: 900;
+          text-decoration: none;
+          border: 1px solid #7dd3fc;
+        }
 
         .legend {
           display: flex;
@@ -641,7 +607,74 @@ className={`day ${
           border: 1px solid #c78937;
         }
 
+        .logsChampion {
+          position: fixed;
+          right: 28px;
+          top: 170px;
+          width: 290px;
+          padding: 18px;
+          border: 1px solid rgba(201, 137, 55, 0.9);
+          background: rgba(1, 7, 12, 0.86);
+          box-shadow:
+            0 0 24px rgba(0, 0, 0, 0.9),
+            0 0 18px rgba(0, 153, 255, 0.25);
+          color: white;
+        }
+
+        .logsChampion h3 {
+          color: #f7d47a;
+          font-family: Georgia, serif;
+          font-size: 20px;
+          margin-bottom: 14px;
+          text-align: center;
+        }
+
+        .logsChampion p {
+          color: #cbd5e1;
+          text-align: center;
+          font-size: 13px;
+        }
+
+        .championRow {
+          display: grid;
+          grid-template-columns: 32px 34px 1fr auto;
+          gap: 8px;
+          align-items: center;
+          padding: 9px 0;
+          border-bottom: 1px solid rgba(201, 137, 55, 0.25);
+        }
+
+        .championRow span {
+          color: #38bdf8;
+          font-weight: 900;
+        }
+
+        .championAvatar {
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          object-fit: cover;
+          border: 1px solid #38bdf8;
+          box-shadow: 0 0 8px rgba(56, 189, 248, 0.7);
+        }
+
+        .championRow b {
+          color: #f8fafc;
+          font-size: 13px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .championRow em {
+          color: #f7d47a;
+          font-style: normal;
+          font-size: 12px;
+          font-weight: 900;
+        }
+
         .uploadBox {
+          position: relative;
           margin-top: 20px;
           padding: 24px;
           border: 1px solid rgba(201, 137, 55, 0.85);
@@ -649,6 +682,30 @@ className={`day ${
           box-shadow:
             0 0 24px rgba(0, 0, 0, 0.85),
             inset 0 0 30px rgba(0, 0, 0, 0.9);
+        }
+
+        .closeUpload {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 22px;
+          height: 22px;
+          padding: 0;
+          border-radius: 50%;
+          border: 1px solid #ef4444;
+          background: rgba(0, 0, 0, 0.85);
+          color: #ef4444;
+          font-size: 13px;
+          font-weight: 900;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+        }
+
+        .closeUpload:hover {
+          background: #ef4444;
+          color: white;
         }
 
         .uploadBox h3 {
@@ -668,7 +725,6 @@ className={`day ${
 
         .inputs input {
           width: 100%;
-          margin-bottom: 12px;
           padding: 13px 16px;
           border-radius: 5px;
           border: 1px solid rgba(201, 137, 55, 0.75);
@@ -677,7 +733,7 @@ className={`day ${
           outline: none;
         }
 
-       .uploadBox > .formRow button {
+        .uploadBox > .formRow button {
           height: 66px;
           border: 1px solid rgba(201, 137, 55, 0.95);
           background: linear-gradient(180deg, #1768a5, #08233d);
@@ -691,67 +747,15 @@ className={`day ${
             inset 0 0 20px rgba(0, 0, 0, 0.75),
             0 0 22px rgba(0, 153, 255, 0.45);
         }
-.logsChampion {
-  position: fixed;
-  right: 28px;
-  top: 170px;
-  width: 260px;
-  padding: 18px;
-  border: 1px solid rgba(201, 137, 55, 0.9);
-  background: rgba(1, 7, 12, 0.86);
-  box-shadow:
-    0 0 24px rgba(0, 0, 0, 0.9),
-    0 0 18px rgba(0, 153, 255, 0.25);
-  color: white;
-}
 
-.logsChampion h3 {
-  color: #f7d47a;
-  font-family: Georgia, serif;
-  font-size: 20px;
-  margin-bottom: 14px;
-  text-align: center;
-}
+        @media (max-width: 1300px) {
+          .logsChampion {
+            position: static;
+            width: 100%;
+            margin-top: 20px;
+          }
+        }
 
-.logsChampion p {
-  color: #cbd5e1;
-  text-align: center;
-  font-size: 13px;
-}
-
-.championRow {
-  display: grid;
-  grid-template-columns: 38px 1fr auto;
-  gap: 8px;
-  align-items: center;
-  padding: 9px 0;
-  border-bottom: 1px solid rgba(201, 137, 55, 0.25);
-}
-
-.championRow span {
-  color: #38bdf8;
-  font-weight: 900;
-}
-
-.championRow b {
-  color: #f8fafc;
-  font-size: 13px;
-}
-
-.championRow em {
-  color: #f7d47a;
-  font-style: normal;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-@media (max-width: 1300px) {
-  .logsChampion {
-    position: static;
-    width: 100%;
-    margin-top: 20px;
-  }
-}
         @media (max-width: 900px) {
           h1 {
             font-size: 42px;

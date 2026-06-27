@@ -33,6 +33,7 @@ const isGuildSection =
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
 const [guildRole, setGuildRole] = useState<string | null>(null);
+const [acceptedApplication, setAcceptedApplication] = useState(false);
   const navLink: React.CSSProperties = {
     ...link,
     padding: isMobile ? "3px 5px" : "10px 18px",
@@ -60,7 +61,7 @@ const [guildRole, setGuildRole] = useState<string | null>(null);
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("discord_name, avatar_url, site_role, signup_approved, guild_role")
+       .select("discord_name, avatar_url, site_role, signup_approved, guild_role, accepted_application")
         .eq("user_id", session.user.id)
         .single();
 
@@ -78,6 +79,9 @@ const [guildRole, setGuildRole] = useState<string | null>(null);
         signup_approved: profileData?.signup_approved || false,
       });
       setGuildRole(profileData?.guild_role || null);
+      setAcceptedApplication(
+  profileData?.accepted_application === true
+);
     }
   }
 
@@ -140,7 +144,7 @@ const [guildRole, setGuildRole] = useState<string | null>(null);
 </NavButton>
 
 {!pathname.startsWith("/apply") &&
- !guildRole && (
+ !acceptedApplication && (
   <NavButton href="/apply" style={navLink}>
     Apply
   </NavButton>
