@@ -30,6 +30,7 @@ export default function WarcraftLogsPage() {
 const [canViewLogs, setCanViewLogs] = useState(false);
   const today = new Date();
   const [month, setMonth] = useState(today.getMonth());
+  const [accessDenied, setAccessDenied] = useState(false);
   const [year, setYear] = useState(today.getFullYear());
   useEffect(() => {
   loadLogs();
@@ -144,7 +145,7 @@ async function openLog(logUrl: string) {
   const { data: authData } = await supabase.auth.getUser();
 
   if (!authData.user) {
-    alert("You do not have access to view logs.");
+    setAccessDenied(true);
     return;
   }
 
@@ -155,13 +156,9 @@ async function openLog(logUrl: string) {
     .single();
 
   const allowed = allowedRanks.includes(data?.guild_role || "");
-console.log("Role:", data?.guild_role);
-console.log("Allowed:", allowed);
-console.log("AUTH USER:", authData.user?.id);
-console.log("ROLE:", data?.guild_role);
-console.log("ALLOWED:", allowed);
+
   if (!allowed) {
-    alert("You do not have access to view logs.");
+    setAccessDenied(true);
     return;
   }
 
@@ -336,7 +333,15 @@ onClick={(e) => {
           </div>
         )}
       </div>
-
+{accessDenied && (
+  <div className="denyOverlay">
+    <div className="denyBox">
+      <h2>Access Denied</h2>
+      <p>You do not have access to view logs.</p>
+      <button onClick={() => setAccessDenied(false)}>OK</button>
+    </div>
+  </div>
+)}
       <style jsx>{`
         .page {
           min-height: 100vh;
@@ -595,7 +600,46 @@ onClick={(e) => {
         .emptyDot {
           border: 1px solid #c78937;
         }
+.denyOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
+.denyBox {
+  width: 360px;
+  padding: 28px;
+  text-align: center;
+  border-radius: 18px;
+  border: 1px solid #ef4444;
+  background: linear-gradient(180deg, #1a0505, #050505);
+  box-shadow: 0 0 35px rgba(239, 68, 68, 0.6);
+}
+
+.denyBox h2 {
+  color: #ef4444;
+  font-size: 30px;
+  margin-bottom: 10px;
+}
+
+.denyBox p {
+  color: white;
+  margin-bottom: 22px;
+}
+
+.denyBox button {
+  padding: 10px 28px;
+  border-radius: 10px;
+  border: 1px solid #f7d47a;
+  background: #111;
+  color: #f7d47a;
+  font-weight: 900;
+  cursor: pointer;
+}
 .logsChampion {
   position: fixed;
   right: 30px;
