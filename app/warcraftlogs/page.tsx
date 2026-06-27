@@ -27,43 +27,40 @@ export default function WarcraftLogsPage() {
   const [selectedDate, setSelectedDate] = useState("");
   const [url, setUrl] = useState("");
   const [saving, setSaving] = useState(false);
-  const [checkingAccess, setCheckingAccess] = useState(true);
-  const [noAccess, setNoAccess] = useState(false);
-
+const [canViewLogs, setCanViewLogs] = useState(false);
   const today = new Date();
   const [month, setMonth] = useState(today.getMonth());
   const [year, setYear] = useState(today.getFullYear());
-
   useEffect(() => {
-    checkAccess();
-  }, []);
+  loadLogs();
+  loadUserRole();
+}, []);
+async function loadUserRole() {
+  const { data: authData } = await supabase.auth.getUser();
 
-  async function checkAccess() {
-    const { data: authData } = await supabase.auth.getUser();
-    const user = authData.user;
-
-    if (!user) {
-      setNoAccess(true);
-      setCheckingAccess(false);
-      return;
-    }
-
-    const { data } = await supabase
-      .from("profiles")
-      .select("guild_role")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!allowedRanks.includes(data?.guild_role || "")) {
-      setNoAccess(true);
-      setCheckingAccess(false);
-      return;
-    }
-
-    setCheckingAccess(false);
-    loadLogs();
+  if (!authData.user) {
+    setCanViewLogs(false);
+    return;
   }
 
+  const { data } = await supabase
+    .from("profiles")
+    .select("guild_role")
+    .eq("user_id", authData.user.id)
+    .single();
+
+  const allowedRanks = [
+    "Trial",
+    "Raider",
+    "Death Wish",
+    "Officer",
+    "Guild Master",
+  ];
+
+  setCanViewLogs(
+    allowedRanks.includes(data?.guild_role || "")
+  );
+}
   async function loadLogs() {
     const { data: logsData } = await supabase
       .from("warcraft_logs_calendar")
@@ -182,65 +179,6 @@ export default function WarcraftLogsPage() {
     await loadLogs();
     setSaving(false);
   }
-
-  if (checkingAccess || noAccess) {
-    return (
-      <main className="accessPage">
-        <div className="accessBox">
-          <div className="lockIcon">🔒</div>
-          <h1>{checkingAccess ? "Checking Access..." : "Access Denied"}</h1>
-
-          {!checkingAccess && (
-            <p>
-              You do not meet the requirements to view this page.
-              <br />
-              Only Trial, Raider, Officer, Death Wish, and Guild Master members
-              can access this section.
-            </p>
-          )}
-        </div>
-
-        <style jsx>{`
-          .accessPage {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            background:
-              linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.82)),
-              url("/warcraftlogs.png") center/cover fixed;
-          }
-
-          .accessBox {
-            text-align: center;
-            padding: 40px;
-          }
-
-          .lockIcon {
-            font-size: 76px;
-            margin-bottom: 18px;
-          }
-
-          .accessBox h1 {
-            color: #f8c85a;
-            font-size: 52px;
-            font-weight: 900;
-            text-shadow: 0 0 24px rgba(248, 200, 90, 0.9);
-          }
-
-          .accessBox p {
-            margin-top: 16px;
-            font-size: 20px;
-            line-height: 1.6;
-            color: white;
-            text-shadow: 0 0 10px black;
-          }
-        `}</style>
-      </main>
-    );
-  }
-
   return (
     <main className="page">
       <div className="wrap">
@@ -282,16 +220,26 @@ export default function WarcraftLogsPage() {
                   {logsForDay(day).length > 0 && <span className="dot" />}
 
                   {logsForDay(day).map((log) => (
-                    <a
-                      key={log.id}
-                      href={log.log_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="logLink"
-                    >
-                      View Logs
-                    </a>
+canViewLogs ? (
+  <a
+    key={log.id}
+    href={log.log_url}
+    target="_blank"
+    rel="noreferrer"
+    onClick={(e) => e.stopPropagation()}
+    className="logLink"
+  >
+    View Logs
+  </a>
+) : (
+  <div
+    key={log.id}
+    className="logLocked"
+    onClick={(e) => e.stopPropagation()}
+  >
+    🔒 Locked
+  </div>
+)
                   ))}
                 </button>
               ) : (
@@ -431,19 +379,42 @@ export default function WarcraftLogsPage() {
           background: linear-gradient(180deg, #111b27, #05070b);
         }
 
-        .monthRow button {
-          width: 52px;
-          height: 46px;
-          border-radius: 6px;
-          border: 1px solid rgba(201, 137, 55, 0.9);
-          background: linear-gradient(180deg, #17456b, #06111d);
-          color: #f7d47a;
-          font-size: 28px;
-          font-weight: 900;
-          cursor: pointer;
-          box-shadow: 0 0 16px rgba(0, 153, 255, 0.45);
-        }
+.monthRow button {
+  width: 58px;
+  height: 58px;
+  border-radius: 12px;
 
+  border: 1px solid rgba(201, 137, 55, 0.9);
+
+  background: linear-gradient(180deg, #17456b, #06111d);
+
+  color: #f7d47a;
+  font-size: 30px;
+  font-weight: 900;
+
+  cursor: pointer;
+
+  transition: all 0.25s ease;
+
+  box-shadow:
+    0 0 12px rgba(0, 153, 255, 0.35),
+    inset 0 0 10px rgba(255,255,255,.05);
+}
+
+.monthRow button:hover {
+  transform: scale(1.18) rotate(8deg);
+
+  box-shadow:
+    0 0 15px rgba(0,153,255,.7),
+    0 0 30px rgba(0,153,255,.5),
+    0 0 50px rgba(0,153,255,.3);
+
+  border-color: #58c4ff;
+}
+
+.monthRow button:active {
+  transform: scale(1.08);
+}
         .calendarFrame {
           padding: 28px;
           border: 1px solid rgba(201, 137, 55, 0.85);
@@ -607,27 +578,35 @@ export default function WarcraftLogsPage() {
           border: 1px solid #c78937;
         }
 
-        .logsChampion {
-          position: fixed;
-          right: 28px;
-          top: 170px;
-          width: 290px;
-          padding: 18px;
-          border: 1px solid rgba(201, 137, 55, 0.9);
-          background: rgba(1, 7, 12, 0.86);
-          box-shadow:
-            0 0 24px rgba(0, 0, 0, 0.9),
-            0 0 18px rgba(0, 153, 255, 0.25);
-          color: white;
-        }
+.logsChampion {
+  position: fixed;
+  right: 30px;
+  top: 160px;
 
-        .logsChampion h3 {
-          color: #f7d47a;
-          font-family: Georgia, serif;
-          font-size: 20px;
-          margin-bottom: 14px;
-          text-align: center;
-        }
+  width: 380px;
+  padding: 24px;
+
+  border: none;
+  border-radius: 20px;
+
+  background: rgba(5, 10, 20, 0.78);
+  backdrop-filter: blur(8px);
+
+  box-shadow:
+    0 12px 35px rgba(0,0,0,.55),
+    0 0 25px rgba(59,130,246,.15);
+
+  color: white;
+  overflow: hidden;
+}
+
+.logsChampion h3 {
+  color: #f7d47a;
+  font-family: Georgia, serif;
+  font-size: 28px;
+  margin-bottom: 20px;
+  text-align: center;
+}
 
         .logsChampion p {
           color: #cbd5e1;
@@ -635,28 +614,48 @@ export default function WarcraftLogsPage() {
           font-size: 13px;
         }
 
-        .championRow {
-          display: grid;
-          grid-template-columns: 32px 34px 1fr auto;
-          gap: 8px;
-          align-items: center;
-          padding: 9px 0;
-          border-bottom: 1px solid rgba(201, 137, 55, 0.25);
-        }
+.championRow {
+  display: grid;
+  grid-template-columns: 50px 55px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
 
         .championRow span {
           color: #38bdf8;
           font-weight: 900;
         }
 
-        .championAvatar {
-          width: 30px;
-          height: 30px;
-          border-radius: 50%;
-          object-fit: cover;
-          border: 1px solid #38bdf8;
-          box-shadow: 0 0 8px rgba(56, 189, 248, 0.7);
-        }
+.championAvatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+
+  border: 2px solid #38bdf8;
+
+  box-shadow:
+    0 0 12px rgba(56,189,248,.6);
+}
+    .logLocked {
+  display: block;
+  max-width: 105px;
+  margin: 8px auto 0;
+  padding: 7px 10px;
+  border-radius: 6px;
+
+  background: rgba(80,80,80,.6);
+
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 900;
+
+  border: 1px solid rgba(255,255,255,.15);
+
+  cursor: not-allowed;
+}
 
         .championRow b {
           color: #f8fafc;

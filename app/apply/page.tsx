@@ -583,29 +583,44 @@ setShowSuccessPopup(true);
           padding: 22px 16px 50px;
         }
 
-        .hero {
-          min-height: 230px;
-          border: 1px solid rgba(214, 168, 79, 0.35);
-          border-radius: 10px;
-          background:
-            linear-gradient(90deg, rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0.18)),
-            url("/About guild.png") center / cover no-repeat;
-          box-shadow:
-            0 14px 35px rgba(0, 0, 0, 0.7),
-            inset 0 0 35px rgba(0, 0, 0, 0.8);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          position: relative;
-          overflow: hidden;
-        }
+.hero {
+  min-height: 230px;
 
-        .heroText {
-          position: relative;
-          z-index: 2;
-          text-shadow: 0 0 18px black;
-        }
+  border: none;
+  border-radius: 18px;
+
+  overflow: hidden;
+
+  background:
+    linear-gradient(
+      90deg,
+rgba(0,0,0,0.78),
+rgba(0,0,0,0.18)
+    ),
+    url("/About guild.png");
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  box-shadow:
+    0 12px 35px rgba(0,0,0,0.45);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+}
+
+.heroText {
+  position: relative;
+  z-index: 2;
+
+  text-shadow:
+    0 0 8px rgba(0,0,0,0.8),
+    0 0 20px rgba(0,0,0,0.6);
+}
 
         .hero h2 {
           margin: 0;
