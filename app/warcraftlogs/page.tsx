@@ -140,7 +140,29 @@ async function loadUserRole() {
   function logsForDay(day: number) {
     return logs.filter((log) => log.log_date === dateKey(day));
   }
+async function openLog(logUrl: string) {
+  const { data: authData } = await supabase.auth.getUser();
 
+  if (!authData.user) {
+    alert("You do not have access to view logs.");
+    return;
+  }
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("guild_role")
+    .eq("user_id", authData.user.id)
+    .single();
+
+  const allowed = allowedRanks.includes(data?.guild_role || "");
+
+  if (!allowed) {
+    alert("You do not have access to view logs.");
+    return;
+  }
+
+  window.open(logUrl, "_blank", "noopener,noreferrer");
+}
   async function uploadLog() {
     if (!selectedDate || !url) {
       alert("Choose a day and paste WarcraftLogs link.");
@@ -219,28 +241,20 @@ async function loadUserRole() {
 
                   {logsForDay(day).length > 0 && <span className="dot" />}
 
-                  {logsForDay(day).map((log) => (
-canViewLogs ? (
-  <a
+{logsForDay(day).map((log) => (
+  <button
     key={log.id}
-    href={log.log_url}
-    target="_blank"
-    rel="noreferrer"
-    onClick={(e) => e.stopPropagation()}
+    type="button"
     className="logLink"
+    onClick={(e) => {
+      e.stopPropagation();
+
+openLog(log.log_url);
+    }}
   >
     View Logs
-  </a>
-) : (
-  <div
-    key={log.id}
-    className="logLocked"
-    onClick={(e) => e.stopPropagation()}
-  >
-    🔒 Locked
-  </div>
-)
-                  ))}
+  </button>
+))}
                 </button>
               ) : (
                 <div key={i} className="emptyDay" />
@@ -538,6 +552,7 @@ canViewLogs ? (
           font-weight: 900;
           text-decoration: none;
           border: 1px solid #7dd3fc;
+          cursor: pointer;
         }
 
         .legend {
