@@ -9,7 +9,8 @@ type GuildRole =
   | "Officer"
   | "Death Wish"
   | "Raider"
-  | "Trial";
+  | "Trial"
+  | "Guest";
 
 type Profile = {
   user_id: string;
@@ -27,6 +28,7 @@ const guildRoleOrder: Record<GuildRole, number> = {
   "Death Wish": 2,
   Raider: 3,
   Trial: 4,
+  Guest: 5,
 };
 
 export default function GuildRanksPage() {
@@ -92,7 +94,7 @@ export default function GuildRanksPage() {
 .update({
   signup_approved: false,
   accepted_application: false,
-  guild_role: "Trial",
+  guild_role: "Guest",
 })
 
       .eq("user_id", userId);
@@ -253,6 +255,7 @@ export default function GuildRanksPage() {
                         <option value="Death Wish">Death Wish</option>
                         <option value="Raider">Raider</option>
                         <option value="Trial">Trial</option>
+                        <option value="Guest">Guest</option>
                       </select>
 
                       {isOwner ? (
@@ -285,17 +288,17 @@ function normalizeGuildRole(role?: string | null): GuildRole {
   if (role === "Officer") return "Officer";
   if (role === "Death Wish") return "Death Wish";
   if (role === "Raider") return "Raider";
-  return "Trial";
+  if (role === "Trial") return "Trial";
+  return "Guest";
 }
-
 function getGuildRoleIcon(role: GuildRole) {
   if (role === "Guild Master") return "👑";
   if (role === "Officer") return "🛡️";
   if (role === "Death Wish") return "💀";
   if (role === "Raider") return "⚔️";
-  return "🧪";
+  if (role === "Trial") return "🧪";
+  return "👤";
 }
-
 function getGuildRoleColor(role: GuildRole) {
   if (role === "Guild Master") return "#facc15";
   if (role === "Officer") return "#fb7185";
