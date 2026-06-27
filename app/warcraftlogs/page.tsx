@@ -154,7 +154,8 @@ async function openLog(logUrl: string) {
     .select("guild_role")
     .eq("user_id", authData.user.id)
     .single();
-
+console.log("Guild Role:", data?.guild_role);
+console.log("Allowed:", allowedRanks.includes(data?.guild_role || ""));
   const allowed = allowedRanks.includes(data?.guild_role || "");
 
   if (!allowed) {
