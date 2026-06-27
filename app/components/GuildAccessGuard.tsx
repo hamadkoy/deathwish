@@ -38,7 +38,8 @@ export default function GuildAccessGuard({
         .single();
 
       if (error || !profile) {
-        router.push("/");
+        setAllowed(false);
+        setChecking(false);
         return;
       }
 
@@ -47,12 +48,7 @@ export default function GuildAccessGuard({
         profile.signup_approved === true &&
         allowedGuildRoles.includes(profile.guild_role);
 
-      if (!hasGuildRank) {
-        router.push("/");
-        return;
-      }
-
-      setAllowed(true);
+      setAllowed(hasGuildRank);
       setChecking(false);
     }
 
@@ -79,7 +75,51 @@ export default function GuildAccessGuard({
     );
   }
 
-  if (!allowed) return null;
+  if (!allowed) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          background:
+            "linear-gradient(rgba(0,0,0,.75), rgba(0,0,0,.85)), url('/bg.png') center/cover no-repeat",
+          textAlign: "center",
+          padding: 20,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 72, marginBottom: 20 }}>🔒</div>
+
+          <h1
+            style={{
+              color: "#ff4d6d",
+              fontSize: 42,
+              fontWeight: 900,
+              marginBottom: 12,
+              textShadow: "0 0 20px rgba(255,77,109,.8)",
+            }}
+          >
+            Access Denied
+          </h1>
+
+          <p
+            style={{
+              color: "#d1d5db",
+              fontSize: 20,
+              maxWidth: 600,
+              lineHeight: 1.6,
+            }}
+          >
+            You do not meet the requirements to view this page.
+            <br />
+            Only Trial, Raider, Officer, Death Wish, and Guild Master members
+            can access this section.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return <>{children}</>;
 }

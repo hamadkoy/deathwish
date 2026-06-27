@@ -27,8 +27,8 @@ const isGuildSection =
   pathname.startsWith("/application-forums") ||
   pathname.startsWith("/roster") ||
   pathname.startsWith("/epgp") ||
-  pathname.startsWith("/mount-order");
-
+  pathname.startsWith("/mount-order") ||
+  pathname.startsWith("/warcraftlogs");
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
 
@@ -113,13 +113,17 @@ const isGuildSection =
   Application Forums
 </NavButton>
 
-            <NavButton href="/mount-order" style={navLink}>
-              Mount Order
-            </NavButton>
+<NavButton href="/mount-order" style={navLink}>
+  Mount Order
+</NavButton>
 
-            <NavButton href="/epgp" style={navLink}>
-              EPGP
-            </NavButton>
+<NavButton href="/warcraftlogs" style={navLink}>
+  WarcraftLogs
+</NavButton>
+
+<NavButton href="/epgp" style={navLink}>
+  EPGP
+</NavButton>
 
             <NavButton href="/roster" style={navLink}>
               Roster
