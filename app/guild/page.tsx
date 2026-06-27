@@ -57,82 +57,64 @@ useEffect(() => {
 }, []);
   return (
     <main className="page">
- <nav className="guildNav">
-  <div className="brand">☠ DEATH WISH</div>
+<div className="xulContainer leftSide">
 
-  <div className="navRight">
-    <div
-      className="onlineWrap"
-      onMouseEnter={() => setOnlineOpen(true)}
-      onMouseLeave={() => setOnlineOpen(false)}
-    >
-      <div className="onlineBadge">
-        <span className="onlineDot" />
-        {onlineCount} Online
-      </div>
+  <img
+    src="/left minion.png"
+    className="xulMinion leftMinion"
+    alt=""
+  />
 
-      {onlineOpen && (
-        <div className="onlineDropdown">
-          <h3>Online Now</h3>
+  <div className="xulCharacter">
 
-          {onlineUsers.map((member) => (
-            <div key={member.discord_name} className="onlineMember">
-              <img
-                src={member.avatar_url || "/default-avatar.png"}
-                className="onlineAvatar"
-                alt=""
-              />
+    <img
+      src="/xul body.png"
+      className="xulBody"
+      alt=""
+    />
 
-              <div>
-                <strong>{member.discord_name}</strong>
-                <p>{member.site_role || "Guild Member"}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
 
-    <div className="navLinks">
-      <Link href="/">HOME</Link>
-      <Link href="/guild">GUILD PAGE</Link>
-      <Link href="/application-forums">APPLICATION FORUMS</Link>
-      <Link href="/mount-order">MOUNT ORDER</Link>
-      <Link href="/epgp">EPGP</Link>
-      <Link href="/garrisons">ROSTER</Link>
-      <Link href="/profile">MY GARRISON</Link>
-      <Link href="/apply">APPLY</Link>
-    </div>
 
-    {user ? (
-      <>
-        <img
-          src={profile?.avatar_url || "/default-avatar.png"}
-          alt=""
-          className="navAvatar"
-        />
-
-        <span className="navName">
-          {profile?.discord_name || "Player"}
-        </span>
-
-        <button
-          className="signOutBtn"
-          onClick={async () => {
-            await supabase.auth.signOut();
-            window.location.href = "/";
-          }}
-        >
-          Sign Out
-        </button>
-      </>
-    ) : (
-      <Link href="/login" className="applyTop">
-        APPLY
-      </Link>
-    )}
   </div>
-</nav>
+
+  <img
+    src="/right minion.png"
+    className="xulMinion rightMinion"
+    alt=""
+  />
+
+</div>
+
+
+<div className="xulContainer rightSide">
+
+  <img
+    src="/left minion.png"
+    className="xulMinion leftMinion"
+    alt=""
+  />
+
+  <div className="xulCharacter">
+
+    <img
+      src="/xul body.png"
+      className="xulBody"
+      alt=""
+    />
+
+
+
+
+
+  </div>
+
+  <img
+    src="/right minion.png"
+    className="xulMinion rightMinion"
+    alt=""
+  />
+
+</div>
 
       <section className="hero">
         <h1>DEATH WISH</h1>
@@ -179,15 +161,21 @@ useEffect(() => {
         <div className="infoCard raidTimeCard">
           <h2>RAID TIMES</h2>
 
-          <div className="timeRow">
-            <span>📅 SUNDAY</span>
-            <span>18:00 - 22:00</span>
-          </div>
+<div className="timeRow">
+  <span className="dayLabel">
+    <img src="/calander.png" alt="" className="calendarIcon" />
+    SUNDAY
+  </span>
+  <span>18:00 - 22:00</span>
+</div>
 
-          <div className="timeRow">
-            <span>📅 MONDAY</span>
-            <span>18:00 - 22:00</span>
-          </div>
+<div className="timeRow">
+  <span className="dayLabel">
+    <img src="/calander.png" alt="" className="calendarIcon" />
+    MONDAY
+  </span>
+  <span>18:00 - 22:00</span>
+</div>
 
           <p className="muted">
             We may add extra days or hours during the first week of a new
@@ -215,33 +203,35 @@ useEffect(() => {
     width: "240px",
     height: "62px",
 
-    borderRadius: "8px",
-    border: "1px solid rgba(255,220,150,.9)",
+    borderRadius: "14px",
+    border: "1px solid #d946ef",
 
-    background:
-      "linear-gradient(180deg,#e4c87b 0%,#bf944c 55%,#7b5524 100%)",
+    background: "linear-gradient(90deg,#6d28d9,#c026d3)",
 
-    color: "#120b04",
+    color: "#fff",
     textDecoration: "none",
 
     fontSize: "18px",
     fontWeight: 900,
     letterSpacing: "2px",
 
-    boxShadow:
-      "0 0 20px rgba(201,170,113,.35), inset 0 1px 0 rgba(255,255,255,.35)",
+    boxShadow: "0 0 18px rgba(217,70,239,.45)",
 
     transition: "all .25s ease",
   }}
   onMouseEnter={(e) => {
-    e.currentTarget.style.transform = "scale(1.12)";
+    e.currentTarget.style.transform = "scale(1.08)";
+    e.currentTarget.style.background =
+      "linear-gradient(90deg,#9333ea,#e879f9)";
     e.currentTarget.style.boxShadow =
-      "0 0 40px rgba(201,170,113,.9), 0 0 80px rgba(201,170,113,.45), inset 0 1px 0 rgba(255,255,255,.45)";
+      "0 0 32px rgba(217,70,239,.85)";
   }}
   onMouseLeave={(e) => {
     e.currentTarget.style.transform = "scale(1)";
+    e.currentTarget.style.background =
+      "linear-gradient(90deg,#6d28d9,#c026d3)";
     e.currentTarget.style.boxShadow =
-      "0 0 20px rgba(201,170,113,.35), inset 0 1px 0 rgba(255,255,255,.35)";
+      "0 0 18px rgba(217,70,239,.45)";
   }}
 >
   APPLY NOW
@@ -251,18 +241,22 @@ useEffect(() => {
       <footer>FIGHT TOGETHER. WIN TOGETHER.</footer>
 
       <style jsx>{`
-        .page {
-          min-height: 100vh;
-          color: #f5ead0;
-          font-family: Georgia, serif;
-          background:
-            linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.86)),
-            url("/Guild.png");
-          background-size: cover;
-          background-position: center top;
-          background-attachment: fixed;
-        }
+.page {
+  min-height: 100vh;
+  color: #f5ead0;
+  font-family: Georgia, serif;
 
+  background:
+    linear-gradient(
+      rgba(0, 0, 0, 0.15),
+      rgba(0, 0, 0, 0.45)
+    ),
+    url("/Guild.png");
+
+  background-size: cover;
+  background-position: center top;
+  background-attachment: fixed;
+}
         .guildNav {
           height: 46px;
           padding: 0 28px;
@@ -274,27 +268,31 @@ useEffect(() => {
           position: sticky;
           top: 0;
           z-index: 50;
+          overflow: visible;
         }
 
         .brand {
-          color: #c9aa71;
+         color: #e879f9;
           font-weight: 900;
           font-size: 16px;
         }
 
-        .navLinks {
-          display: flex;
-          gap: 26px;
-          align-items: center;
-        }
+.navLinks {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
 
-        .navLinks a {
-          color: #d6c18f;
-          text-decoration: none;
-          font-size: 10px;
-          letter-spacing: 2px;
-          font-weight: 900;
-        }
+.navLinks a {
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: linear-gradient(180deg,#d946ef,#7e22ce);
+  color: white;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
 
         .applyTop {
           border: 1px solid #c9aa71;
@@ -310,18 +308,22 @@ useEffect(() => {
           justify-content: center;
         }
 
-        .hero h1 {
-          font-size: 78px;
-          margin: 0;
-          color: #c9aa71;
-          letter-spacing: 7px;
-          font-weight: 900;
-          line-height: 1;
-          text-shadow: 0 4px 0 #2a1b0b, 0 0 26px rgba(201, 170, 113, 0.45);
-        }
+.hero h1 {
+  font-size: 78px;
+  margin: 0;
+  color: #f5ead0;
+  letter-spacing: 7px;
+  font-weight: 900;
+  line-height: 1;
 
-        .hero p {
-          color: #e7d6aa;
+  text-shadow:
+    0 0 6px rgba(255,255,255,.2),
+    0 0 18px rgba(255,255,255,.1),
+    0 0 30px rgba(168,85,247,.2);
+}
+
+.hero p {
+  color: #d9d9d9;
           font-size: 17px;
           letter-spacing: 6px;
           font-weight: 900;
@@ -336,7 +338,8 @@ useEffect(() => {
 
         .section h2 {
           text-align: center;
-          color: #c9aa71;
+          color: #d9d9d9;
+          text-shadow: 0 0 10px rgba(255,255,255,.12);
           font-size: 25px;
           letter-spacing: 3px;
           margin: 0 0 18px;
@@ -361,27 +364,38 @@ useEffect(() => {
         .raidCard:hover {
           z-index: 20;
         }
+.dayLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
-        .raidImage {
-          width: 205px;
-          height: 205px;
-          margin: 0 auto;
-          border-radius: 50%;
-          border: 2px solid rgba(201, 170, 113, 0.85);
-          background-size: cover;
-          background-position: center;
-          display: flex;
-          align-items: flex-end;
-          justify-content: center;
-          padding-bottom: 8px;
-          box-shadow:
-            0 0 18px rgba(0, 0, 0, 0.7),
-            0 0 12px rgba(201, 170, 113, 0.25);
-          transition:
-            transform 0.25s ease,
-            box-shadow 0.25s ease,
-            border-color 0.25s ease;
-        }
+.calendarIcon {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+
+  filter:
+    drop-shadow(0 0 2px rgba(201,170,113,.7))
+    drop-shadow(0 0 4px rgba(201,170,113,.3));
+}
+.raidImage {
+  width: 205px;
+  height: 205px;
+  margin: 0 auto;
+  border-radius: 50%;
+  border: 2px solid rgba(168, 85, 247, 0.85);
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 8px;
+  box-shadow:
+    0 0 18px rgba(0, 0, 0, 0.7),
+    0 0 16px rgba(168, 85, 247, 0.35);
+  transition: all 0.25s ease;
+}
 .defeated {
   position: relative;
   overflow: hidden;
@@ -402,7 +416,7 @@ useEffect(() => {
   background: rgba(0,0,0,.75);
   border: 1px solid rgba(201,170,113,.75);
 
-  color: #c9aa71;
+  color: #f5ead0;
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 1px;
@@ -411,20 +425,25 @@ useEffect(() => {
 }
 .raidDate {
   margin-top: 5px;
-  color: #c9aa71;
+  color: #f5ead0;
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 1px;
   text-transform: uppercase;
   text-shadow: 0 2px 6px black;
 }
-        .raidCard:hover .raidImage {
-          transform: scale(1.16);
-          border-color: #f3d28a;
-          box-shadow:
-            0 0 30px rgba(201, 170, 113, 0.95),
-            0 0 65px rgba(201, 170, 113, 0.55);
-        }
+.raidCard:hover {
+  z-index: 20;
+}
+
+.raidCard:hover .raidImage {
+  animation-play-state: paused;
+  transform: scale(1.16);
+  border-color: #e879f9;
+  box-shadow:
+    0 0 30px rgba(217, 70, 239, 0.95),
+    0 0 65px rgba(168, 85, 247, 0.55);
+}
 
 .raidImage span {
   width: 30px;
@@ -468,25 +487,30 @@ useEffect(() => {
           gap: 28px;
         }
 
-        .infoCard {
-          min-height: 330px;
-          border-radius: 9px;
-          border: 1px solid rgba(201, 170, 113, 0.38);
-          box-shadow: 0 0 18px rgba(0, 0, 0, 0.65);
-          transition:
-            transform 0.25s ease,
-            box-shadow 0.25s ease,
-            border-color 0.25s ease;
-        }
+.infoCard {
+  min-height: 330px;
+  border-radius: 9px;
 
-        .infoCard:hover {
-          transform: scale(1.035);
-          border-color: rgba(243, 210, 138, 0.8);
-          box-shadow:
-            0 0 25px rgba(201, 170, 113, 0.45),
-            0 0 45px rgba(0, 0, 0, 0.85);
-          z-index: 4;
-        }
+  border: 1px solid rgba(168,85,247,.45);
+
+  box-shadow:
+    0 0 20px rgba(168,85,247,.18),
+    0 0 40px rgba(168,85,247,.08),
+    0 0 18px rgba(0,0,0,.65);
+
+  transition: all .25s ease;
+}
+
+.infoCard:hover {
+  transform: scale(1.03);
+
+  border-color: #d946ef;
+
+  box-shadow:
+    0 0 18px rgba(217,70,239,.45),
+    0 0 40px rgba(168,85,247,.35),
+    0 0 70px rgba(168,85,247,.15);
+}
 
         .aboutCard {
           background:
@@ -503,37 +527,49 @@ useEffect(() => {
         }
 
         .infoCard h2 {
-          color: #c9aa71;
+          color: #f5ead0;
           font-size: 28px;
           letter-spacing: 3px;
           margin: 0 0 16px;
         }
 
-        .raidTimeCard {
-          padding: 30px 34px;
-          background:
-            linear-gradient(90deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.35)),
-            url("/Raiding time.png") center center / 115% 115% no-repeat;
-        }
+ .raidTimeCard {
+  padding: 30px 34px;
 
-        .timeRow {
-          display: flex;
-          justify-content: space-between;
-          gap: 20px;
-          margin-bottom: 16px;
-          font-size: 20px;
-          font-weight: 900;
-        }
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.72), rgba(0,0,0,.35)),
+    url("/Raiding time.png") center center / 115% 115% no-repeat;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.timeRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 60px;
+
+  width: auto;
+
+  margin-bottom: 26px;
+
+  font-size: 20px;
+  font-weight: 900;
+}
 
         .timeRow span:last-child {
-          color: #e7d6aa;
+          color: #d9d9d9;
         }
 
-        .muted {
-          color: #d3c39a;
-          font-size: 14px;
-          line-height: 1.5;
-        }
+.muted {
+  color: #d3c39a;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  max-width: 520px;
+}
 
 .applyNowBtn {
   display: flex;
@@ -585,7 +621,8 @@ useEffect(() => {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
+  overflow: visible;
 }
 .onlineBadge {
   display: flex;
@@ -653,7 +690,44 @@ useEffect(() => {
 
   transition: all .2s ease;
 }
+.raidCard {
+  animation: floatRaid 4.5s ease-in-out infinite;
+}
 
+.raidCard:nth-child(2n) {
+  animation-delay: .4s;
+}
+
+.raidCard:nth-child(3n) {
+  animation-delay: .8s;
+}
+
+.raidImage {
+  animation: purplePulse 3s ease-in-out infinite;
+}
+
+@keyframes floatRaid {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes purplePulse {
+  0%, 100% {
+    box-shadow:
+      0 0 18px rgba(0,0,0,.7),
+      0 0 12px rgba(168,85,247,.35);
+  }
+  50% {
+    box-shadow:
+      0 0 20px rgba(0,0,0,.75),
+      0 0 28px rgba(217,70,239,.65),
+      0 0 55px rgba(168,85,247,.25);
+  }
+}
 .signOutBtn:hover {
   transform: scale(1.05);
 
@@ -710,14 +784,137 @@ useEffect(() => {
   color: #86efac;
   font-size: 11px;
 }
-        footer {
-          text-align: center;
-          padding: 22px 20px 30px;
-          color: #c9aa71;
-          letter-spacing: 5px;
-          font-size: 18px;
-          font-weight: 900;
-        }
+.xulContainer {
+  position: fixed;
+  bottom: 10px;
+  width: 500px;
+  height: 650px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.leftSide {
+  left: 20px;
+}
+
+.rightSide {
+  right: 20px;
+  transform: scaleX(-1);
+}
+
+.xulCharacter {
+  position: absolute;
+  left: 130px;
+  bottom: 0;
+  width: 280px;
+  height: 650px;
+  overflow: visible;
+}
+
+.xulBody {
+  position: absolute;
+  width: 250px;
+  left: 20px;
+  bottom: 120px;
+  z-index: 5;
+  animation: bodyBob .8s infinite ease-in-out;
+  filter:
+    drop-shadow(0 0 8px rgba(168,85,247,.75))
+    drop-shadow(0 0 18px rgba(34,197,94,.25));
+}
+
+.xulLeg {
+  position: absolute;
+  z-index: 3;
+  transform-origin: top center;
+  filter:
+    drop-shadow(0 0 7px rgba(168,85,247,.55));
+}
+
+.leftLeg {
+  width: 68px;
+  left: 48px;
+  bottom: 14px;
+  animation: walkLeft .45s infinite alternate ease-in-out;
+}
+
+.rightLeg {
+  width: 68px;
+  left: 92px;
+  bottom: 14px;
+  animation: walkRight .45s infinite alternate ease-in-out;
+}
+
+.xulMinion {
+  position: absolute;
+  width: 150px;
+  z-index: 4;
+  filter:
+    drop-shadow(0 0 10px rgba(168,85,247,.9))
+    drop-shadow(0 0 20px rgba(59,130,246,.4));
+}
+
+.leftMinion {
+  left: 0;
+  bottom: 130px;
+  animation: minionFloat .8s infinite ease-in-out;
+}
+
+.rightMinion {
+  right: 0;
+  bottom: 130px;
+  animation: minionFloat 1s infinite ease-in-out;
+}
+
+@keyframes walkLeft {
+  from {
+    transform: rotate(-16deg) translateY(0);
+  }
+  to {
+    transform: rotate(16deg) translateY(-6px);
+  }
+}
+
+@keyframes walkRight {
+  from {
+    transform: rotate(16deg) translateY(-6px);
+  }
+  to {
+    transform: rotate(-16deg) translateY(0);
+  }
+}
+
+@keyframes bodyBob {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.015);
+  }
+}
+
+@keyframes minionFloat {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-12px) scale(1.04);
+  }
+}
+footer {
+  text-align: center;
+  margin-top: 12px;
+
+  color: #f5ead0;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 4px;
+
+  text-shadow:
+    0 0 10px rgba(255,255,255,.15);
+
+  padding-bottom: 60px;
+}
       `}</style>
     </main>
   );

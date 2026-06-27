@@ -5,30 +5,39 @@ import { supabase } from "@/lib/supabase";
 import { usePathname } from "next/navigation";
 import OnlineUsers from "./OnlineUsers";
 import { useMobile } from "../hooks/useMobile";
+
 type Profile = {
   discord_name?: string;
   avatar_url?: string;
-  site_role?: "viewer" | "booster" | "officer" | "admin";
+  site_role?: string;
   signup_approved?: boolean;
 };
 
 export default function Navbar() {
   const isMobile = useMobile();
-
-const navLink: React.CSSProperties = {
-  ...link,
-  padding: isMobile ? "3px 5px" : "10px 18px",
-  fontSize: isMobile ? 6.5 : 14,
-  borderRadius: isMobile ? 10 : 14,
-};
-  const [user, setUser] = useState<any>(null);
   const pathname = usePathname();
-const hideNavbar =
-  pathname === "/" || pathname === "/login" || pathname === "/guild";
-const [profile, setProfile] = useState<Profile | null>(null);
 
-const canUseRunCards =
-  profile?.signup_approved === true;
+  const hideNavbar = pathname === "/" || pathname === "/login";
+
+const isGuildSection =
+  pathname.startsWith("/guild") ||
+  pathname.startsWith("/guild-ranks") ||
+  pathname.startsWith("/guild-garrison") ||
+  pathname.startsWith("/apply") ||
+  pathname.startsWith("/application-forums") ||
+  pathname.startsWith("/roster") ||
+  pathname.startsWith("/epgp") ||
+  pathname.startsWith("/mount-order");
+
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+
+  const navLink: React.CSSProperties = {
+    ...link,
+    padding: isMobile ? "3px 5px" : "10px 18px",
+    fontSize: isMobile ? 6.5 : 14,
+    borderRadius: isMobile ? 10 : 14,
+  };
 
   useEffect(() => {
     loadUser();
@@ -48,397 +57,322 @@ const canUseRunCards =
     if (session?.user) {
       const discordData = session.user.user_metadata;
 
-const { data: profileData } = await supabase
-  .from("profiles")
-  .select("discord_name, avatar_url, site_role, signup_approved")
-  .eq("user_id", session.user.id)
-  .single();
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("discord_name, avatar_url, site_role, signup_approved")
+        .eq("user_id", session.user.id)
+        .single();
 
-setProfile({
-  discord_name:
-    profileData?.discord_name ||
-    discordData?.full_name ||
-    discordData?.name ||
-    discordData?.preferred_username,
+      setProfile({
+        discord_name:
+          profileData?.discord_name ||
+          discordData?.full_name ||
+          discordData?.name ||
+          discordData?.preferred_username,
 
-  avatar_url:
-    profileData?.avatar_url ||
-    discordData?.avatar_url,
+        avatar_url: profileData?.avatar_url || discordData?.avatar_url,
 
-  site_role: profileData?.site_role || "viewer",
+        site_role: profileData?.site_role || "viewer",
 
-  signup_approved:
-    profileData?.signup_approved || false,
-});
+        signup_approved: profileData?.signup_approved || false,
+      });
     }
   }
 
-if (hideNavbar) return null;
+  if (hideNavbar) return null;
 
-return (
-  <nav
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
-display: "flex",
-justifyContent: "space-between",
-alignItems: "center",
-padding: isMobile ? "10px 8px" : "16px 28px",
-overflowX: isMobile ? "auto" : "visible",
-gap: isMobile ? 10 : 0,
-flexWrap: "nowrap",
-transform: isMobile ? "scale(0.64)" : "scale(1)",
-transformOrigin: "top left",
-width: isMobile ? "156%" : "100%",
-        background: "rgba(5,0,20,0.92)",
-        borderBottom: "1px solid rgba(168,85,247,0.35)",
-        backdropFilter: "blur(10px)",
-      }}
-    >
-{/* LEFT SIDE */}
-<a
-  href="/"
-style={{
-  display: "flex",
-  alignItems: "center",
-  gap: 14,
-  textDecoration: "none",
-  color: "white",
-  flexShrink: 0,
-}}
->
-  <img
-    src="/websitelogo.png"
-    alt=""
-style={{
-width: isMobile ? 70 : 95,
-height: isMobile ? 70 : 95,
-  objectFit: "contain",
-  marginTop: -18,
-  marginBottom: -18,
-}}
-  />
+  return (
+    <nav className="navbar">
+      <a href="/" className="brand">
+        <img src="/websitelogo.png" alt="" />
 
-  <div style={{ display: isMobile ? "none" : "block" }}>
-    <div
-      style={{
-fontSize: isMobile ? 18 : 32,
-        fontWeight: 900,
-        fontFamily: "Georgia, serif",
-        lineHeight: 1,
-      }}
-    >
-      Death Wish
-    </div>
+        <div className="brandText">
+          <div className="brandName">Death Wish</div>
+          <div className="brandSub">Where Legends Fall</div>
 
-<div
-  style={{
-    fontSize: 15,
-    letterSpacing: 5,
-    color: "#bca38c",
-    marginTop: 4,
-  }}
->
-  Where Legends Fall
-</div>
+          <div className="brandLine">
+            <span />
+            <b />
+            <span />
+          </div>
+        </div>
+      </a>
 
-<div
-  style={{
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    marginTop: 8,
-  }}
->
-  <div
-    style={{
-      width: 70,
-      height: 1,
-      background:
-        "linear-gradient(to right, transparent, rgba(192,132,252,.9))",
-    }}
-  />
+      <div className="rightSide">
+        {isGuildSection ? (
+          <>
+            <NavButton href="/" style={navLink}>
+              Home
+            </NavButton>
 
-  <div
-    style={{
-      width: 7,
-      height: 7,
-      transform: "rotate(45deg)",
-      background: "#c084fc",
-      boxShadow: "0 0 12px rgba(192,132,252,.9)",
-    }}
-  />
+            <NavButton href="/guild" style={navLink}>
+              Guild Page
+            </NavButton>
 
-  <div
-    style={{
-      width: 70,
-      height: 1,
-      background:
-        "linear-gradient(to left, transparent, rgba(192,132,252,.9))",
-    }}
-  />
-</div>
-  </div>
-</a>
+<NavButton href="/application-forums" style={navLink}>
+  Application Forums
+</NavButton>
 
-{/* RIGHT SIDE */}
-<div
-style={{
-  display: "flex",
-  alignItems: "center",
-  gap: isMobile ? 1 : 14,
-  flexWrap: "nowrap",
-  justifyContent: "flex-end",
-  flexShrink: 0,
-}}
->     
-<a
-  href="/"
-  style={navLink}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.transform = "scale(1.06)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#9333ea,#e879f9)";
-    e.currentTarget.style.boxShadow =
-      "0 0 22px rgba(217,70,239,0.9)";
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.transform = "scale(1)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#6d28d9,#c026d3)";
-    e.currentTarget.style.boxShadow =
-      "0 0 14px rgba(168,85,247,0.45)";
-  }}
->
-          Home
-        </a>
-<a
-  href="/runs"
-  style={navLink}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.transform = "scale(1.06)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#9333ea,#e879f9)";
-    e.currentTarget.style.boxShadow =
-      "0 0 22px rgba(217,70,239,0.9)";
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.transform = "scale(1)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#6d28d9,#c026d3)";
-    e.currentTarget.style.boxShadow =
-      "0 0 14px rgba(168,85,247,0.45)";
-  }}
->
- Sign for Runs
-</a>
-{!canUseRunCards && (
-<a
-  href="/runs?apply=true"
-  style={navLink}
+            <NavButton href="/mount-order" style={navLink}>
+              Mount Order
+            </NavButton>
 
-  onMouseEnter={(e) => {
-    e.currentTarget.style.transform = "scale(1.06)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#9333ea,#e879f9)";
-    e.currentTarget.style.boxShadow =
-      "0 0 22px rgba(217,70,239,0.9)";
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.transform = "scale(1)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#6d28d9,#c026d3)";
-    e.currentTarget.style.boxShadow =
-      "0 0 14px rgba(168,85,247,0.45)";
-  }}
->
-  Apply
-</a>
-)}
-<a
+            <NavButton href="/epgp" style={navLink}>
+              EPGP
+            </NavButton>
 
-  href="/my-signups"
- style={navLink}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.transform = "scale(1.06)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#9333ea,#e879f9)";
-    e.currentTarget.style.boxShadow =
-      "0 0 22px rgba(217,70,239,0.9)";
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.transform = "scale(1)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#6d28d9,#c026d3)";
-    e.currentTarget.style.boxShadow =
-      "0 0 14px rgba(168,85,247,0.45)";
-  }}
->
-  My runs
-</a>
-{["Nightblade", "Dreadlord"].includes(profile?.site_role || "") && (
-<a
-  href="/booking"
-  style={navLink}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.transform = "scale(1.06)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#9333ea,#e879f9)";
-    e.currentTarget.style.boxShadow =
-      "0 0 22px rgba(217,70,239,0.9)";
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.transform = "scale(1)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#6d28d9,#c026d3)";
-    e.currentTarget.style.boxShadow =
-      "0 0 14px rgba(168,85,247,0.45)";
-  }}
->
-  Booking
-</a>
-)}
-<a
-  href="/bank"
-  style={navLink}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.transform = "scale(1.06)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#9333ea,#e879f9)";
-    e.currentTarget.style.boxShadow =
-      "0 0 22px rgba(217,70,239,0.9)";
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.transform = "scale(1)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#6d28d9,#c026d3)";
-    e.currentTarget.style.boxShadow =
-      "0 0 14px rgba(168,85,247,0.45)";
-  }}
->
-  Bank
-</a>
-<a
-  href="/garrisons"
-  style={navLink}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.transform = "scale(1.06)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#9333ea,#e879f9)";
-    e.currentTarget.style.boxShadow =
-      "0 0 22px rgba(217,70,239,0.9)";
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.transform = "scale(1)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#6d28d9,#c026d3)";
-    e.currentTarget.style.boxShadow =
-      "0 0 14px rgba(168,85,247,0.45)";
-  }}
->
-  Garrisons
-</a>
-<a
+            <NavButton href="/roster" style={navLink}>
+              Roster
+            </NavButton>
 
-  href="/profile"
-  style={navLink}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.transform = "scale(1.06)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#9333ea,#e879f9)";
-    e.currentTarget.style.boxShadow =
-      "0 0 22px rgba(217,70,239,0.9)";
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.transform = "scale(1)";
-    e.currentTarget.style.background =
-      "linear-gradient(90deg,#6d28d9,#c026d3)";
-    e.currentTarget.style.boxShadow =
-      "0 0 14px rgba(168,85,247,0.45)";
-  }}
->
-  My Garrison
-</a>
+<NavButton href="/guild-ranks" style={navLink}>
+  Guild Ranks
+</NavButton>
 
-<OnlineUsers />
+<NavButton href="/guild-garrison" style={navLink}>
+  Guild Garrison
+</NavButton>
+
+            {!pathname.startsWith("/apply") && (
+              <NavButton href="/apply" style={navLink}>
+                Apply
+              </NavButton>
+            )}
+          </>
+        ) : (
+          <>
+            <NavButton href="/" style={navLink}>
+              Home
+            </NavButton>
+
+            <NavButton href="/runs" style={navLink}>
+              Sign for Runs
+            </NavButton>
+
+            {!profile?.signup_approved && (
+              <NavButton href="/runs?apply=true" style={navLink}>
+                Apply
+              </NavButton>
+            )}
+
+            <NavButton href="/my-signups" style={navLink}>
+              My runs
+            </NavButton>
+
+            {["Nightblade", "Dreadlord"].includes(profile?.site_role || "") && (
+              <NavButton href="/booking" style={navLink}>
+                Booking
+              </NavButton>
+            )}
+
+            <NavButton href="/bank" style={navLink}>
+              Bank
+            </NavButton>
+
+            <NavButton href="/garrisons" style={navLink}>
+              Garrisons
+            </NavButton>
+
+            <NavButton href="/profile" style={navLink}>
+              My Garrison
+            </NavButton>
+          </>
+        )}
+
+        <OnlineUsers />
+
         {user ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              marginLeft: 10,
-            }}
-          >
-            <img
-              src={profile?.avatar_url || "/logo.png"}
-              alt=""
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: "50%",
-                border: "2px solid #9333ea",
-                boxShadow: "0 0 14px rgba(168,85,247,0.55)",
-              }}
-            />
+          <div className="userBox">
+            <img src={profile?.avatar_url || "/logo.png"} alt="" />
 
-            <span
-              style={{
-                color: "white",
-                fontWeight: 900,
-                fontSize: 14,
-              }}
-            >
-              {profile?.discord_name || "User"}
-            </span>
+            <span>{profile?.discord_name || "User"}</span>
 
             <button
-           onClick={async () => {
-  await supabase.auth.signOut();
-
-  localStorage.clear();
-  sessionStorage.clear();
-
-  window.location.reload();
-}}
-              style={{
-                padding: "10px 14px",
-                borderRadius: 12,
-                border: "1px solid #9333ea",
-                background: "rgba(147,51,234,0.16)",
-                color: "white",
-                fontWeight: 900,
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-                boxShadow: "0 0 12px rgba(168,85,247,0.2)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background =
-                  "linear-gradient(90deg,#9333ea,#d946ef)";
-                e.currentTarget.style.boxShadow =
-                  "0 0 18px rgba(217,70,239,0.7)";
-                e.currentTarget.style.transform = "scale(1.05)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background =
-                  "rgba(147,51,234,0.16)";
-                e.currentTarget.style.boxShadow =
-                  "0 0 12px rgba(168,85,247,0.2)";
-                e.currentTarget.style.transform = "scale(1)";
+              onClick={async () => {
+                await supabase.auth.signOut();
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.reload();
               }}
             >
               Sign Out
             </button>
           </div>
         ) : (
-          <a href="/login" style={navLink}>
+          <NavButton href="/login" style={navLink}>
             Login
-          </a>
+          </NavButton>
         )}
       </div>
 
+      <style jsx>{`
+        .navbar {
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: ${isMobile ? "10px 8px" : "16px 28px"};
+          overflow-x: ${isMobile ? "auto" : "visible"};
+          gap: ${isMobile ? "10px" : "0"};
+          flex-wrap: nowrap;
+          transform: ${isMobile ? "scale(0.64)" : "scale(1)"};
+          transform-origin: top left;
+          width: ${isMobile ? "156%" : "100%"};
+          background: rgba(5, 0, 20, 0.92);
+          border-bottom: 1px solid rgba(168, 85, 247, 0.35);
+          backdrop-filter: blur(10px);
+        }
+
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          text-decoration: none;
+          color: white;
+          flex-shrink: 0;
+        }
+
+        .brand img {
+          width: ${isMobile ? "70px" : "95px"};
+          height: ${isMobile ? "70px" : "95px"};
+          object-fit: contain;
+          margin-top: -18px;
+          margin-bottom: -18px;
+        }
+
+        .brandText {
+          display: ${isMobile ? "none" : "block"};
+        }
+
+        .brandName {
+          font-size: 32px;
+          font-weight: 900;
+          font-family: Georgia, serif;
+          line-height: 1;
+        }
+
+        .brandSub {
+          font-size: 15px;
+          letter-spacing: 5px;
+          color: #bca38c;
+          margin-top: 4px;
+        }
+
+        .brandLine {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-top: 8px;
+        }
+
+        .brandLine span {
+          width: 70px;
+          height: 1px;
+          background: linear-gradient(
+            to right,
+            transparent,
+            rgba(192, 132, 252, 0.9)
+          );
+        }
+
+        .brandLine span:last-child {
+          background: linear-gradient(
+            to left,
+            transparent,
+            rgba(192, 132, 252, 0.9)
+          );
+        }
+
+        .brandLine b {
+          width: 7px;
+          height: 7px;
+          transform: rotate(45deg);
+          background: #c084fc;
+          box-shadow: 0 0 12px rgba(192, 132, 252, 0.9);
+        }
+
+        .rightSide {
+          display: flex;
+          align-items: center;
+          gap: ${isMobile ? "1px" : "14px"};
+          flex-wrap: nowrap;
+          justify-content: flex-end;
+          flex-shrink: 0;
+        }
+
+        .userBox {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-left: 10px;
+        }
+
+        .userBox img {
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          border: 2px solid #9333ea;
+          box-shadow: 0 0 14px rgba(168, 85, 247, 0.55);
+        }
+
+        .userBox span {
+          color: white;
+          font-weight: 900;
+          font-size: 14px;
+        }
+
+        .userBox button {
+          padding: 10px 14px;
+          border-radius: 12px;
+          border: 1px solid #9333ea;
+          background: rgba(147, 51, 234, 0.16);
+          color: white;
+          font-weight: 900;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 0 12px rgba(168, 85, 247, 0.2);
+        }
+
+        .userBox button:hover {
+          background: linear-gradient(90deg, #9333ea, #d946ef);
+          box-shadow: 0 0 18px rgba(217, 70, 239, 0.7);
+          transform: scale(1.05);
+        }
+      `}</style>
     </nav>
+  );
+}
+
+function NavButton({
+  href,
+  children,
+  style,
+}: {
+  href: string;
+  children: React.ReactNode;
+  style: React.CSSProperties;
+}) {
+  return (
+    <a
+      href={href}
+      style={style}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "scale(1.06)";
+        e.currentTarget.style.background =
+          "linear-gradient(90deg,#9333ea,#e879f9)";
+        e.currentTarget.style.boxShadow = "0 0 22px rgba(217,70,239,0.9)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "scale(1)";
+        e.currentTarget.style.background =
+          "linear-gradient(90deg,#6d28d9,#c026d3)";
+        e.currentTarget.style.boxShadow = "0 0 14px rgba(168,85,247,0.45)";
+      }}
+    >
+      {children}
+    </a>
   );
 }
 

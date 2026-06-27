@@ -52,7 +52,12 @@ export default function AdminUsersPage() {
   const [declinedUsers, setDeclinedUsers] = useState<DeclinedUser[]>([]);
 const [activeTab, setActiveTab] =
   useState<"team" | "applicants" | "promotions" | "declined">("team");
+const [approvePopup, setApprovePopup] = useState<{
+  user: Profile;
+  role: SiteRole;
+} | null>(null);
 
+const [welcomeMessage, setWelcomeMessage] = useState("");
   const [currentUserRole, setCurrentUserRole] =
     useState<SiteRole>("Lost_soul");
 
@@ -502,6 +507,7 @@ const roleOrder: Record<SiteRole, number> = {
 
                       <div>
 <select
+  data-user-id={user.user_id}
   value={normalizeRole(user.site_role)}
   onChange={(e) =>
     updateUser(user.user_id, {
@@ -553,50 +559,54 @@ const roleOrder: Record<SiteRole, number> = {
                           </button>
                         ) : (
                           <>
-                            <button
-onChange={async (e) => {
-  const newRole = e.target.value as SiteRole;
+<button
+  onClick={() => {
+    const selected = document.querySelector(
+      `select[data-user-id="${user.user_id}"]`
+    ) as HTMLSelectElement | null;
 
-  setUsers((prev) =>
-    prev.map((u) =>
-      u.user_id === user.user_id
-        ? { ...u, site_role: newRole }
-        : u
-    )
-  );
+    setWelcomeMessage("");
 
-  await updateUser(user.user_id, {
-    site_role: newRole,
-  });
-}}
-                              style={approveBtn}
-                            >
-                              Approve Signup
-                            </button>
+    setApprovePopup({
+      user,
+      role: (selected?.value || "Reaper") as SiteRole,
+    });
+  }}
+  style={approveBtn}
+>
+  Approve Signup
+</button>
+<button
+  onClick={async () => {
+    const { error: declineError } = await supabase
+      .from("declined_applications")
+      .insert({
+        user_id: user.user_id,
+        discord_name: user.discord_name,
+        avatar_url: user.avatar_url,
+        application_note: user.application_note,
+      });
 
-                            <button
-onClick={async () => {
-  await supabase.from("declined_applications").insert({
-    user_id: user.user_id,
-    discord_name: user.discord_name,
-    avatar_url: user.avatar_url,
-    application_note: user.application_note,
-  });
+    if (declineError) {
+      alert(declineError.message);
+      return;
+    }
 
-  await updateUser(user.user_id, {
-    signup_approved: false,
-    applied_at: null,
-    application_note: "",
-    site_role: "Lost_soul",
-  });
+    await updateUser(user.user_id, {
+      signup_approved: false,
+      applied_at: null,
+      application_note: "",
+      site_role: "Lost_soul",
+    });
 
-  await loadDeclinedUsers();
-}}
-                              style={revokeBtn}
-                            >
-                              Decline
-                            </button>
-                          </>
+    await loadDeclinedUsers();
+  }}
+  style={revokeBtn}
+>
+  Decline
+</button>
+
+</>
                         )}
                       </div>
                     </div>
@@ -607,6 +617,153 @@ onClick={async () => {
           </div>
         </main>
       </div>
+      {approvePopup && (
+  <div
+    onClick={() => setApprovePopup(null)}
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,.75)",
+      zIndex: 9999,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: 540,
+        borderRadius: 18,
+        padding: 24,
+        background: "rgba(10,0,25,.98)",
+        border: "1px solid rgba(168,85,247,.45)",
+        boxShadow: "0 0 40px rgba(168,85,247,.45)",
+      }}
+    >
+      <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>
+        Approve {approvePopup.user.discord_name || "User"}
+      </div>
+
+      <textarea
+        value={welcomeMessage}
+        onChange={(e) => setWelcomeMessage(e.target.value)}
+        placeholder="Write a private message here..."
+        style={{
+          width: "100%",
+          height: 180,
+          borderRadius: 14,
+          border: "1px solid rgba(168,85,247,.35)",
+          background: "rgba(0,0,0,.45)",
+          color: "white",
+          padding: 16,
+          resize: "none",
+          outline: "none",
+        }}
+      />
+
+      <div
+        style={{
+          marginTop: 18,
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 12,
+        }}
+      >
+        <button onClick={() => setApprovePopup(null)} style={revokeBtn}>
+          Cancel
+        </button>
+
+        <button
+          onClick={async () => {
+            await updateUser(approvePopup.user.user_id, {
+              signup_approved: true,
+              site_role: approvePopup.role,
+              application_note: "",
+              applied_at: null,
+            });
+
+            setApprovePopup(null);
+            await loadUsers();
+          }}
+          style={approveBtn}
+        >
+          Approve Only
+        </button>
+
+        <button
+          onClick={async () => {
+            if (!welcomeMessage.trim()) {
+              alert("Write a message first, or use Approve Only.");
+              return;
+            }
+
+            const {
+              data: { user: currentUser },
+            } = await supabase.auth.getUser();
+
+            if (!currentUser) return;
+
+            await updateUser(approvePopup.user.user_id, {
+              signup_approved: true,
+              site_role: approvePopup.role,
+              application_note: "",
+              applied_at: null,
+            });
+
+            let { data: existingThread } = await supabase
+              .from("dm_threads")
+              .select("*")
+              .or(
+                `and(user_one.eq.${currentUser.id},user_two.eq.${approvePopup.user.user_id}),and(user_one.eq.${approvePopup.user.user_id},user_two.eq.${currentUser.id})`
+              )
+              .maybeSingle();
+
+            let thread = existingThread;
+
+            if (!thread) {
+              const { data: newThread, error: threadError } = await supabase
+                .from("dm_threads")
+                .insert({
+                  user_one: currentUser.id,
+                  user_two: approvePopup.user.user_id,
+                })
+                .select("*")
+                .single();
+
+              if (threadError) {
+                alert(threadError.message);
+                return;
+              }
+
+              thread = newThread;
+            }
+
+            const { error: dmError } = await supabase.from("dm_messages").insert({
+              thread_id: thread.id,
+              sender_id: currentUser.id,
+              sender_name: "Koyjin",
+              sender_avatar: "/logo.png",
+              message: welcomeMessage.trim(),
+            });
+
+            if (dmError) {
+              alert(dmError.message);
+              return;
+            }
+
+            setApprovePopup(null);
+            setWelcomeMessage("");
+            await loadUsers();
+          }}
+          style={approveBtn}
+        >
+          Approve & Send DM
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }
