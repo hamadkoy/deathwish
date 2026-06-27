@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 
 type Application = {
   id: string;
+  user_id: string | null;
   character_name: string | null;
   realm: string | null;
   class: string | null;
@@ -21,6 +22,8 @@ type Application = {
   created_at: string;
   application_note: string | null;
   note: string | null;
+  accepted_by_name?: string | null;
+  declined_by_name?: string | null;
 };
 
 const classColors: Record<string, string> = {
@@ -39,12 +42,63 @@ const classColors: Record<string, string> = {
   Warrior: "#C69B6D",
 };
 
+const classes = [
+  "All Classes",
+  "Death Knight",
+  "Demon Hunter",
+  "Druid",
+  "Evoker",
+  "Hunter",
+  "Mage",
+  "Monk",
+  "Paladin",
+  "Priest",
+  "Rogue",
+  "Shaman",
+  "Warlock",
+  "Warrior",
+];
+
+const roles = ["All Roles", "Tank", "Healer", "Melee DPS", "Ranged DPS"];
+
+const tankSpecs = ["Protection", "Blood", "Guardian", "Brewmaster", "Vengeance"];
+const healerSpecs = ["Holy", "Discipline", "Restoration", "Mistweaver", "Preservation"];
+const meleeSpecs = [
+  "Arms",
+  "Fury",
+  "Retribution",
+  "Enhancement",
+  "Feral",
+  "Windwalker",
+  "Havoc",
+  "Frost",
+  "Unholy",
+  "Assassination",
+  "Outlaw",
+  "Subtlety",
+  "Survival",
+];
+
+function getRole(app: Application) {
+  const spec = app.spec || "";
+
+  if (tankSpecs.includes(spec)) return "Tank";
+  if (healerSpecs.includes(spec)) return "Healer";
+  if (meleeSpecs.includes(spec)) return "Melee DPS";
+
+  return "Ranged DPS";
+}
+
 export default function ApplicationForumsPage() {
   const router = useRouter();
 
   const [tab, setTab] = useState<"pending" | "accepted" | "declined">("pending");
   const [applications, setApplications] = useState<Application[]>([]);
   const [search, setSearch] = useState("");
+  const [classFilter, setClassFilter] = useState("All Classes");
+  const [roleFilter, setRoleFilter] = useState("All Roles");
+  const [sortBy, setSortBy] = useState("newest");
+
   const [isOfficer, setIsOfficer] = useState(false);
   const [isGuildMaster, setIsGuildMaster] = useState(false);
 
@@ -135,10 +189,41 @@ export default function ApplicationForumsPage() {
     id: string,
     newStatus: "accepted" | "declined"
   ) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      alert("You must be logged in.");
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("discord_name")
+      .eq("user_id", user.id)
+      .single();
+
+    const updateData =
+      newStatus === "accepted"
+        ? {
+            status: "accepted",
+            accepted_by: user.id,
+            accepted_by_name: profile?.discord_name || "Unknown",
+            accepted_at: new Date().toISOString(),
+          }
+        : {
+            status: "declined",
+            declined_by: user.id,
+            declined_by_name: profile?.discord_name || "Unknown",
+            declined_at: new Date().toISOString(),
+          };
+
     const { error, count } = await supabase
       .from("applications")
-      .update({ status: newStatus }, { count: "exact" })
-      .eq("id", id);
+      .update(updateData, { count: "exact" })
+      .eq("id", id)
+      .eq("status", "pending");
 
     if (error) {
       alert("Update failed: " + error.message);
@@ -146,24 +231,76 @@ export default function ApplicationForumsPage() {
     }
 
     if (!count) {
-      alert("Update blocked by Supabase RLS policy.");
+      alert("This application was already changed or blocked by RLS.");
+      loadApplications();
+      loadPendingCount();
       return;
+    }
+
+    if (newStatus === "accepted") {
+      const app = applications.find((a) => a.id === id);
+
+      if (app?.user_id) {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({
+            guild_role: "Trial",
+            signup_approved: true,
+            accepted_application: true,
+          })
+          .eq("user_id", app.user_id);
+
+        if (profileError) {
+          alert(
+            "Application accepted, but profile update failed: " +
+              profileError.message
+          );
+        }
+      }
     }
 
     setApplications((old) => old.filter((app) => app.id !== id));
     loadPendingCount();
   }
 
-  const filteredApps = applications.filter((app) => {
-    const q = search.toLowerCase();
+  const filteredApps = applications
+    .filter((app) => {
+      const q = search.toLowerCase();
 
-    return (
-      app.character_name?.toLowerCase().includes(q) ||
-      app.class?.toLowerCase().includes(q) ||
-      app.spec?.toLowerCase().includes(q) ||
-      app.realm?.toLowerCase().includes(q)
-    );
-  });
+      const matchesSearch =
+        app.character_name?.toLowerCase().includes(q) ||
+        app.class?.toLowerCase().includes(q) ||
+        app.spec?.toLowerCase().includes(q) ||
+        app.realm?.toLowerCase().includes(q);
+
+      const matchesClass =
+        classFilter === "All Classes" || app.class === classFilter;
+
+      const matchesRole = roleFilter === "All Roles" || getRole(app) === roleFilter;
+
+      return matchesSearch && matchesClass && matchesRole;
+    })
+    .sort((a, b) => {
+      if (sortBy === "newest") {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+
+      if (sortBy === "oldest") {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+
+      if (sortBy === "highest_ilvl") return (b.ilvl || 0) - (a.ilvl || 0);
+      if (sortBy === "lowest_ilvl") return (a.ilvl || 0) - (b.ilvl || 0);
+      if (sortBy === "highest_score") {
+        return (b.raider_io_score || 0) - (a.raider_io_score || 0);
+      }
+
+      if (sortBy === "lowest_score") {
+        return (a.raider_io_score || 0) - (b.raider_io_score || 0);
+      }
+
+      return 0;
+    });
 
   return (
     <main className="min-h-screen text-[#f5e7c8] forumPage">
@@ -192,9 +329,9 @@ export default function ApplicationForumsPage() {
                   <button
                     key={t}
                     onClick={() => setTab(t)}
-                    className={`px-8 py-4 font-bold uppercase ${
+                    className={`forumTab px-8 py-4 font-bold uppercase ${
                       tab === t
-                        ? "bg-[#1b1206] text-[#f5c451]"
+                        ? "activeForumTab bg-[#1b1206] text-[#f5c451]"
                         : "text-[#a28d68]"
                     }`}
                   >
@@ -212,16 +349,41 @@ export default function ApplicationForumsPage() {
 
               <div className="p-6">
                 <div className="mb-6 flex gap-4">
-                  <select className="forumInput">
-                    <option>All Classes</option>
+                  <select
+                    className="forumInput"
+                    value={classFilter}
+                    onChange={(e) => setClassFilter(e.target.value)}
+                  >
+                    {classes.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
                   </select>
 
-                  <select className="forumInput">
-                    <option>All Roles</option>
+                  <select
+                    className="forumInput"
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                  >
+                    {roles.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
                   </select>
 
-                  <select className="forumInput">
-                    <option>Sort by: Newest</option>
+                  <select
+                    className="forumInput"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                  >
+                    <option value="newest">Sort by: Newest</option>
+                    <option value="oldest">Sort by: Oldest</option>
+                    <option value="highest_ilvl">Highest ILVL</option>
+                    <option value="lowest_ilvl">Lowest ILVL</option>
+                    <option value="highest_score">Highest Raider.IO</option>
+                    <option value="lowest_score">Lowest Raider.IO</option>
                   </select>
 
                   <input
@@ -243,7 +405,7 @@ export default function ApplicationForumsPage() {
                     return (
                       <div
                         key={app.id}
-                        className="relative h-[550px] overflow-hidden rounded-sm border bg-black transition hover:-translate-y-1"
+                        className="relative h-[550px] overflow-hidden rounded-sm border bg-black transition-all duration-300 hover:-translate-y-3 hover:scale-[1.03]"
                         style={{
                           borderColor: color,
                           boxShadow: `0 0 16px ${color}44`,
@@ -257,7 +419,7 @@ export default function ApplicationForumsPage() {
                               e.stopPropagation();
                               setDeleteTarget(app);
                             }}
-                            className="absolute right-3 top-3 z-[999] flex h-8 w-8 items-center justify-center rounded-full border border-red-500 bg-black/90 font-black text-red-400 hover:bg-red-900"
+                            className="absolute right-3 top-3 z-[999] flex h-8 w-8 items-center justify-center rounded-full border border-red-500 bg-black/90 font-black text-red-400 transition-all duration-300 hover:scale-125 hover:bg-red-900 hover:shadow-[0_0_20px_rgba(239,68,68,0.9)]"
                             title="Delete Application"
                           >
                             ×
@@ -357,10 +519,22 @@ export default function ApplicationForumsPage() {
                             onClick={() =>
                               router.push(`/application-forums/${app.id}`)
                             }
-                            className="relative z-20 mt-5 w-full border border-[#6b4b1f] bg-black/70 py-3 font-black uppercase text-[#f5c451] hover:bg-[#1d1306]"
+                            className="relative z-20 mt-5 w-full border border-[#d6a84f] bg-black/70 py-3 font-black uppercase text-[#f5c451] transition-all duration-300 hover:scale-105 hover:shadow-[0_0_25px_rgba(245,211,122,0.9)] hover:text-white"
                           >
                             View Application
                           </button>
+
+                          {tab === "accepted" && app.accepted_by_name && (
+                            <div className="mt-3 text-center text-sm font-bold text-green-400">
+                              ✓ Accepted by {app.accepted_by_name}
+                            </div>
+                          )}
+
+                          {tab === "declined" && app.declined_by_name && (
+                            <div className="mt-3 text-center text-sm font-bold text-red-400">
+                              ✕ Declined by {app.declined_by_name}
+                            </div>
+                          )}
 
                           {tab === "pending" && isOfficer && (
                             <div className="relative z-20 mt-3 grid grid-cols-2 gap-3">
@@ -369,7 +543,7 @@ export default function ApplicationForumsPage() {
                                 onClick={() =>
                                   updateApplicationStatus(app.id, "accepted")
                                 }
-                                className="rounded border border-green-500/60 bg-green-900/50 py-2 font-black text-green-300 hover:bg-green-700/60"
+                                className="rounded-lg border border-green-400 bg-green-900/50 py-2 font-black text-green-300 transition-all duration-300 hover:scale-110 hover:shadow-[0_0_25px_rgba(34,197,94,0.9)] hover:text-white"
                               >
                                 Accept
                               </button>
@@ -379,7 +553,7 @@ export default function ApplicationForumsPage() {
                                 onClick={() =>
                                   updateApplicationStatus(app.id, "declined")
                                 }
-                                className="rounded border border-red-500/60 bg-red-900/50 py-2 font-black text-red-300 hover:bg-red-700/60"
+                                className="rounded-lg border border-red-400 bg-red-900/50 py-2 font-black text-red-300 transition-all duration-300 hover:scale-110 hover:shadow-[0_0_25px_rgba(239,68,68,0.9)] hover:text-white"
                               >
                                 Decline
                               </button>
@@ -444,6 +618,51 @@ export default function ApplicationForumsPage() {
           border: 1px solid #6b4b1f;
           background: rgba(0, 0, 0, 0.8);
           color: #f5e7c8;
+          font-weight: 800;
+          transition: 0.25s ease;
+        }
+
+        .forumInput:hover,
+        .forumInput:focus {
+          border-color: #f5d37a;
+          box-shadow: 0 0 18px rgba(245, 211, 122, 0.45);
+          outline: none;
+        }
+
+.forumInput option {
+  background: #07020d;
+}
+
+.forumInput option[value="Death Knight"] { color: #C41E3A; }
+.forumInput option[value="Demon Hunter"] { color: #A330C9; }
+.forumInput option[value="Druid"] { color: #FF7C0A; }
+.forumInput option[value="Evoker"] { color: #33937F; }
+.forumInput option[value="Hunter"] { color: #AAD372; }
+.forumInput option[value="Mage"] { color: #3FC7EB; }
+.forumInput option[value="Monk"] { color: #00FF98; }
+.forumInput option[value="Paladin"] { color: #F48CBA; }
+.forumInput option[value="Priest"] { color: #FFFFFF; }
+.forumInput option[value="Rogue"] { color: #FFF468; }
+.forumInput option[value="Shaman"] { color: #0070DD; }
+.forumInput option[value="Warlock"] { color: #8788EE; }
+.forumInput option[value="Warrior"] { color: #C69B6D; }
+
+        .forumTab {
+          position: relative;
+          transition: 0.25s ease;
+        }
+
+        .forumTab:hover {
+          transform: scale(1.08);
+          color: #fff2c7;
+          text-shadow: 0 0 14px rgba(245, 211, 122, 0.95);
+          box-shadow: inset 0 0 18px rgba(245, 211, 122, 0.12);
+        }
+
+        .activeForumTab {
+          box-shadow:
+            inset 0 0 25px rgba(245, 196, 81, 0.12),
+            0 0 18px rgba(245, 196, 81, 0.18);
         }
 
         .forumPage {

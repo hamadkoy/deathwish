@@ -1,3 +1,4 @@
+// app/warcraft-logs/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -47,7 +48,7 @@ export default function WarcraftLogsPage() {
       .eq("user_id", user.id)
       .single();
 
-   const role = data?.guild_role || "";
+    const role = data?.guild_role || "";
 
     if (!allowedRanks.includes(role)) {
       setNoAccess(true);
@@ -108,7 +109,18 @@ export default function WarcraftLogsPage() {
   function logsForDay(day: number) {
     return logs.filter((log) => log.log_date === dateKey(day));
   }
+const logsChampion = useMemo(() => {
+  const count: Record<string, number> = {};
 
+  logs.forEach((log) => {
+    count[log.user_id] = (count[log.user_id] || 0) + 1;
+  });
+
+  return Object.entries(count)
+    .map(([user_id, total]) => ({ user_id, total }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5);
+}, [logs]);
   async function uploadLog() {
     if (!selectedDate || !url) {
       alert("Choose a day and paste WarcraftLogs link.");
@@ -130,12 +142,14 @@ export default function WarcraftLogsPage() {
       return;
     }
 
-    const { error } = await supabase.from("warcraft_logs_calendar").insert({
-      user_id: authData.user.id,
-      log_date: selectedDate,
-      log_url: url,
-      note: note || "WarcraftLogs",
-    });
+const { error } = await supabase
+  .from("warcraft_logs_calendar")
+  .insert({
+    user_id: authData.user.id,
+    log_date: selectedDate,
+    log_url: url,
+    note: "WarcraftLogs",
+  });
 
     if (error) {
       alert(error.message);
@@ -149,141 +163,179 @@ export default function WarcraftLogsPage() {
     setSaving(false);
   }
 
-if (checkingAccess || noAccess) {
-  return (
-    <main className="accessPage">
-      <div className="accessBox">
-        <div className="lockIcon">🔒</div>
+  if (checkingAccess || noAccess) {
+    return (
+      <main className="accessPage">
+        <div className="accessBox">
+          <div className="lockIcon">🔒</div>
+          <h1>{checkingAccess ? "Checking Access..." : "Access Denied"}</h1>
 
-        <h1>{checkingAccess ? "Checking Access..." : "Access Denied"}</h1>
+          {!checkingAccess && (
+            <p>
+              You do not meet the requirements to view this page.
+              <br />
+              Only Trial, Raider, Officer, Death Wish, and Guild Master members
+              can access this section.
+            </p>
+          )}
+        </div>
 
-        {!checkingAccess && (
-          <p>
-            You do not meet the requirements to view this page.
-            <br />
-            Only Trial, Raider, Officer, Death Wish, and Guild Master members
-            can access this section.
-          </p>
-        )}
-      </div>
+        <style jsx>{`
+          .accessPage {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            background:
+              linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.82)),
+              url("/warcraftlogs.png") center/cover fixed;
+          }
 
-      <style jsx>{`
-        .accessPage {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          background:
-            linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.78)),
-            url("/Roster.png") center/cover fixed;
-        }
+          .accessBox {
+            text-align: center;
+            padding: 40px;
+          }
 
-        .accessBox {
-          text-align: center;
-          padding: 40px;
-        }
+          .lockIcon {
+            font-size: 76px;
+            margin-bottom: 18px;
+          }
 
-        .lockIcon {
-          font-size: 76px;
-          margin-bottom: 18px;
-        }
+          .accessBox h1 {
+            color: #f8c85a;
+            font-size: 52px;
+            font-weight: 900;
+            text-shadow: 0 0 24px rgba(248, 200, 90, 0.9);
+          }
 
-        .accessBox h1 {
-          color: #ff3d6e;
-          font-size: 52px;
-          font-weight: 900;
-          text-shadow: 0 0 22px rgba(255, 61, 110, 0.9);
-        }
-
-        .accessBox p {
-          margin-top: 16px;
-          font-size: 20px;
-          line-height: 1.6;
-          color: white;
-          text-shadow: 0 0 10px black;
-        }
-      `}</style>
-    </main>
-  );
-}
+          .accessBox p {
+            margin-top: 16px;
+            font-size: 20px;
+            line-height: 1.6;
+            color: white;
+            text-shadow: 0 0 10px black;
+          }
+        `}</style>
+      </main>
+    );
+  }
 
   return (
     <main className="page">
       <div className="wrap">
-        <h1>WarcraftLogs</h1>
+        <div className="titleBox">
+          <h1>WARCRAFT LOGS</h1>
+          <p>Click a day, upload logs, then open logs from the calendar.</p>
+        </div>
 
-        <p className="sub">
-          Click a day, upload logs, then open logs from the calendar.
-        </p>
-
-        <div className="top">
-          <button onClick={() => changeMonth("prev")}>◀</button>
+        <div className="monthRow">
+          <button onClick={() => changeMonth("prev")}>←</button>
 
           <h2>
             {new Date(year, month).toLocaleString("en", { month: "long" })}{" "}
             {year}
           </h2>
 
-          <button onClick={() => changeMonth("next")}>▶</button>
+          <button onClick={() => changeMonth("next")}>→</button>
         </div>
 
-        <div className="calendar">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-            <div key={d} className="dayName">
-              {d}
-            </div>
-          ))}
+        <div className="calendarFrame">
+          <div className="calendar">
+            {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d) => (
+              <div key={d} className="dayName">
+                {d}
+              </div>
+            ))}
 
-          {days.map((day, i) =>
-            day ? (
-              <button
-                key={i}
-                onClick={() => setSelectedDate(dateKey(day))}
-                className={`day ${
-                  selectedDate === dateKey(day) ? "active" : ""
-                }`}
-              >
-                <b>{day}</b>
+            {days.map((day, i) =>
+              day ? (
+                <button
+                  key={i}
+                  onClick={() => setSelectedDate(dateKey(day))}
+className={`day ${
+  selectedDate === dateKey(day) ? "active" : ""
+} ${logsForDay(day).length > 0 ? "hasLog" : ""}`}
+                >
+                  <b>{day}</b>
 
-                {logsForDay(day).map((log) => (
-                  <a
-                    key={log.id}
-                    href={log.log_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="logLink"
-                  >
-                    {log.note || "Open Log"}
-                  </a>
-                ))}
-              </button>
-            ) : (
-              <div key={i} />
-            )
-          )}
+                  {logsForDay(day).length > 0 && <span className="dot" />}
+
+                  {logsForDay(day).map((log) => (
+                    <a
+                      key={log.id}
+                      href={log.log_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="logLink"
+                    >
+                    View Logs
+                    </a>
+                  ))}
+                </button>
+              ) : (
+                <div key={i} className="emptyDay" />
+              )
+            )}
+          </div>
+
+          <div className="legend">
+            <span>
+              <i className="blueDot" /> Log uploaded
+            </span>
+            <span>
+              <i className="goldDot" /> Multiple logs
+            </span>
+            <span>
+              <i className="emptyDot" /> No logs
+            </span>
+          </div>
         </div>
+<div className="logsChampion">
+  <h3>🏆 Logs Champion</h3>
 
-        {selectedDate && (
-          <div className="uploadBox">
+  {logsChampion.length === 0 ? (
+    <p>No logs uploaded yet.</p>
+  ) : (
+    logsChampion.map((u, i) => (
+      <div key={u.user_id} className="championRow">
+        <span>#{i + 1}</span>
+        <b>{u.user_id.slice(0, 8)}</b>
+        <em>{u.total} logs</em>
+      </div>
+    ))
+  )}
+</div>
+{selectedDate && (
+  <div className="uploadBox">
+
+    <button
+      className="closeUpload"
+      onClick={() => {
+        setSelectedDate("");
+        setUrl("");
+      }}
+    >
+      ✕
+    </button>
             <h3>Upload log for {selectedDate}</h3>
 
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://www.warcraftlogs.com/reports/..."
-            />
+            <div className="formRow">
+              <div className="inputs">
+                <input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://www.warcraftlogs.com/reports/..."
+                />
 
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Note: Mythic / Heroic / Boss"
-            />
+ 
+              </div>
 
-            <button onClick={uploadLog} disabled={saving}>
-              {saving ? "Uploading..." : "Upload Log"}
-            </button>
+              <button onClick={uploadLog} disabled={saving}>
+                {saving ? "Uploading..." : "Upload Log"}
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -291,164 +343,431 @@ if (checkingAccess || noAccess) {
       <style jsx>{`
         .page {
           min-height: 100vh;
-          padding: 95px 24px 60px;
+          padding: 55px 24px 60px;
           color: white;
           background:
-            radial-gradient(circle at top, rgba(147, 51, 234, 0.22), transparent 35%),
-            linear-gradient(rgba(2, 0, 10, 0.45), rgba(2, 0, 10, 0.9)),
-            url("/Roster.png") center/cover fixed;
+            linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.55)),
+            url("/warcraftlogs.png") center/cover fixed;
         }
 
         .wrap {
-          max-width: 1050px;
+          max-width: 1180px;
           margin: auto;
         }
 
+        .titleBox {
+          text-align: center;
+          margin-bottom: 18px;
+        }
+
         h1 {
-          text-align: center;
-          color: #fde047;
-          font-size: 56px;
+          color: #f7d47a;
+          font-family: Georgia, serif;
+          font-size: 68px;
           font-weight: 900;
-          text-shadow: 0 0 18px rgba(250, 204, 21, 0.9);
+          letter-spacing: 3px;
+          text-shadow:
+            0 3px 0 #3b2108,
+            0 0 24px rgba(255, 190, 70, 0.9),
+            0 0 45px rgba(0, 153, 255, 0.35);
         }
 
-        .sub {
-          text-align: center;
-          color: #d8b4fe;
-          margin-bottom: 28px;
+        .titleBox p {
+          margin-top: 4px;
+          color: #f4eee2;
           font-size: 15px;
+          text-shadow: 0 0 10px black;
         }
 
-        .top {
+        .monthRow {
           display: flex;
           justify-content: center;
           align-items: center;
           gap: 28px;
-          margin-bottom: 24px;
+          margin-bottom: 18px;
         }
 
-        .top h2 {
-          min-width: 260px;
+        .monthRow h2 {
+          min-width: 310px;
+          padding: 10px 26px;
           text-align: center;
-          color: #facc15;
+          color: #f7d47a;
+          font-family: Georgia, serif;
           font-size: 30px;
           font-weight: 900;
+          border: 1px solid rgba(201, 137, 55, 0.85);
+          background: linear-gradient(180deg, #111b27, #05070b);
+          box-shadow:
+            inset 0 0 20px rgba(0, 0, 0, 0.8),
+            0 0 18px rgba(255, 170, 50, 0.25);
         }
 
-        .top button {
-          width: 50px;
-          height: 44px;
-          border-radius: 14px;
-          border: 1px solid #c084fc;
-          background: linear-gradient(180deg, #a855f7, #6d28d9);
-          color: white;
-          font-size: 20px;
+        .monthRow button {
+          width: 52px;
+          height: 46px;
+          border-radius: 6px;
+          border: 1px solid rgba(201, 137, 55, 0.9);
+          background: linear-gradient(180deg, #17456b, #06111d);
+          color: #f7d47a;
+          font-size: 28px;
           font-weight: 900;
           cursor: pointer;
-          box-shadow: 0 0 18px rgba(168, 85, 247, 0.7);
+          box-shadow:
+            inset 0 0 18px rgba(0, 0, 0, 0.7),
+            0 0 16px rgba(0, 153, 255, 0.45);
+        }
+
+        .calendarFrame {
+          padding: 28px;
+          border: 1px solid rgba(201, 137, 55, 0.85);
+          background: rgba(1, 7, 12, 0.84);
+          box-shadow:
+            0 0 30px rgba(0, 0, 0, 0.9),
+            0 0 26px rgba(0, 132, 255, 0.22),
+            inset 0 0 35px rgba(0, 0, 0, 0.9);
         }
 
         .calendar {
           display: grid;
           grid-template-columns: repeat(7, 1fr);
-          gap: 12px;
-          padding: 22px;
-          border-radius: 24px;
-          border: 1px solid rgba(192, 132, 252, 0.7);
-          background: rgba(3, 0, 12, 0.84);
-          box-shadow:
-            0 0 35px rgba(168, 85, 247, 0.35),
-            inset 0 0 35px rgba(88, 28, 135, 0.35);
+          gap: 6px;
         }
 
         .dayName {
           text-align: center;
-          color: #fde047;
-          font-size: 14px;
+          color: #f7d47a;
+          font-family: Georgia, serif;
+          font-size: 15px;
           font-weight: 900;
-          padding-bottom: 8px;
+          padding-bottom: 12px;
+        }
+
+        .emptyDay,
+        .day {
+          min-height: 90px;
         }
 
         .day {
-          min-height: 112px;
+          position: relative;
           padding: 12px;
-          border-radius: 15px;
-          border: 1px solid rgba(168, 85, 247, 0.42);
+          border: 1px solid rgba(151, 98, 43, 0.8);
           background:
-            linear-gradient(180deg, rgba(22, 0, 40, 0.95), rgba(3, 0, 12, 0.95));
+            linear-gradient(rgba(3, 10, 16, 0.55), rgba(0, 0, 0, 0.82)),
+            url("/warcraftlogs.png") center/cover;
           color: white;
           cursor: pointer;
           transition: 0.2s ease;
-          text-align: left;
+          text-align: center;
+          overflow: hidden;
+          box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.85);
         }
 
-        .day:hover,
-        .day.active {
-          border-color: #fde047;
-          transform: translateY(-3px);
-          box-shadow:
-            0 0 22px rgba(250, 204, 21, 0.45),
-            inset 0 0 18px rgba(250, 204, 21, 0.08);
+        .day::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: rgba(0, 15, 28, 0.68);
+          z-index: 0;
+        }
+
+        .day b,
+        .dot,
+        .logLink {
+          position: relative;
+          z-index: 2;
         }
 
         .day b {
           display: block;
-          color: #fde047;
-          font-size: 17px;
-          margin-bottom: 8px;
+          color: #f4efe6;
+          font-family: Georgia, serif;
+          font-size: 28px;
+          line-height: 1;
+          margin-top: 6px;
+          text-shadow: 0 0 10px black;
         }
 
-        .logLink {
+        .day:hover,
+.day.active {
+  border-color: #4bb3ff;
+  transform: translateY(-2px);
+  background:
+    radial-gradient(circle at top, rgba(77, 184, 255, 0.55), transparent 35%),
+    linear-gradient(180deg, rgba(12, 70, 130, 0.95), rgba(3, 20, 50, 0.98));
+  box-shadow:
+    0 0 22px rgba(0, 153, 255, 0.9),
+    inset 0 0 24px rgba(70, 170, 255, 0.45);
+}
+
+.day.active::before {
+  background:
+    linear-gradient(135deg, rgba(60, 180, 255, 0.25), transparent 35%),
+    rgba(0, 25, 55, 0.35);
+}
+
+.day.active b {
+  color: #f7d47a;
+  font-size: 34px;
+  text-shadow:
+    0 0 8px #000,
+    0 0 14px rgba(255, 205, 70, 0.8);
+}
+
+.day.active .logLink {
+  background: linear-gradient(180deg, #1d8ee8, #07518a);
+  border-color: #7dd3fc;
+  box-shadow:
+    inset 0 0 10px rgba(255, 255, 255, 0.12),
+    0 0 12px rgba(59, 180, 255, 0.75);
+}
+.day.hasLog {
+  border-color: #2fa8ff;
+  background:
+    linear-gradient(180deg, rgba(7, 82, 145, 0.95), rgba(3, 35, 75, 0.98)) !important;
+  box-shadow:
+    inset 0 0 35px rgba(0, 0, 0, 0.8),
+    inset 0 0 18px rgba(75, 180, 255, 0.45);
+}
+
+.day.hasLog::before {
+  background:
+    radial-gradient(circle at top, rgba(80, 175, 255, 0.35), transparent 45%),
+    rgba(0, 20, 45, 0.35) !important;
+}
+
+.day.hasLog b {
+  color: #f7d47a;
+  font-size: 34px;
+}
+
+.day.hasLog::before {
+  background: rgba(0, 25, 55, 0.25) !important;
+}
+
+.day.hasLog b {
+  color: #f7d47a;
+  font-size: 34px;
+  text-shadow:
+    0 0 8px black,
+    0 0 16px rgba(255, 205, 70, 0.95);
+}
+        .dot {
           display: block;
-          margin-top: 7px;
-          padding: 7px 9px;
-          border-radius: 8px;
-          background: linear-gradient(90deg, #ea580c, #f97316);
-          color: white;
-          font-size: 11px;
-          font-weight: 900;
-          text-decoration: none;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          box-shadow: 0 0 10px rgba(249, 115, 22, 0.55);
+          width: 11px;
+          height: 11px;
+          margin: 9px auto 0;
+          border-radius: 50%;
+          background: #28a8ff;
+          box-shadow: 0 0 12px #28a8ff;
+        }
+.uploadBox {
+  position: relative;
+}
+
+.closeUpload {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px !important;
+  height: 22px !important;
+  padding: 0 !important;
+  border-radius: 50%;
+  border: 1px solid #ef4444 !important;
+  background: rgba(0, 0, 0, 0.85) !important;
+  color: #ef4444 !important;
+  font-size: 13px !important;
+  font-weight: 900;
+  line-height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: none !important;
+}
+
+.closeUpload:hover {
+  background: #ef4444 !important;
+  color: white !important;
+}
+.logLink {
+  display: block;
+  max-width: 105px;
+  margin: 8px auto 0;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #1d8ee8, #07518a);
+  color: white;
+  font-size: 11px;
+  font-weight: 900;
+  text-decoration: none;
+  border: 1px solid #7dd3fc;
+}
+
+        .legend {
+          display: flex;
+          justify-content: center;
+          gap: 36px;
+          margin-top: 18px;
+          color: #ddd6c7;
+          font-size: 14px;
+        }
+
+        .legend span {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .blueDot,
+        .goldDot,
+        .emptyDot {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          display: inline-block;
+        }
+
+        .blueDot {
+          background: #28a8ff;
+          box-shadow: 0 0 10px #28a8ff;
+        }
+
+        .goldDot {
+          background: #f2a92c;
+          box-shadow: 0 0 10px #f2a92c;
+        }
+
+        .emptyDot {
+          border: 1px solid #c78937;
         }
 
         .uploadBox {
-          margin-top: 24px;
+          margin-top: 20px;
           padding: 24px;
-          border-radius: 20px;
-          border: 1px solid rgba(192, 132, 252, 0.65);
-          background: rgba(3, 0, 12, 0.86);
-          box-shadow: 0 0 28px rgba(168, 85, 247, 0.25);
+          border: 1px solid rgba(201, 137, 55, 0.85);
+          background: rgba(1, 7, 12, 0.86);
+          box-shadow:
+            0 0 24px rgba(0, 0, 0, 0.85),
+            inset 0 0 30px rgba(0, 0, 0, 0.9);
         }
 
         .uploadBox h3 {
-          color: #fde047;
-          font-size: 18px;
+          color: #f7d47a;
+          font-family: Georgia, serif;
+          font-size: 19px;
           margin-bottom: 16px;
+          text-transform: uppercase;
         }
 
-        .uploadBox input {
+        .formRow {
+          display: grid;
+          grid-template-columns: 1fr 290px;
+          gap: 26px;
+          align-items: center;
+        }
+
+        .inputs input {
           width: 100%;
-          margin-bottom: 13px;
-          padding: 14px;
-          border-radius: 12px;
-          border: 1px solid #9333ea;
+          margin-bottom: 12px;
+          padding: 13px 16px;
+          border-radius: 5px;
+          border: 1px solid rgba(201, 137, 55, 0.75);
           background: rgba(0, 0, 0, 0.72);
           color: white;
           outline: none;
         }
 
-        .uploadBox button {
-          padding: 13px 22px;
-          border-radius: 12px;
-          border: 1px solid #c084fc;
-          background: linear-gradient(90deg, #7e22ce, #d946ef);
-          color: white;
+       .uploadBox > .formRow button {
+          height: 66px;
+          border: 1px solid rgba(201, 137, 55, 0.95);
+          background: linear-gradient(180deg, #1768a5, #08233d);
+          color: #f7d47a;
+          font-family: Georgia, serif;
+          font-size: 22px;
           font-weight: 900;
           cursor: pointer;
-          box-shadow: 0 0 18px rgba(217, 70, 239, 0.65);
+          text-transform: uppercase;
+          box-shadow:
+            inset 0 0 20px rgba(0, 0, 0, 0.75),
+            0 0 22px rgba(0, 153, 255, 0.45);
+        }
+.logsChampion {
+  position: fixed;
+  right: 28px;
+  top: 170px;
+  width: 260px;
+  padding: 18px;
+  border: 1px solid rgba(201, 137, 55, 0.9);
+  background: rgba(1, 7, 12, 0.86);
+  box-shadow:
+    0 0 24px rgba(0, 0, 0, 0.9),
+    0 0 18px rgba(0, 153, 255, 0.25);
+  color: white;
+}
+
+.logsChampion h3 {
+  color: #f7d47a;
+  font-family: Georgia, serif;
+  font-size: 20px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.logsChampion p {
+  color: #cbd5e1;
+  text-align: center;
+  font-size: 13px;
+}
+
+.championRow {
+  display: grid;
+  grid-template-columns: 38px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(201, 137, 55, 0.25);
+}
+
+.championRow span {
+  color: #38bdf8;
+  font-weight: 900;
+}
+
+.championRow b {
+  color: #f8fafc;
+  font-size: 13px;
+}
+
+.championRow em {
+  color: #f7d47a;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+@media (max-width: 1300px) {
+  .logsChampion {
+    position: static;
+    width: 100%;
+    margin-top: 20px;
+  }
+}
+        @media (max-width: 900px) {
+          h1 {
+            font-size: 42px;
+          }
+
+          .calendarFrame {
+            overflow-x: auto;
+          }
+
+          .calendar {
+            min-width: 850px;
+          }
+
+          .formRow {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </main>
