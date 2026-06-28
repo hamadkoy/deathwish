@@ -454,9 +454,9 @@ const factionBg =
   }}
 />
 
-                        <div className="absolute left-4 top-4 text-xs font-black uppercase tracking-wide text-[#f5d37a]">
-                          {formatDate(app.created_at)}
-                        </div>
+<div className="appDate" title={formatDate(app.created_at)}>
+  {timeAgo(app.created_at)}
+</div>
 
                         <img
                           src={app.avatar_url || "/websitelogo.png"}
@@ -672,10 +672,10 @@ const factionBg =
 .forumInput option[value="Warlock"] { color: #8788EE; }
 .forumInput option[value="Warrior"] { color: #C69B6D; }
 
-        .forumTab {
-          position: relative;
-          transition: 0.25s ease;
-        }
+ .forumTab {
+  min-width: 180px;
+  justify-content: center;
+}
 
         .forumTab:hover {
           transform: scale(1.08);
@@ -690,13 +690,15 @@ const factionBg =
             0 0 18px rgba(245, 196, 81, 0.18);
         }
 
-        .forumPage {
-          background-image: url("/lions.png");
-          background-size: cover;
-          background-position: center top;
-          background-repeat: no-repeat;
-          background-attachment: fixed;
-        }
+.forumPage {
+  background:
+    linear-gradient(rgba(0,0,0,0.10), rgba(0,0,0,0.65)),
+    url("/lions.png");
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
 
         .forumOverlay {
           min-height: 100vh;
@@ -707,13 +709,60 @@ const factionBg =
           );
         }
 
-        .forumPanel {
-          box-shadow:
-            0 0 45px rgba(168, 85, 247, 0.35),
-            inset 0 0 35px rgba(0, 0, 0, 0.75);
-          backdrop-filter: blur(4px);
-        }
+   .forumPanel {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  overflow: visible !important;
+}
+.forumPanel > .flex {
+  width: fit-content;
+  margin: 0 auto 32px;
 
+  border: 1px solid rgba(214,168,79,0.55);
+  background: rgba(0,0,0,0.72);
+
+  box-shadow:
+    0 0 25px rgba(0,0,0,0.7),
+    inset 0 0 20px rgba(214,168,79,0.08);
+}
+
+.forumPanel > .p-6 {
+  padding: 0 !important;
+}
+
+.forumPanel .mb-6.flex {
+  width: min(1120px, 100%);
+  margin: 0 auto 34px !important;
+  padding: 22px;
+
+  border-radius: 6px;
+  background: rgba(0,0,0,0.72);
+
+  box-shadow:
+    0 0 30px rgba(0,0,0,0.75),
+    inset 0 0 20px rgba(255,255,255,0.03);
+}
+.appDate {
+  position: absolute;
+  left: 14px;
+  top: 12px;
+  z-index: 30;
+
+  user-select: none;
+  cursor: default;
+
+  color: #cfd3d8;
+  font-size: 13px;
+  font-weight: 700;
+
+
+  padding: 2px 6px;
+  border-radius: 3px;
+
+  text-shadow: none;
+}
         .pendingBadge {
           min-width: 26px;
           height: 26px;
@@ -853,4 +902,17 @@ function formatDate(date: string) {
     month: "short",
     year: "numeric",
   });
+}
+function timeAgo(date: string) {
+  const diff = Date.now() - new Date(date).getTime();
+  const minutes = Math.floor(diff / 1000 / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} minutes ago`;
+  if (hours < 24) return `${hours} hours ago`;
+  if (days === 1) return "1 day ago";
+
+  return `${days} days ago`;
 }
