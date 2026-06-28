@@ -24,7 +24,6 @@ type Application = {
   note: string | null;
   accepted_by_name?: string | null;
   declined_by_name?: string | null;
-faction: string | null;
 };
 
 const classColors: Record<string, string> = {
@@ -407,10 +406,10 @@ async function loadPendingApplications() {
                 <div className="grid grid-cols-1 gap-7 md:grid-cols-2 xl:grid-cols-4">
                   {filteredApps.map((app) => {
                     const color = classColors[app.class || ""] || "#d6a84f";
-const factionBg =
-  app.faction?.toLowerCase() === "horde"
-    ? "/applyhorde.png"
-    : "/Applyalliance.png";
+                    const discordBg =
+                      app.discord_avatar_url ||
+                      app.avatar_url ||
+                      "/websitelogo.png";
 
                     return (
                       <div
@@ -436,22 +435,20 @@ const factionBg =
                           </button>
                         )}
 
-<div
-  className="absolute left-0 right-0 top-0 h-[220px] bg-no-repeat"
-  style={{
-    backgroundSize: "100% auto",
-    backgroundPosition: "center top",
-    backgroundImage: `
-      linear-gradient(
-        to bottom,
-        rgba(0,0,0,0),
-        rgba(0,0,0,0.5),
-        rgba(0,0,0,1)
-      ),
-      url('${factionBg}')
-    `,
-  }}
-/>
+                        <div
+                          className="absolute left-0 right-0 top-0 h-[220px] bg-cover bg-center"
+                          style={{
+                            backgroundImage: `
+                              linear-gradient(
+                                to bottom,
+                                rgba(0,0,0,0),
+                                rgba(0,0,0,0.6),
+                                rgba(0,0,0,1)
+                              ),
+                              url('${discordBg}')
+                            `,
+                          }}
+                        />
 
                         <div className="absolute left-4 top-4 text-xs font-black uppercase tracking-wide text-[#f5d37a]">
                           {formatDate(app.created_at)}
