@@ -155,7 +155,7 @@ async function loadCharacters() {
 
   const params = new URLSearchParams(window.location.search);
 
-  const targetUserIdParam = params.get("userId");
+  const targetUserIdParam = params.get("user");
   const targetDiscordId = params.get("discordId");
   const targetCharacterId = params.get("characterId");
 

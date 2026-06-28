@@ -201,10 +201,16 @@ async function revokeAccess(userId: string) {
                       />
 
                       <div>
-                        <div style={userName}>
-                          {getGuildRoleIcon(rank)}{" "}
-                          {user.discord_name || "Unknown"}
-                        </div>
+<div
+  style={clickableUserName}
+  onClick={() => {
+    window.location.href = `/guild-garrison?user=${user.user_id}`;
+  }}
+  title="View Garrison"
+>
+  {getGuildRoleIcon(rank)}{" "}
+  {user.discord_name || "Unknown"}
+</div>
                         <div style={userId}>{user.user_id}</div>
                       </div>
                     </div>
@@ -329,7 +335,13 @@ const page: React.CSSProperties = {
   background:
     "linear-gradient(rgba(2,6,16,0.68), rgba(0,0,0,0.82)), url('/bg.png') center top / cover no-repeat fixed",
 };
-
+const clickableUserName: React.CSSProperties = {
+  fontWeight: 900,
+  fontSize: 18,
+  cursor: "pointer",
+  color: "#f5d0fe",
+  textShadow: "0 0 10px rgba(217,70,239,.45)",
+};
 const layout: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "230px 1fr",
