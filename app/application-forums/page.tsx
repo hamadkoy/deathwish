@@ -25,6 +25,14 @@ type Application = {
   accepted_by_name?: string | null;
   declined_by_name?: string | null;
 faction: string | null;
+  alt_name: string | null;
+  alt_realm: string | null;
+  alt_class: string | null;
+  alt_spec: string | null;
+  alt_ilvl: number | null;
+  alt_progress: string | null;
+  alt_score: number | null;
+  alt_avatar_url: string | null;
 };
 
 const classColors: Record<string, string> = {
@@ -259,7 +267,61 @@ async function loadPendingApplications() {
             accepted_application: true,
           })
           .eq("user_id", app.user_id);
+const { data: existingMain } = await supabase
+  .from("guild_characters")
+  .select("id")
+  .eq("user_id", app.user_id)
+  .eq("name", app.character_name)
+  .maybeSingle();
 
+if (!existingMain) {
+  await supabase.from("guild_characters").insert({
+    user_id: app.user_id,
+
+    name: app.character_name,
+    realm: app.realm,
+
+    class: app.class,
+    spec: app.spec,
+
+    ilvl: app.ilvl,
+    progress: app.raid_progress,
+
+    mythic_plus_score: app.raider_io_score,
+    avatar_url: app.avatar_url,
+
+    is_main: true,
+  });
+}
+
+if (app.alt_name) {
+  const { data: existingAlt } = await supabase
+    .from("guild_characters")
+    .select("id")
+    .eq("user_id", app.user_id)
+    .eq("name", app.alt_name)
+    .maybeSingle();
+
+  if (!existingAlt) {
+    await supabase.from("guild_characters").insert({
+      user_id: app.user_id,
+
+      name: app.alt_name,
+      realm: app.alt_realm,
+
+      class: app.alt_class,
+      spec: app.alt_spec,
+
+      ilvl: app.alt_ilvl,
+      progress: app.alt_progress,
+
+      mythic_plus_score: app.alt_score,
+      avatar_url: app.alt_avatar_url,
+
+      is_main: false,
+    });
+  }
+}
         if (profileError) {
           alert(
             "Application accepted, but profile update failed: " +

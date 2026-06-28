@@ -12,8 +12,7 @@ export default function ApplicationDetailsPage() {
   const [messages, setMessages] = useState<any[]>([]);
   const [message, setMessage] = useState("");
   const [myProfile, setMyProfile] = useState<any>(null);
-const [isOfficer, setIsOfficer] = useState(false);
-const [isGuildMaster, setIsGuildMaster] = useState(false);
+  const [isOfficer, setIsOfficer] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
@@ -41,18 +40,15 @@ const [isGuildMaster, setIsGuildMaster] = useState(false);
     } = await supabase.auth.getUser();
 
     if (user) {
-const { data: profile } = await supabase
-  .from("profiles")
-  .select("user_id, discord_name, avatar_url, guild_role")
-  .eq("user_id", user.id)
-  .single();
-const role = profile?.guild_role || "";
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_id, discord_name, avatar_url, guild_role")
+        .eq("user_id", user.id)
+        .single();
 
-setIsGuildMaster(role === "Guild Master");
-setIsOfficer(
-  role === "Guild Master" ||
-  role === "Officer"
-);
+      const role = profile?.guild_role || "";
+
+      setIsOfficer(role === "Guild Master" || role === "Officer");
       setMyProfile(profile);
     }
 
@@ -126,51 +122,51 @@ setIsOfficer(
     loadPage();
   }
 
-async function updateApplicationStatus(newStatus: "accepted" | "declined") {
-  if (!isOfficer) {
-    alert("You do not have permission.");
-    return;
+  async function updateApplicationStatus(newStatus: "accepted" | "declined") {
+    if (!isOfficer) {
+      alert("You do not have permission.");
+      return;
+    }
+
+    if (!app) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("discord_name")
+      .eq("user_id", user?.id)
+      .single();
+
+    const updateData =
+      newStatus === "accepted"
+        ? {
+            status: "accepted",
+            accepted_by: user?.id,
+            accepted_by_name: profile?.discord_name || "Unknown",
+            accepted_at: new Date().toISOString(),
+          }
+        : {
+            status: "declined",
+            declined_by: user?.id,
+            declined_by_name: profile?.discord_name || "Unknown",
+            declined_at: new Date().toISOString(),
+          };
+
+    const { error } = await supabase
+      .from("applications")
+      .update(updateData)
+      .eq("id", app.id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    router.push("/application-forums");
   }
-
-  if (!app) return;
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("discord_name")
-    .eq("user_id", user?.id)
-    .single();
-
-  const updateData =
-    newStatus === "accepted"
-      ? {
-          status: "accepted",
-          accepted_by: user?.id,
-          accepted_by_name: profile?.discord_name || "Unknown",
-          accepted_at: new Date().toISOString(),
-        }
-      : {
-          status: "declined",
-          declined_by: user?.id,
-          declined_by_name: profile?.discord_name || "Unknown",
-          declined_at: new Date().toISOString(),
-        };
-
-  const { error } = await supabase
-    .from("applications")
-    .update(updateData)
-    .eq("id", app.id);
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  router.push("/application-forums");
-}
 
   if (!app) {
     return (
@@ -180,19 +176,29 @@ async function updateApplicationStatus(newStatus: "accepted" | "declined") {
     );
   }
 
+  const altMatch = app.extra_info?.match(/Alt Character:\s*([^\n\r-]+)-([^\n\r]+)/i);
+  const altName = altMatch?.[1]?.trim();
+  const altRealm = altMatch?.[2]?.trim();
+
+  const altRaiderIO =
+    altName && altRealm
+      ? `https://raider.io/characters/eu/${altRealm}/${altName}`
+      : null;
+
+  const altWarcraftLogs =
+    altName && altRealm
+      ? `https://www.warcraftlogs.com/character/eu/${altRealm.toLowerCase()}/${altName.toLowerCase()}`
+      : null;
+
   const answers = [
     ["👤", "Name", app.applicant_name],
     ["📅", "Age", app.age],
     ["🌍", "Country / Timezone", app.country],
     ["⏰", "Raid Availability", app.raid_availability],
     ["🛡️", "Previous Guilds", app.previous_guilds],
-    ["⚔️", "Best Mythic Progress", app.best_mythic_progress],
-    ["🏆", "Raiding Experience", app.experience],
     ["🚪", "Why Left Previous Guild", app.why_left_guild],
-    ["⭐", "Why Join", app.why_join],
-    ["💪", "Strengths", app.strengths],
-    ["🎯", "Goals", app.goals],
-    ["📜", "Extra Info", app.extra_info],
+    ["🏆", "Raiding Experience", app.experience],
+    ["📜", "Requirement / About You", app.extra_info],
   ];
 
   return (
@@ -243,12 +249,32 @@ async function updateApplicationStatus(newStatus: "accepted" | "declined") {
             </a>
           </p>
 
-          <p>
+          <p className="mb-2">
             <span className="font-bold text-[#f5c451]">Warcraft Logs:</span>{" "}
             <a href={app.warcraft_logs} target="_blank" className="text-sky-400">
               {app.warcraft_logs || "-"}
             </a>
           </p>
+
+          {altRaiderIO && (
+            <p className="mb-2">
+              <span className="font-bold text-[#f5c451]">Alt Raider.IO:</span>{" "}
+              <a href={altRaiderIO} target="_blank" className="text-sky-400">
+                {altRaiderIO}
+              </a>
+            </p>
+          )}
+
+          {altWarcraftLogs && (
+            <p>
+              <span className="font-bold text-[#f5c451]">
+                Alt Warcraft Logs:
+              </span>{" "}
+              <a href={altWarcraftLogs} target="_blank" className="text-sky-400">
+                {altWarcraftLogs}
+              </a>
+            </p>
+          )}
         </div>
 
         <div className="mt-8 rounded-xl border border-[#6b4b1f] bg-black/50 p-6 backdrop-blur-sm">
@@ -397,32 +423,32 @@ async function updateApplicationStatus(newStatus: "accepted" | "declined") {
             </button>
           </div>
 
-   {isOfficer && (
-<div className="mt-6 grid grid-cols-3 gap-4 overflow-visible">
-            <button
-              type="button"
-              onClick={() => updateApplicationStatus("accepted")}
-              className="rounded-lg border border-green-500 bg-green-900/40 py-5 font-black text-green-400 transition-all duration-300 hover:scale-105 hover:bg-green-700/60 hover:text-white hover:shadow-[0_0_25px_rgba(34,197,94,0.8)]"
-            >
-              ✓ ACCEPT APPLICANT
-            </button>
+          {isOfficer && (
+            <div className="mt-6 grid grid-cols-3 gap-4 overflow-visible">
+              <button
+                type="button"
+                onClick={() => updateApplicationStatus("accepted")}
+                className="rounded-lg border border-green-500 bg-green-900/40 py-5 font-black text-green-400 transition-all duration-300 hover:scale-105 hover:bg-green-700/60 hover:text-white hover:shadow-[0_0_25px_rgba(34,197,94,0.8)]"
+              >
+                ✓ ACCEPT APPLICANT
+              </button>
 
-            <button
-              type="button"
-              className="rounded-lg border border-yellow-500 bg-yellow-900/40 py-5 font-black text-yellow-400 transition-all duration-300 hover:scale-105 hover:bg-yellow-700/60 hover:text-white hover:shadow-[0_0_25px_rgba(245,196,81,0.8)]"
-            >
-              ? REQUEST MORE INFO
-            </button>
+              <button
+                type="button"
+                className="rounded-lg border border-yellow-500 bg-yellow-900/40 py-5 font-black text-yellow-400 transition-all duration-300 hover:scale-105 hover:bg-yellow-700/60 hover:text-white hover:shadow-[0_0_25px_rgba(245,196,81,0.8)]"
+              >
+                ? REQUEST MORE INFO
+              </button>
 
-            <button
-              type="button"
-              onClick={() => updateApplicationStatus("declined")}
-              className="rounded-lg border border-red-500 bg-red-900/40 py-5 font-black text-red-400 transition-all duration-300 hover:scale-105 hover:bg-red-700/60 hover:text-white hover:shadow-[0_0_25px_rgba(239,68,68,0.8)]"
-            >
-              ✕ DECLINE APPLICANT
-            </button>
-</div>
-)}
+              <button
+                type="button"
+                onClick={() => updateApplicationStatus("declined")}
+                className="rounded-lg border border-red-500 bg-red-900/40 py-5 font-black text-red-400 transition-all duration-300 hover:scale-105 hover:bg-red-700/60 hover:text-white hover:shadow-[0_0_25px_rgba(239,68,68,0.8)]"
+              >
+                ✕ DECLINE APPLICANT
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

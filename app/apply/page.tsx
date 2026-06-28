@@ -281,6 +281,8 @@ faction: character.faction,
 REQUIREMENT
 Alt Question: ${splitAltAnswer}
 Alt Character: ${altCharacter ? `${altCharacter.name}-${altCharacter.realm}` : "Not added"}
+Alt Raider.IO: ${altCharacter ? `https://raider.io/characters/eu/${altCharacter.realm}/${altCharacter.name}` : "-"}
+Alt Warcraft Logs: ${altCharacter?.warcraftlogs_url || "-"}
 Third Day First Two Weeks: ${thirdDayAnswer}
 
 ABOUT YOU

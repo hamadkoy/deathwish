@@ -59,8 +59,9 @@ export default function GuildRanksPage() {
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
-      .eq("accepted_application", true)
-      .order("discord_name", { ascending: true });
+.eq("accepted_application", true)
+.neq("guild_role", "Guest")
+.order("discord_name", { ascending: true });
 
     if (error) {
       alert(error.message);
@@ -86,25 +87,25 @@ export default function GuildRanksPage() {
     await loadUsers();
   }
 
-  async function revokeAccess(userId: string) {
-    if (!confirm("Revoke this user's guild access?")) return;
+async function revokeAccess(userId: string) {
+  if (!confirm("Revoke this user's guild access?")) return;
 
-    const { error } = await supabase
-      .from("profiles")
-.update({
-  guild_role: "Guest",
-})
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      guild_role: "Guest",
+      accepted_application: false,
+      signup_approved: false,
+    })
+    .eq("user_id", userId);
 
-      .eq("user_id", userId);
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    await loadUsers();
+  if (error) {
+    alert(error.message);
+    return;
   }
 
+  await loadUsers();
+}
   const filteredUsers = useMemo(() => {
     return [...users]
       .filter((u) =>
