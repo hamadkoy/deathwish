@@ -253,7 +253,8 @@ return;
       .select("avatar_url")
       .eq("user_id", user.id)
       .single();
-
+console.log("MAIN", character);
+console.log("ALT", altCharacter);
     const { error } = await supabase.from("applications").insert({
       user_id: user.id,
 faction: character.faction,
@@ -268,7 +269,14 @@ faction: character.faction,
       raid_progress: character.progress,
       raider_io: `https://raider.io/characters/eu/${character.realm}/${character.name}`,
       warcraft_logs: character.warcraftlogs_url,
-
+alt_name: altCharacter?.name,
+alt_realm: altCharacter?.realm,
+alt_class: altCharacter?.class,
+alt_spec: altCharacter?.spec,
+alt_ilvl: altCharacter?.ilvl,
+alt_progress: altCharacter?.progress,
+alt_score: altCharacter?.score,
+alt_avatar_url: altCharacter?.avatar_url,
       applicant_name: playerName,
       age,
       country,
