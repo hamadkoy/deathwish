@@ -481,30 +481,18 @@ async function loadPendingApplications() {
 
                           <div className="mt-5 grid grid-cols-2 text-center">
                             <div>
-<div
-  className="text-2xl font-black"
-  style={{
-    color: getProgressColor(app.raid_progress),
-    textShadow: `0 0 12px ${getProgressColor(app.raid_progress)}88`,
-  }}
->
-  {app.raid_progress || "-"}
-</div>
+                              <div className="text-2xl font-black text-[#f5d37a]">
+                                {app.raid_progress || "-"}
+                              </div>
                               <div className="text-xs text-[#a8997a]">
                                 PROGRESS
                               </div>
                             </div>
 
                             <div className="border-l border-[#2b2418]">
-<div
-  className="text-2xl font-black"
-  style={{
-    color: getIlvlColor(app.ilvl),
-    textShadow: `0 0 12px ${getIlvlColor(app.ilvl)}88`,
-  }}
->
-  {app.ilvl || "-"}
-</div>
+                              <div className="text-2xl font-black text-[#f5d37a]">
+                                {app.ilvl || "-"}
+                              </div>
                               <div className="text-xs text-[#a8997a]">ILVL</div>
                             </div>
                           </div>
@@ -687,7 +675,7 @@ async function loadPendingApplications() {
         }
 
         .forumPage {
-          background-image: url("/lion.png");
+          background-image: url("/applyg.png");
           background-size: cover;
           background-position: center top;
           background-repeat: no-repeat;
@@ -818,31 +806,7 @@ async function loadPendingApplications() {
     </main>
   );
 }
-function getIlvlColor(ilvl: number | null) {
-  const n = Number(ilvl);
-  if (!n) return "#9d9d9d";
 
-  if (n >= 293) return "#ff8000";
-  if (n >= 290) return "#a335ee";
-  if (n >= 285) return "#0070dd";
-  if (n >= 280) return "#1eff00";
-  return "#9d9d9d";
-}
-
-function getProgressColor(progress: string | null) {
-  const match = String(progress || "").match(/(\d+)\/(\d+)M/i);
-  if (!match) return "#9d9d9d";
-
-  const killed = Number(match[1]);
-  const total = Number(match[2]);
-  const percent = killed / total;
-
-  if (percent >= 1) return "#ff8000";
-  if (percent >= 0.8) return "#a335ee";
-  if (percent >= 0.6) return "#0070dd";
-  if (percent >= 0.35) return "#1eff00";
-  return "#9d9d9d";
-}
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("en-GB", {
     day: "2-digit",
