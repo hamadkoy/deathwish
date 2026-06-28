@@ -639,7 +639,7 @@ setShowSuccessPopup(true);
           font-family: Georgia, "Times New Roman", serif;
           background:
             linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.88)),
-            url("/lion.png");
+            url("/lionsxa.png");
           background-size: cover;
           background-position: center top;
           background-attachment: fixed;
