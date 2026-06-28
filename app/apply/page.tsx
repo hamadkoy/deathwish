@@ -633,18 +633,25 @@ setShowSuccessPopup(true);
   </div>
 )}
       <style jsx>{`
-        .page {
-          min-height: 100vh;
-          color: #f5ead0;
-          font-family: Georgia, "Times New Roman", serif;
-          background:
-            linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.88)),
-            url("/lion.png");
-          background-size: cover;
-          background-position: center top;
-          background-attachment: fixed;
-        }
+.page {
+  min-height: 100vh;
+  color: #f5ead0;
+  font-family: Georgia, "Times New Roman", serif;
 
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.88)),
+    url("/lion.png");
+
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+:global(body) {
+  background:
+    linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.88)),
+    url("/lion.png") center top / cover fixed no-repeat !important;
+}
         .wrap {
           max-width: 1060px;
           margin: 0 auto;
