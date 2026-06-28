@@ -300,7 +300,6 @@ setShowSuccessPopup(true);
 
   return (
     <main className="page">
-      <div className="pageBg" />
       <div className="wrap">
         <section className="hero">
           <div className="heroText">
@@ -634,28 +633,18 @@ setShowSuccessPopup(true);
   </div>
 )}
       <style jsx>{`
+        .page {
+          min-height: 100vh;
+          color: #f5ead0;
+          font-family: Georgia, "Times New Roman", serif;
+          background:
+            linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.88)),
+            url("/applyg.png");
+          background-size: cover;
+          background-position: center top;
+          background-attachment: fixed;
+        }
 
-.page {
-  min-height: 100vh;
-  position: relative;
-  color: #f5ead0;
-  font-family: Georgia, "Times New Roman", serif;
-  background: transparent;
-}
-
-.pageBg {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-
-  background:
-    linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.88)),
-    url("/lion.png");
-
-  background-size: cover;
-  background-position: center top;
-  background-repeat: no-repeat;
-}
         .wrap {
           max-width: 1060px;
           margin: 0 auto;
@@ -1119,14 +1108,9 @@ color: #cfe5ff;
 
   border-radius: 8px;
   overflow: hidden;
-border: 1px solid rgba(59,130,246,0.45);
 
-background:
-  linear-gradient(
-    180deg,
-    rgba(5,15,40,0.98),
-    rgba(2,8,25,0.98)
-  );
+  border: 1px solid #d6a84f;
+  background: #07070d;
 
   box-shadow:
     0 18px 35px rgba(0,0,0,0.8),
@@ -1152,11 +1136,7 @@ background:
 }
 
 :global(.customSelectOption:hover) {
-  background: linear-gradient(
-  90deg,
-  rgba(30,58,138,0.95),
-  rgba(37,99,235,0.95)
-);
+  background: linear-gradient(90deg, #6b21a8, #28063d);
   color: white;
 }
         @media (max-width: 850px) {
