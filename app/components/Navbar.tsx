@@ -144,7 +144,7 @@ const [acceptedApplication, setAcceptedApplication] = useState(false);
 </NavButton>
 
 {!pathname.startsWith("/apply") &&
- !acceptedApplication && (
+ (!acceptedApplication || !guildRole || guildRole === "Guest") && (
   <NavButton href="/apply" style={navLink}>
     Apply
   </NavButton>
