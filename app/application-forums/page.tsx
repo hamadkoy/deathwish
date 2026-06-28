@@ -691,7 +691,7 @@ const factionBg =
         }
 
         .forumPage {
-          background-image: url("/applyg.png");
+          background-image: url("/lions.png");
           background-size: cover;
           background-position: center top;
           background-repeat: no-repeat;
