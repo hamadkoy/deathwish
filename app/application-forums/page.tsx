@@ -275,7 +275,10 @@ const { data: existingMain } = await supabase
   .maybeSingle();
 
 if (!existingMain) {
-  await supabase.from("guild_characters").insert({
+  const { error: characterError } = await supabase
+  .from("guild_characters")
+  .insert({
+    
     user_id: app.user_id,
 
     name: app.character_name,
@@ -292,9 +295,13 @@ if (!existingMain) {
 
     is_main: true,
   });
+  if (characterError) {
+  alert(characterError.message);
+}
 }
 
 if (app.alt_name) {
+    
   const { data: existingAlt } = await supabase
     .from("guild_characters")
     .select("id")
