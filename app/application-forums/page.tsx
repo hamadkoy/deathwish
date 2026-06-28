@@ -24,6 +24,7 @@ type Application = {
   note: string | null;
   accepted_by_name?: string | null;
   declined_by_name?: string | null;
+faction: string | null;
 };
 
 const classColors: Record<string, string> = {
@@ -406,10 +407,10 @@ async function loadPendingApplications() {
                 <div className="grid grid-cols-1 gap-7 md:grid-cols-2 xl:grid-cols-4">
                   {filteredApps.map((app) => {
                     const color = classColors[app.class || ""] || "#d6a84f";
-                    const discordBg =
-                      app.discord_avatar_url ||
-                      app.avatar_url ||
-                      "/websitelogo.png";
+const factionBg =
+  app.faction?.toLowerCase() === "horde"
+    ? "/applyhorde.png"
+    : "/Applyalliance.png";
 
                     return (
                       <div
@@ -435,20 +436,23 @@ async function loadPendingApplications() {
                           </button>
                         )}
 
-                        <div
-                          className="absolute left-0 right-0 top-0 h-[220px] bg-cover bg-center"
-                          style={{
-                            backgroundImage: `
-                              linear-gradient(
-                                to bottom,
-                                rgba(0,0,0,0),
-                                rgba(0,0,0,0.6),
-                                rgba(0,0,0,1)
-                              ),
-                              url('${discordBg}')
-                            `,
-                          }}
-                        />
+<div
+  className="absolute left-0 right-0 top-0 h-[220px] bg-no-repeat"
+  style={{
+    pointerEvents: "none",
+    backgroundSize: "100% auto",
+    backgroundPosition: "center top",
+    backgroundImage: `
+      linear-gradient(
+        to bottom,
+        rgba(0,0,0,0),
+        rgba(0,0,0,0.5),
+        rgba(0,0,0,1)
+      ),
+      url('${factionBg}')
+    `,
+  }}
+/>
 
                         <div className="absolute left-4 top-4 text-xs font-black uppercase tracking-wide text-[#f5d37a]">
                           {formatDate(app.created_at)}
@@ -481,18 +485,30 @@ async function loadPendingApplications() {
 
                           <div className="mt-5 grid grid-cols-2 text-center">
                             <div>
-                              <div className="text-2xl font-black text-[#f5d37a]">
-                                {app.raid_progress || "-"}
-                              </div>
+<div
+  className="text-2xl font-black"
+  style={{
+    color: getProgressColor(app.raid_progress),
+    textShadow: `0 0 12px ${getProgressColor(app.raid_progress)}88`,
+  }}
+>
+  {app.raid_progress || "-"}
+</div>
                               <div className="text-xs text-[#a8997a]">
                                 PROGRESS
                               </div>
                             </div>
 
                             <div className="border-l border-[#2b2418]">
-                              <div className="text-2xl font-black text-[#f5d37a]">
-                                {app.ilvl || "-"}
-                              </div>
+<div
+  className="text-2xl font-black"
+  style={{
+    color: getIlvlColor(app.ilvl),
+    textShadow: `0 0 12px ${getIlvlColor(app.ilvl)}88`,
+  }}
+>
+  {app.ilvl || "-"}
+</div>
                               <div className="text-xs text-[#a8997a]">ILVL</div>
                             </div>
                           </div>
@@ -523,15 +539,15 @@ async function loadPendingApplications() {
                             </a>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              router.push(`/application-forums/${app.id}`)
-                            }
-                            className="relative z-20 mt-5 w-full border border-[#d6a84f] bg-black/70 py-3 font-black uppercase text-[#f5c451] transition-all duration-300 hover:scale-105 hover:shadow-[0_0_25px_rgba(245,211,122,0.9)] hover:text-white"
-                          >
-                            View Application
-                          </button>
+<button
+  type="button"
+  onClick={() => {
+    window.location.href = `/application-forums/${app.id}`;
+  }}
+  className="relative z-[999] mt-5 w-full border border-[#d6a84f] bg-black/70 py-3 font-black uppercase text-[#f5c451] transition-all duration-300 hover:scale-105 hover:shadow-[0_0_25px_rgba(245,211,122,0.9)] hover:text-white"
+>
+  View Application
+</button>
 
                           {tab === "accepted" && app.accepted_by_name && (
                             <div className="mt-3 text-center text-sm font-bold text-green-400">
@@ -806,7 +822,31 @@ async function loadPendingApplications() {
     </main>
   );
 }
+function getIlvlColor(ilvl: number | null) {
+  const n = Number(ilvl);
+  if (!n) return "#9d9d9d";
 
+  if (n >= 293) return "#ff8000";
+  if (n >= 290) return "#a335ee";
+  if (n >= 285) return "#0070dd";
+  if (n >= 280) return "#1eff00";
+  return "#9d9d9d";
+}
+
+function getProgressColor(progress: string | null) {
+  const match = String(progress || "").match(/(\d+)\/(\d+)M/i);
+  if (!match) return "#9d9d9d";
+
+  const killed = Number(match[1]);
+  const total = Number(match[2]);
+  const percent = killed / total;
+
+  if (percent >= 1) return "#ff8000";
+  if (percent >= 0.8) return "#a335ee";
+  if (percent >= 0.6) return "#0070dd";
+  if (percent >= 0.35) return "#1eff00";
+  return "#9d9d9d";
+}
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("en-GB", {
     day: "2-digit",
