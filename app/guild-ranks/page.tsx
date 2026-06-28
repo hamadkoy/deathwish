@@ -92,8 +92,6 @@ export default function GuildRanksPage() {
     const { error } = await supabase
       .from("profiles")
 .update({
-  signup_approved: false,
-  accepted_application: false,
   guild_role: "Guest",
 })
 

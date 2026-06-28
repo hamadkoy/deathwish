@@ -16,7 +16,10 @@ type ApplyCharacter = {
   warcraftlogs_url: string;
   faction: string;
 };
-
+type CustomSelectOption = {
+  value: string;
+  label: string;
+};
 function getClassColor(className: string) {
   const colors: Record<string, string> = {
     "Death Knight": "#C41E3A",
@@ -36,7 +39,52 @@ function getClassColor(className: string) {
 
   return colors[className] || "#d6a84f";
 }
+function CustomSelect({
+  value,
+  placeholder,
+  options,
+  onChange,
+}: {
+  value: string;
+  placeholder: string;
+  options: CustomSelectOption[];
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
 
+  const selected = options.find((o) => o.value === value);
+
+  return (
+    <div className="customSelect">
+      <button
+        type="button"
+        className="customSelectBtn"
+        onClick={() => setOpen(!open)}
+      >
+        <span>{selected ? selected.label : placeholder}</span>
+        <b>▾</b>
+      </button>
+
+      {open && (
+        <div className="customSelectMenu">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className="customSelectOption"
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 export default function ApplyPage() {
   const router = useRouter();
 const [showSuccessPopup, setShowSuccessPopup] = useState(false);
@@ -363,18 +411,16 @@ setShowSuccessPopup(true);
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
               />
-
-              <select
-                value={raidAvailability}
-                onChange={(e) => setRaidAvailability(e.target.value)}
-              >
-                <option value="" disabled>
-                  Can you raid Sunday + Monday 18:00 - 22:00?
-                </option>
-                <option value="yes">Yes, I can raid both days</option>
-                <option value="no">No</option>
-                <option value="sometimes">Sometimes / Need to explain</option>
-              </select>
+<CustomSelect
+  value={raidAvailability}
+  onChange={setRaidAvailability}
+  placeholder="Can you raid Sunday + Monday 18:00 - 22:00?"
+  options={[
+    { value: "yes", label: "Yes, I can raid both days" },
+    { value: "no", label: "No" },
+    { value: "sometimes", label: "Sometimes / Need to explain" },
+  ]}
+/>
             </div>
           </section>
 
@@ -407,29 +453,27 @@ setShowSuccessPopup(true);
             <h3>REQUIREMENT</h3>
 
             <div className="grid">
-              <select
-                value={splitAltAnswer}
-                onChange={(e) => setSplitAltAnswer(e.target.value)}
-              >
-                <option value="" disabled>
-                  We require an alt for our split run. Is this okay?
-                </option>
-                <option value="yes">Yes, I have an alt</option>
-                <option value="working">I am working on an alt</option>
-                <option value="no">No</option>
-              </select>
+<CustomSelect
+  value={splitAltAnswer}
+  onChange={setSplitAltAnswer}
+  placeholder="We require an alt for our split run. Is this okay?"
+  options={[
+    { value: "yes", label: "Yes, I have an alt" },
+    { value: "working", label: "I am working on an alt" },
+    { value: "no", label: "No" },
+  ]}
+/>
 
-              <select
-                value={thirdDayAnswer}
-                onChange={(e) => setThirdDayAnswer(e.target.value)}
-              >
-                <option value="" disabled>
-                  We add 3rd day on first two weeks of season. Issue?
-                </option>
-                <option value="no_issue">No issue</option>
-                <option value="maybe">Maybe / depends</option>
-                <option value="issue">Yes, it will be an issue</option>
-              </select>
+<CustomSelect
+  value={thirdDayAnswer}
+  onChange={setThirdDayAnswer}
+  placeholder="We add 3rd day on first two weeks of season. Issue?"
+  options={[
+    { value: "no_issue", label: "No issue" },
+    { value: "maybe", label: "Maybe / depends" },
+    { value: "issue", label: "Yes, it will be an issue" },
+  ]}
+/>
             </div>
 
             <div className="addGrid requirementAdd">
@@ -553,13 +597,7 @@ setShowSuccessPopup(true);
   </div>
 )}
 
-{showSuccessPopup && (
-  <div className="successOverlay">
-    <div className="successPopup">
-      ...
-    </div>
-  </div>
-)}
+
 {showSuccessPopup && (
   <div className="successOverlay">
     <div className="successPopup">
@@ -627,7 +665,7 @@ setShowSuccessPopup(true);
 rgba(0,0,0,0.78),
 rgba(0,0,0,0.18)
     ),
-    url("/About guild.png");
+    url("/blueapply.png");
 
   background-size: cover;
   background-position: center;
@@ -827,49 +865,42 @@ rgba(0,0,0,0.18)
           margin-top: 14px;
         }
 
-        .grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 14px;
-        }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  align-items: start;
+}
 
         .wide {
           grid-column: span 2;
         }
 
-        input,
-        textarea,
-        select {
-          width: 100%;
-          padding: 14px 16px;
-          border-radius: 5px;
-          border: 1px solid rgba(214, 168, 79, 0.35);
-          background:
-            linear-gradient(rgba(255, 255, 255, 0.03), transparent),
-            rgba(0, 0, 0, 0.78);
-          color: #f5ead0;
-          font-size: 18px;
-          font-weight: 600;
-          line-height: 1.4;
-          outline: none;
-          font-family: Georgia, "Times New Roman", serif;
-          box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.7);
-        }
+input,
+textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 5px;
+  border: 1px solid rgba(214, 168, 79, 0.35);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.03), transparent),
+    rgba(0, 0, 0, 0.78);
+  color: #f5ead0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  outline: none;
+  font-family: Georgia, "Times New Roman", serif;
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.7);
+}
 
-        input::placeholder,
-        textarea::placeholder {
-          color: rgba(214, 168, 79, 0.55);
-          font-size: 14px;
-          font-weight: 400;
-          font-style: italic;
-        }
-
-        select {
-          color: rgba(214, 168, 79, 0.75);
-          font-size: 14px;
-          font-weight: 500;
-        }
-
+input::placeholder,
+textarea::placeholder {
+  color: rgba(214, 168, 79, 0.55);
+  font-size: 14px;
+  font-weight: 400;
+  font-style: italic;
+}
         input,
         textarea {
           text-shadow: 0 0 4px rgba(255, 255, 255, 0.15);
@@ -1033,7 +1064,90 @@ rgba(0,0,0,0.18)
           color: rgba(245, 234, 208, 0.7);
           font-size: 13px;
         }
+:global(.customSelect) {
+  position: relative;
+  width: 100%;
+}
 
+:global(.customSelectBtn) {
+  width: 100%;
+  min-height: 56px;
+
+  padding: 14px 16px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  border-radius: 6px;
+border: 1px solid rgba(59,130,246,0.45);
+
+background:
+  linear-gradient(
+    180deg,
+    rgba(8,35,85,0.95),
+    rgba(2,15,40,0.98)
+  );
+
+color: #cfe5ff;
+
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  font-weight: 900;
+
+  cursor: pointer;
+}
+
+:global(.customSelectMenu) {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+
+  margin-top: 6px;
+
+  border-radius: 8px;
+  overflow: hidden;
+border: 1px solid rgba(59,130,246,0.45);
+
+background:
+  linear-gradient(
+    180deg,
+    rgba(5,15,40,0.98),
+    rgba(2,8,25,0.98)
+  );
+
+  box-shadow:
+    0 18px 35px rgba(0,0,0,0.8),
+    0 0 25px rgba(168,85,247,0.35);
+
+  z-index: 9999;
+}
+
+:global(.customSelectOption) {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-bottom: 1px solid rgba(214, 168, 79, 0.18);
+
+  background: rgba(5, 5, 10, 0.96);
+  color: #f5ead0;
+
+  text-align: left;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+:global(.customSelectOption:hover) {
+  background: linear-gradient(
+  90deg,
+  rgba(30,58,138,0.95),
+  rgba(37,99,235,0.95)
+);
+  color: white;
+}
         @media (max-width: 850px) {
           .wrap {
             padding: 16px 12px 40px;

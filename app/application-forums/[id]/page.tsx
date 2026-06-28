@@ -12,7 +12,8 @@ export default function ApplicationDetailsPage() {
   const [messages, setMessages] = useState<any[]>([]);
   const [message, setMessage] = useState("");
   const [myProfile, setMyProfile] = useState<any>(null);
-
+const [isOfficer, setIsOfficer] = useState(false);
+const [isGuildMaster, setIsGuildMaster] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
@@ -40,12 +41,18 @@ export default function ApplicationDetailsPage() {
     } = await supabase.auth.getUser();
 
     if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("user_id, discord_name, avatar_url, site_role")
-        .eq("user_id", user.id)
-        .single();
+const { data: profile } = await supabase
+  .from("profiles")
+  .select("user_id, discord_name, avatar_url, guild_role")
+  .eq("user_id", user.id)
+  .single();
+const role = profile?.guild_role || "";
 
+setIsGuildMaster(role === "Guild Master");
+setIsOfficer(
+  role === "Guild Master" ||
+  role === "Officer"
+);
       setMyProfile(profile);
     }
 
@@ -119,21 +126,51 @@ export default function ApplicationDetailsPage() {
     loadPage();
   }
 
-  async function updateApplicationStatus(newStatus: "accepted" | "declined") {
-    if (!app) return;
-
-    const { error } = await supabase
-      .from("applications")
-      .update({ status: newStatus })
-      .eq("id", app.id);
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    router.push("/application-forums");
+async function updateApplicationStatus(newStatus: "accepted" | "declined") {
+  if (!isOfficer) {
+    alert("You do not have permission.");
+    return;
   }
+
+  if (!app) return;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("discord_name")
+    .eq("user_id", user?.id)
+    .single();
+
+  const updateData =
+    newStatus === "accepted"
+      ? {
+          status: "accepted",
+          accepted_by: user?.id,
+          accepted_by_name: profile?.discord_name || "Unknown",
+          accepted_at: new Date().toISOString(),
+        }
+      : {
+          status: "declined",
+          declined_by: user?.id,
+          declined_by_name: profile?.discord_name || "Unknown",
+          declined_at: new Date().toISOString(),
+        };
+
+  const { error } = await supabase
+    .from("applications")
+    .update(updateData)
+    .eq("id", app.id);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  router.push("/application-forums");
+}
 
   if (!app) {
     return (
@@ -360,7 +397,8 @@ export default function ApplicationDetailsPage() {
             </button>
           </div>
 
-          <div className="mt-6 grid grid-cols-3 gap-4 overflow-visible">
+   {isOfficer && (
+<div className="mt-6 grid grid-cols-3 gap-4 overflow-visible">
             <button
               type="button"
               onClick={() => updateApplicationStatus("accepted")}
@@ -383,7 +421,8 @@ export default function ApplicationDetailsPage() {
             >
               ✕ DECLINE APPLICANT
             </button>
-          </div>
+</div>
+)}
         </div>
       </div>
 
