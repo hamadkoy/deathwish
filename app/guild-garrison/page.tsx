@@ -178,7 +178,8 @@ async function loadCharacters() {
   }
 
   setIsOwnProfile(targetUserId === authData.user.id);
-
+console.log("AUTH USER:", authData.user.id);
+console.log("TARGET USER:", targetUserId);
 const { data: viewedProfileData } = await supabase
   .from("profiles")
   .select("*, discord_id")
@@ -219,7 +220,7 @@ const { data, error } = await supabase
   }
 
   const chars = data || [];
-
+console.log("GUILD CHARACTERS:", chars);
 setCharacters(chars);
 }
 async function loadCharacterGear(characterId: string) {
