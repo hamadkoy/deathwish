@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import GuildAccessGuard from "@/app/components/GuildAccessGuard";
+import { useRouter } from "next/navigation";
+
 type Character = {
   id: string;
   user_id: string;
@@ -11,9 +13,7 @@ type Character = {
   ilvl: number;
   class: string;
   spec: string;
-  progress?: string;
   mythic_plus_score?: number;
-  mythic_plus_color?: string;
   avatar_url?: string;
   is_main?: boolean;
 };
@@ -23,6 +23,7 @@ type Profile = {
   discord_name?: string;
   avatar_url?: string;
   site_role?: string;
+  guild_role?: string;
 };
 
 type RosterUser = {
@@ -48,61 +49,93 @@ const classColors: Record<string, string> = {
   Warrior: "#C69B6D",
 };
 
-const tankSpecs = ["Blood", "Protection", "Guardian", "Brewmaster", "Vengeance"];
-const healerSpecs = ["Restoration", "Holy", "Discipline", "Mistweaver", "Preservation"];
-
-const meleeSpecs = [
-  "Havoc",
-  "Feral",
-  "Windwalker",
-  "Retribution",
-  "Enhancement",
-  "Assassination",
-  "Outlaw",
-  "Subtlety",
-  "Arms",
-  "Fury",
-  "Frost",
-  "Unholy",
-  "Survival",
-];
-
-function roleOf(c?: Character) {
-  if (!c) return "range";
-  if (tankSpecs.includes(c.spec)) return "tank";
-  if (healerSpecs.includes(c.spec)) return "healer";
-  if (meleeSpecs.includes(c.spec)) return "melee";
-  return "range";
-}
-
 function colorOf(className?: string) {
   return classColors[className || ""] || "#a855f7";
 }
-function UserCard({ user }: { user: RosterUser }) {
+
+function roleOf(c?: Character) {
+  if (!c) return "range";
+
+  const key = `${c.spec} ${c.class}`;
+
+  const tanks = [
+    "Blood Death Knight",
+    "Protection Paladin",
+    "Protection Warrior",
+    "Guardian Druid",
+    "Brewmaster Monk",
+    "Vengeance Demon Hunter",
+  ];
+
+  const healers = [
+    "Restoration Druid",
+    "Restoration Shaman",
+    "Holy Paladin",
+    "Holy Priest",
+    "Discipline Priest",
+    "Mistweaver Monk",
+    "Preservation Evoker",
+  ];
+
+  const melee = [
+    "Havoc Demon Hunter",
+    "Feral Druid",
+    "Windwalker Monk",
+    "Retribution Paladin",
+    "Enhancement Shaman",
+    "Assassination Rogue",
+    "Outlaw Rogue",
+    "Subtlety Rogue",
+    "Arms Warrior",
+    "Fury Warrior",
+    "Frost Death Knight",
+    "Unholy Death Knight",
+    "Survival Hunter",
+  ];
+
+  if (tanks.includes(key)) return "tank";
+  if (healers.includes(key)) return "healer";
+  if (melee.includes(key)) return "melee";
+  return "range";
+}
+
+function UserCard({ user, compact = false }: { user: RosterUser; compact?: boolean }) {
+  const router = useRouter();
   const main = user.main || user.characters[0];
   const color = colorOf(main?.class);
   const chars = user.characters.slice(0, 2);
 
   return (
-    <div style={{ textAlign: "center", width: 220 }}>
+    <div
+      style={{
+        textAlign: "center",
+        width: compact ? 165 : 185,
+        position: "relative",
+      }}
+    >
       <div
+        onClick={() => router.push(`/guild-garrison?user=${user.user_id}`)}
+        title="View Guild Garrison"
         style={{
-          width: 145,
-          height: 145,
-          margin: "0 auto 10px",
+          width: compact ? 82 : 100,
+          height: compact ? 82 : 100,
+          margin: "0 auto 7px",
           borderRadius: "50%",
-          padding: 5,
-          border: `3px solid ${color}`,
-          boxShadow: `0 0 28px ${color}`,
-          position: "relative",
+          padding: 4,
+          border: `2px solid ${color}`,
+          boxShadow: `0 0 18px ${color}`,
           background: "#020006",
-          transition: "all .25s ease",
+          position: "relative",
+          cursor: "pointer",
+          transition: "all .22s ease",
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = "scale(1.08)";
+          e.currentTarget.style.boxShadow = `0 0 28px ${color}`;
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = "scale(1)";
+          e.currentTarget.style.boxShadow = `0 0 18px ${color}`;
         }}
       >
         <img
@@ -118,14 +151,14 @@ function UserCard({ user }: { user: RosterUser }) {
         <span
           style={{
             position: "absolute",
-            right: 10,
-            bottom: 12,
-            width: 18,
-            height: 18,
+            right: 5,
+            bottom: 7,
+            width: 13,
+            height: 13,
             borderRadius: "50%",
             background: "#22c55e",
             border: "2px solid #020006",
-            boxShadow: "0 0 10px #22c55e",
+            boxShadow: "0 0 9px #22c55e",
           }}
         />
       </div>
@@ -133,23 +166,27 @@ function UserCard({ user }: { user: RosterUser }) {
       <div
         style={{
           color,
-          fontSize: 20,
+          fontSize: compact ? 14 : 16,
           fontWeight: 900,
-          marginBottom: 12,
-          textShadow: `0 0 12px ${color}`,
+          marginBottom: 8,
+          textShadow: `0 0 10px ${color}`,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
         }}
       >
-        {user.profile?.discord_name || main?.name || "Unknown"} {main?.is_main ? "👑" : ""}
+        {user.profile?.discord_name || main?.name || "Unknown"} 👑
       </div>
 
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
-          gap: 10,
+          gap: 7,
         }}
       >
         {chars.map((c) => {
+          const cColor = colorOf(c.class);
           const rioUrl = `https://raider.io/characters/eu/${encodeURIComponent(
             c.realm
           )}/${encodeURIComponent(c.name)}`;
@@ -162,46 +199,42 @@ function UserCard({ user }: { user: RosterUser }) {
               rel="noopener noreferrer"
               style={{
                 textDecoration: "none",
-          background: "rgba(5,0,18,.92)",
-border: `1px solid ${colorOf(c.class)}55`,
-                borderRadius: 10,
-                padding: 8,
-                boxShadow: `0 0 12px ${colorOf(c.class)}33`,
-                transition: "all .22s ease",
-                display: "block",
+                background: "linear-gradient(180deg, rgba(10,7,18,.92), rgba(2,0,8,.96))",
+                border: `1px solid ${cColor}88`,
+                borderRadius: 8,
+                padding: "8px 7px",
+                boxShadow: `0 0 12px ${cColor}33`,
+                transition: "all .2s ease",
+                minWidth: 0,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "scale(1.16)";
-                e.currentTarget.style.boxShadow = `0 0 24px ${colorOf(c.class)}aa`;
-                e.currentTarget.style.border = `1px solid ${colorOf(c.class)}`;
+                e.currentTarget.style.transform = "scale(1.12)";
+                e.currentTarget.style.boxShadow = `0 0 22px ${cColor}`;
                 e.currentTarget.style.zIndex = "20";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "scale(1)";
-                e.currentTarget.style.boxShadow = "0 0 14px rgba(0,0,0,.75)";
-                e.currentTarget.style.border = "1px solid rgba(255,255,255,.14)";
+                e.currentTarget.style.boxShadow = `0 0 12px ${cColor}33`;
                 e.currentTarget.style.zIndex = "1";
               }}
             >
-<img
-  src={c.avatar_url || "/default-avatar.png"}
-  style={{
-    width: 62,
-    height: 62,
-    borderRadius: "50%",
-    objectFit: "cover",
-    objectPosition: "center center",
-    display: "block",
-    margin: "0 auto 6px",
-    border: `2px solid ${colorOf(c.class)}`,
-    boxShadow: `0 0 12px ${colorOf(c.class)}`,
-  }}
-/>
+              <img
+                src={c.avatar_url || "/default-avatar.png"}
+                style={{
+             width: compact ? 48 : 58,
+height: compact ? 48 : 58,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  display: "block",
+                  margin: "0 auto 4px",
+                  border: `2px solid ${cColor}`,
+                }}
+              />
 
               <div
                 style={{
-                  color: colorOf(c.class),
-                  fontSize: 13,
+                  color: cColor,
+                  fontSize: compact ? 10 : 11,
                   fontWeight: 900,
                   whiteSpace: "nowrap",
                   overflow: "hidden",
@@ -211,11 +244,11 @@ border: `1px solid ${colorOf(c.class)}55`,
                 {c.name}
               </div>
 
-              <div style={{ color: "#ddd6fe", fontSize: 12, lineHeight: 1.35 }}>
+              <div style={{ color: "#f5f3ff", fontSize: compact ? 10 : 11 }}>
                 ilvl {c.ilvl || "-"}
               </div>
 
-              <div style={{ color: "#ddd6fe", fontSize: 12, lineHeight: 1.35 }}>
+              <div style={{ color: "#f5f3ff", fontSize: compact ? 10 : 11 }}>
                 {c.mythic_plus_score || 0}
               </div>
             </a>
@@ -226,66 +259,77 @@ border: `1px solid ${colorOf(c.class)}55`,
   );
 }
 
-
 function Section({
   title,
   icon,
   users,
   limit,
   color,
+  bg,
+  compact = false,
 }: {
   title: string;
   icon: string;
   users: RosterUser[];
   limit?: number;
   color: string;
+  bg: string;
+  compact?: boolean;
 }) {
   return (
     <section
       style={{
-        border: `1px solid ${color}88`,
-        borderRadius: 12,
-        padding: 18,
-        marginBottom: 16,
-        background: "rgba(3,0,12,.78)",
-        boxShadow: "inset 0 0 35px rgba(0,0,0,.85), 0 0 25px rgba(168,85,247,.18)",
-        minHeight: 260,
+        border: `1px solid ${color}aa`,
+        borderRadius: 10,
+        padding: compact ? 16 : 18,
+        minHeight: compact ? 245 : 500,
+        backgroundImage: `
+          linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.72)),
+          url("${bg}")
+        `,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        boxShadow: `inset 0 0 50px rgba(0,0,0,.9), 0 0 18px ${color}33`,
+        overflow: "hidden",
       }}
     >
       <div
         style={{
           display: "flex",
-          alignItems: "center",
           justifyContent: "center",
-          gap: 12,
-          marginBottom: 24,
+          alignItems: "center",
+          gap: 10,
           color,
           fontFamily: "Georgia, serif",
-          fontSize: 20,
+          fontSize: compact ? 18 : 24,
           fontWeight: 900,
-          letterSpacing: 2,
-          textShadow: "0 0 12px currentColor",
+          letterSpacing: 1.5,
+          textShadow: `0 0 14px ${color}`,
+          marginBottom: compact ? 18 : 28,
         }}
       >
-        <span style={{ width: 110, height: 1, background: color, opacity: 0.6 }} />
+        <span style={{ width: 80, height: 1, background: color, opacity: 0.75 }} />
         <span>{icon}</span>
         <span>
           {title} ({users.length}
           {limit ? `/${limit}` : ""})
         </span>
-        <span style={{ width: 110, height: 1, background: color, opacity: 0.6 }} />
+        <span style={{ width: 80, height: 1, background: color, opacity: 0.75 }} />
       </div>
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
-          gap: "26px 18px",
+          gridTemplateColumns: compact
+            ? "repeat(auto-fit, minmax(165px, 1fr))"
+            : "repeat(auto-fit, minmax(175px, 1fr))",
+          gap: compact ? "24px 14px" : "30px 18px",
           justifyItems: "center",
+          alignItems: "start",
         }}
       >
         {users.map((u) => (
-          <UserCard key={u.user_id} user={u} />
+          <UserCard key={u.user_id} user={u} compact={compact} />
         ))}
       </div>
     </section>
@@ -321,7 +365,7 @@ export default function RosterPage() {
     if (userIds.length > 0) {
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("user_id, discord_name, avatar_url, site_role")
+        .select("user_id, discord_name, avatar_url, site_role, guild_role")
         .in("user_id", userIds);
 
       profiles = profileData || [];
@@ -354,7 +398,23 @@ export default function RosterPage() {
       }),
     }));
 
-    setUsers(finalUsers);
+   const allowedRanks = [
+  "Trial",
+  "Raider",
+  "Officer",
+  "Death Wish",
+  "Guild Master",
+];
+
+const filteredUsers = finalUsers.filter((u) => {
+  const rank = u.profile?.guild_role?.trim();
+
+  return rank && allowedRanks.includes(rank);
+});
+
+setUsers(filteredUsers);
+
+setUsers(filteredUsers);
     setLoading(false);
   }
 
@@ -376,80 +436,134 @@ export default function RosterPage() {
     return { tanks, healers, range, melee };
   }, [users]);
 
-return (
-  <GuildAccessGuard>
-    <main
-      style={{
-        minHeight: "100vh",
-        backgroundImage: `url("/Roster.png")`,
-        backgroundSize: "cover",
-        backgroundPosition: "top center",
-        backgroundAttachment: "fixed",
-        color: "white",
-        padding: "70px 20px 40px",
-        position: "relative",
-      }}
-    >
-      <div
+  return (
+    <GuildAccessGuard>
+      <main
         style={{
-          position: "fixed",
-          inset: 0,
-          background: "linear-gradient(rgba(5,0,15,.18), rgba(0,0,0,.82))",
-          pointerEvents: "none",
+          minHeight: "100vh",
+          backgroundImage: `url("/Roster.png")`,
+          backgroundSize: "cover",
+          backgroundPosition: "top center",
+          backgroundAttachment: "fixed",
+          color: "white",
+          padding: "50px 18px 35px",
+          position: "relative",
         }}
-      />
+      >
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background:
+              "linear-gradient(rgba(5,0,15,.15), rgba(0,0,0,.76))",
+            pointerEvents: "none",
+          }}
+        />
 
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 1500, margin: "0 auto" }}>
-        <header style={{ textAlign: "center", marginBottom: 30 }}>
-          <h1
-            style={{
-              margin: 0,
-              fontFamily: "Georgia, serif",
-              fontSize: 54,
-              letterSpacing: 14,
-              textShadow: "0 0 28px #a855f7",
-            }}
-          >
-            GUILD ROSTER
-          </h1>
-
-          <div style={{ marginTop: 8, color: "#c4b5fd", fontWeight: 800 }}>
-            {users.length} Members <span style={{ margin: "0 12px" }}>•</span>
-            <span style={{ color: "#22c55e" }}>Online</span>
-          </div>
-        </header>
-
-        {loading ? (
-          <div
-            style={{
-              padding: 40,
-              textAlign: "center",
-              border: "1px solid rgba(168,85,247,.5)",
-              borderRadius: 14,
-              background: "rgba(0,0,0,.65)",
-            }}
-          >
-            Loading roster...
-          </div>
-        ) : (
-          <>
-            <div
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            width: "min(1800px, 100%)",
+            margin: "0 auto",
+          }}
+        >
+          <header style={{ textAlign: "center", marginBottom: 18 }}>
+            <h1
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1.4fr",
-                gap: 16,
+                margin: 0,
+                fontFamily: "Georgia, serif",
+                fontSize: 44,
+                letterSpacing: 12,
+                textShadow: "0 0 28px #a855f7",
               }}
             >
-              <Section title="TANKS" icon="🛡" users={grouped.tanks} limit={2} color="#3b82f6" />
-              <Section title="HEALERS" icon="✚" users={grouped.healers} limit={5} color="#22c55e" />
-            </div>
+              GUILD ROSTER
+            </h1>
 
-            <Section title="RANGE DPS" icon="🏹" users={grouped.range} color="#f97316" />
-            <Section title="MELEE DPS" icon="⚔" users={grouped.melee} color="#ef4444" />
-          </>
-        )}
-      </div>
-    </main>
-  </GuildAccessGuard>
+            <div
+              style={{
+                marginTop: 5,
+                color: "#c4b5fd",
+                fontWeight: 800,
+                letterSpacing: 3,
+                fontSize: 12,
+              }}
+            >
+              THE SHADOWS RISE TOGETHER
+            </div>
+          </header>
+
+          {loading ? (
+            <div
+              style={{
+                padding: 40,
+                textAlign: "center",
+                border: "1px solid rgba(168,85,247,.5)",
+                borderRadius: 14,
+                background: "rgba(0,0,0,.65)",
+              }}
+            >
+              Loading roster...
+            </div>
+          ) : (
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "0.4fr 1fr",
+                  gap: 14,
+                  marginBottom: 16,
+                }}
+              >
+                <Section
+                  title="TANKS"
+                  icon="🛡"
+                  users={grouped.tanks}
+                  limit={2}
+                  color="#38bdf8"
+                  bg="/Tank.png"
+                  compact
+                />
+
+                <Section
+                  title="HEALERS"
+                  icon="🌿"
+                  users={grouped.healers}
+                  limit={5}
+                  color="#22c55e"
+                  bg="/Healer.png"
+                  compact
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 16,
+                }}
+              >
+                <Section
+                  title="RANGE DPS"
+                  icon="🏹"
+                  users={grouped.range}
+                  color="#f59e0b"
+                  bg="/Range.png"
+                />
+
+                <Section
+                  title="MELEE DPS"
+                  icon="⚔"
+                  users={grouped.melee}
+                  color="#ef4444"
+                  bg="/Melee.png"
+                />
+              </div>
+            </>
+          )}
+        </div>
+      </main>
+    </GuildAccessGuard>
   );
 }

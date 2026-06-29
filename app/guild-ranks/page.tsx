@@ -12,6 +12,15 @@ type GuildRole =
   | "Trial"
   | "Guest";
 
+type RankTab =
+  | "All"
+  | "Guild Master"
+  | "Officer"
+  | "Death Wish"
+  | "Raider"
+  | "Trial"
+  | "Revoked";
+
 type Profile = {
   user_id: string;
   discord_name?: string;
@@ -20,6 +29,7 @@ type Profile = {
   main_character?: string;
   main_realm?: string;
   signup_approved?: boolean;
+  accepted_application?: boolean;
 };
 
 const guildRoleOrder: Record<GuildRole, number> = {
@@ -31,9 +41,22 @@ const guildRoleOrder: Record<GuildRole, number> = {
   Guest: 5,
 };
 
+const rankTabs: RankTab[] = [
+  "All",
+  "Guild Master",
+  "Officer",
+  "Death Wish",
+  "Raider",
+  "Trial",
+  "Revoked",
+];
+
 export default function GuildRanksPage() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<RankTab>("All");
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -59,9 +82,7 @@ export default function GuildRanksPage() {
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
-.eq("accepted_application", true)
-.neq("guild_role", "Guest")
-.order("discord_name", { ascending: true });
+      .order("discord_name", { ascending: true });
 
     if (error) {
       alert(error.message);
@@ -74,9 +95,22 @@ export default function GuildRanksPage() {
   }
 
   async function updateGuildRank(userId: string, guildRole: GuildRole) {
+    const updates =
+      guildRole === "Guest"
+        ? {
+            guild_role: "Guest",
+            accepted_application: false,
+            signup_approved: false,
+          }
+        : {
+            guild_role: guildRole,
+            accepted_application: true,
+            signup_approved: true,
+          };
+
     const { error } = await supabase
       .from("profiles")
-      .update({ guild_role: guildRole })
+      .update(updates)
       .eq("user_id", userId);
 
     if (error) {
@@ -87,27 +121,56 @@ export default function GuildRanksPage() {
     await loadUsers();
   }
 
-async function revokeAccess(userId: string) {
-  if (!confirm("Revoke this user's guild access?")) return;
+  async function updateDiscordName(userId: string) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ discord_name: editingName })
+      .eq("user_id", userId);
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      guild_role: "Guest",
-      accepted_application: false,
-      signup_approved: false,
-    })
-    .eq("user_id", userId);
+    if (error) {
+      alert(error.message);
+      return;
+    }
 
-  if (error) {
-    alert(error.message);
-    return;
+    setEditingNameId(null);
+    setEditingName("");
+    await loadUsers();
   }
 
-  await loadUsers();
-}
+  async function revokeAccess(userId: string) {
+    if (!confirm("Revoke this user's guild access?")) return;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        guild_role: "Guest",
+        accepted_application: false,
+        signup_approved: false,
+      })
+      .eq("user_id", userId);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await loadUsers();
+  }
+
   const filteredUsers = useMemo(() => {
     return [...users]
+      .filter((u) => {
+        const rank = normalizeGuildRole(u.guild_role);
+        const revoked = rank === "Guest" || u.accepted_application === false;
+
+        if (activeTab === "Revoked") return revoked;
+
+        if (activeTab === "All") {
+          return !revoked;
+        }
+
+        return rank === activeTab && !revoked;
+      })
       .filter((u) =>
         (u.discord_name || "").toLowerCase().includes(search.toLowerCase())
       )
@@ -120,26 +183,48 @@ async function revokeAccess(userId: string) {
 
         return (a.discord_name || "").localeCompare(b.discord_name || "");
       });
-  }, [users, search]);
+  }, [users, search, activeTab]);
+
+  const activeUsers = users.filter((u) => {
+    const rank = normalizeGuildRole(u.guild_role);
+    return rank !== "Guest" && u.accepted_application !== false;
+  });
+
+  const revokedUsers = users.filter((u) => {
+    const rank = normalizeGuildRole(u.guild_role);
+    return rank === "Guest" || u.accepted_application === false;
+  });
 
   const counts = {
-    total: users.length,
-    guildMaster: users.filter(
+    total: activeUsers.length,
+    guildMaster: activeUsers.filter(
       (u) => normalizeGuildRole(u.guild_role) === "Guild Master"
     ).length,
-    officer: users.filter(
+    officer: activeUsers.filter(
       (u) => normalizeGuildRole(u.guild_role) === "Officer"
     ).length,
-    deathWish: users.filter(
+    deathWish: activeUsers.filter(
       (u) => normalizeGuildRole(u.guild_role) === "Death Wish"
     ).length,
-    raider: users.filter(
+    raider: activeUsers.filter(
       (u) => normalizeGuildRole(u.guild_role) === "Raider"
     ).length,
-    trial: users.filter(
+    trial: activeUsers.filter(
       (u) => normalizeGuildRole(u.guild_role) === "Trial"
     ).length,
+    revoked: revokedUsers.length,
   };
+
+  function getTabCount(tab: RankTab) {
+    if (tab === "All") return counts.total;
+    if (tab === "Guild Master") return counts.guildMaster;
+    if (tab === "Officer") return counts.officer;
+    if (tab === "Death Wish") return counts.deathWish;
+    if (tab === "Raider") return counts.raider;
+    if (tab === "Trial") return counts.trial;
+    if (tab === "Revoked") return counts.revoked;
+    return 0;
+  }
 
   return (
     <div style={page}>
@@ -161,9 +246,23 @@ async function revokeAccess(userId: string) {
             <Stat title="Death Wish" value={counts.deathWish} color="#a78bfa" />
             <Stat title="Raider" value={counts.raider} color="#38bdf8" />
             <Stat title="Trial" value={counts.trial} color="#94a3b8" />
+            <Stat title="Revoked" value={counts.revoked} color="#f87171" />
           </div>
 
           <div style={panel}>
+            <div style={tabsRow}>
+              {rankTabs.map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={activeTab === tab ? activeTabBtn : tabBtn}
+                >
+                  {tab}
+                  <span style={tabCount}>{getTabCount(tab)}</span>
+                </button>
+              ))}
+            </div>
+
             <div style={topRow}>
               <input
                 placeholder="Search by Discord name..."
@@ -184,33 +283,71 @@ async function revokeAccess(userId: string) {
             {loading ? (
               <div style={empty}>Loading guild members...</div>
             ) : filteredUsers.length === 0 ? (
-              <div style={empty}>No approved guild members found.</div>
+              <div style={empty}>No users found in this tab.</div>
             ) : (
               filteredUsers.map((user) => {
                 const rank = normalizeGuildRole(user.guild_role);
                 const isOwner =
                   (user.discord_name || "").toLowerCase() === "koyjin";
 
+                const isRevoked =
+                  rank === "Guest" || user.accepted_application === false;
+
                 return (
                   <div key={user.user_id} style={tableRow}>
                     <div style={userCell}>
                       <img
                         src={user.avatar_url || "/logo.png"}
-                        style={avatar}
+                        style={{
+                          ...avatar,
+                          cursor: "pointer",
+                        }}
                         alt=""
+                        title="View Garrison"
+                        onClick={() => {
+                          window.location.href = `/guild-garrison?user=${user.user_id}`;
+                        }}
                       />
 
                       <div>
-<div
-  style={clickableUserName}
-  onClick={() => {
-    window.location.href = `/guild-garrison?user=${user.user_id}`;
-  }}
-  title="View Garrison"
->
-  {getGuildRoleIcon(rank)}{" "}
-  {user.discord_name || "Unknown"}
-</div>
+                        {editingNameId === user.user_id ? (
+                          <input
+                            autoFocus
+                            value={editingName}
+                            onChange={(e) => setEditingName(e.target.value)}
+                            onBlur={() => updateDiscordName(user.user_id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                updateDiscordName(user.user_id);
+                              }
+
+                              if (e.key === "Escape") {
+                                setEditingNameId(null);
+                                setEditingName("");
+                              }
+                            }}
+                            style={{
+                              ...input,
+                              width: 220,
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              ...userName,
+                              cursor: "pointer",
+                              color: "#f5d0fe",
+                            }}
+                            title="Click to edit name"
+                            onClick={() => {
+                              setEditingNameId(user.user_id);
+                              setEditingName(user.discord_name || "");
+                            }}
+                          >
+                            {getGuildRoleIcon(rank)} {user.discord_name || "Unknown"}
+                          </div>
+                        )}
+
                         <div style={userId}>{user.user_id}</div>
                       </div>
                     </div>
@@ -240,17 +377,18 @@ async function revokeAccess(userId: string) {
                     </div>
 
                     <div>
-                      <span style={approved}>✓ Approved</span>
+                      {isRevoked ? (
+                        <span style={revokedText}>✕ Revoked</span>
+                      ) : (
+                        <span style={approved}>✓ Approved</span>
+                      )}
                     </div>
 
                     <div style={actions}>
                       <select
                         value={rank}
                         onChange={(e) =>
-                          updateGuildRank(
-                            user.user_id,
-                            e.target.value as GuildRole
-                          )
+                          updateGuildRank(user.user_id, e.target.value as GuildRole)
                         }
                         style={select}
                         disabled={isOwner}
@@ -266,6 +404,14 @@ async function revokeAccess(userId: string) {
                       {isOwner ? (
                         <button style={ownerBtn} disabled>
                           👑 Owner
+                        </button>
+                      ) : isRevoked ? (
+                        <button
+                          type="button"
+                          onClick={() => updateGuildRank(user.user_id, "Trial")}
+                          style={restoreBtn}
+                        >
+                          Restore Trial
                         </button>
                       ) : (
                         <button
@@ -296,6 +442,7 @@ function normalizeGuildRole(role?: string | null): GuildRole {
   if (role === "Trial") return "Trial";
   return "Guest";
 }
+
 function getGuildRoleIcon(role: GuildRole) {
   if (role === "Guild Master") return "👑";
   if (role === "Officer") return "🛡️";
@@ -304,12 +451,14 @@ function getGuildRoleIcon(role: GuildRole) {
   if (role === "Trial") return "🧪";
   return "👤";
 }
+
 function getGuildRoleColor(role: GuildRole) {
   if (role === "Guild Master") return "#facc15";
   if (role === "Officer") return "#fb7185";
   if (role === "Death Wish") return "#a78bfa";
   if (role === "Raider") return "#38bdf8";
-  return "#94a3b8";
+  if (role === "Trial") return "#94a3b8";
+  return "#f87171";
 }
 
 function Stat({
@@ -335,13 +484,7 @@ const page: React.CSSProperties = {
   background:
     "linear-gradient(rgba(2,6,16,0.68), rgba(0,0,0,0.82)), url('/bg.png') center top / cover no-repeat fixed",
 };
-const clickableUserName: React.CSSProperties = {
-  fontWeight: 900,
-  fontSize: 18,
-  cursor: "pointer",
-  color: "#f5d0fe",
-  textShadow: "0 0 10px rgba(217,70,239,.45)",
-};
+
 const layout: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "230px 1fr",
@@ -401,6 +544,47 @@ const panel: React.CSSProperties = {
   border: "1px solid rgba(255,255,255,.06)",
   borderRadius: 18,
   overflow: "hidden",
+};
+
+const tabsRow: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  padding: 16,
+  borderBottom: "1px solid rgba(255,255,255,.06)",
+  flexWrap: "wrap",
+};
+
+const tabBtn: React.CSSProperties = {
+  height: 40,
+  padding: "0 14px",
+  borderRadius: 999,
+  border: "1px solid rgba(168,85,247,.35)",
+  background: "rgba(0,0,0,.35)",
+  color: "#c4b5fd",
+  fontWeight: 900,
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+};
+
+const activeTabBtn: React.CSSProperties = {
+  ...tabBtn,
+  background: "linear-gradient(90deg,#7c3aed,#d946ef)",
+  color: "white",
+  boxShadow: "0 0 18px rgba(168,85,247,.55)",
+};
+
+const tabCount: React.CSSProperties = {
+  minWidth: 22,
+  height: 22,
+  padding: "0 7px",
+  borderRadius: 999,
+  background: "rgba(0,0,0,.35)",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 12,
 };
 
 const topRow: React.CSSProperties = {
@@ -477,6 +661,12 @@ const approved: React.CSSProperties = {
   fontSize: 20,
 };
 
+const revokedText: React.CSSProperties = {
+  color: "#f87171",
+  fontWeight: 900,
+  fontSize: 20,
+};
+
 const actions: React.CSSProperties = {
   display: "flex",
   gap: 10,
@@ -510,6 +700,17 @@ const revokeBtn: React.CSSProperties = {
   border: "1px solid rgba(239,68,68,.45)",
   background: "rgba(127,29,29,.45)",
   color: "#f87171",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const restoreBtn: React.CSSProperties = {
+  height: 40,
+  padding: "0 16px",
+  borderRadius: 10,
+  border: "1px solid rgba(34,197,94,.45)",
+  background: "rgba(20,83,45,.45)",
+  color: "#4ade80",
   fontWeight: 900,
   cursor: "pointer",
 };

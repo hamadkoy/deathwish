@@ -503,22 +503,39 @@ async function setMainCharacter(id: string) {
 
   if (!authData.user) return;
 
+  // Remove old main
   await supabase
     .from("guild_characters")
     .update({ is_main: false })
     .eq("user_id", authData.user.id);
 
+  // Set new main
   await supabase
     .from("guild_characters")
     .update({ is_main: true })
     .eq("id", id);
 
-  loadCharacters();
+  // Get selected character
+  const { data: character } = await supabase
+    .from("guild_characters")
+    .select("name, realm")
+    .eq("id", id)
+    .single();
+
+  if (character) {
+    await supabase
+      .from("profiles")
+      .update({
+        main_character: character.name,
+        main_realm: character.realm,
+      })
+      .eq("user_id", authData.user.id);
+  }
+
+  await loadCharacters();
 }
 async function updateCharacterSpec() {
   if (!specPopup || !selectedSpec) return;
-
-  const newPlayerName = `${specPopup.name} - ${selectedSpec} ${specPopup.class}`;
 
   const { error: charError } = await supabase
     .from("guild_characters")
@@ -532,17 +549,7 @@ async function updateCharacterSpec() {
     return;
   }
 
-  const { error: signupError } = await supabase
-    .from("signups")
-    .update({
-      player: newPlayerName,
-    })
-    .eq("character_id", specPopup.id);
 
-  if (signupError) {
-    alert(signupError.message);
-    return;
-  }
 
   setSpecPopup(null);
   setSelectedSpec("");
