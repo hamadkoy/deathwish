@@ -33,6 +33,7 @@ faction: string | null;
   alt_progress: string | null;
   alt_score: number | null;
   alt_avatar_url: string | null;
+  discord_id: string | null;
 };
 
 const classColors: Record<string, string> = {
@@ -203,145 +204,158 @@ async function loadPendingApplications() {
     loadPendingCount();
   }
 
-  async function updateApplicationStatus(
-    id: string,
-    newStatus: "accepted" | "declined"
-  ) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+async function updateApplicationStatus(
+  id: string,
+  newStatus: "accepted" | "declined"
+) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    if (!user) {
-      alert("You must be logged in.");
-      return;
+  if (!user) {
+    alert("You must be logged in.");
+    return;
+  }
+
+  const { data: officerProfile } = await supabase
+    .from("profiles")
+    .select("discord_name")
+    .eq("user_id", user.id)
+    .single();
+
+  const app = applications.find((a) => a.id === id);
+
+  if (!app) {
+    alert("Application not found.");
+    return;
+  }
+
+  const updateData =
+    newStatus === "accepted"
+      ? {
+          status: "accepted",
+          accepted_by: user.id,
+          accepted_by_name: officerProfile?.discord_name || "Unknown",
+          accepted_at: new Date().toISOString(),
+        }
+      : {
+          status: "declined",
+          declined_by: user.id,
+          declined_by_name: officerProfile?.discord_name || "Unknown",
+          declined_at: new Date().toISOString(),
+        };
+
+  const { error, count } = await supabase
+    .from("applications")
+    .update(updateData, { count: "exact" })
+    .eq("id", id)
+    .eq("status", "pending");
+
+  if (error) {
+    alert("Update failed: " + error.message);
+    return;
+  }
+
+  if (!count) {
+    alert("This application was already changed or blocked by RLS.");
+    loadApplications();
+    loadPendingCount();
+    return;
+  }
+
+  if (newStatus === "accepted") {
+    let targetUserId = app.user_id;
+
+    if (!targetUserId && app.discord_id) {
+      const { data: foundProfile } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("discord_id", app.discord_id)
+        .maybeSingle();
+
+      targetUserId = foundProfile?.user_id || null;
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("discord_name")
-      .eq("user_id", user.id)
-      .single();
-
-    const updateData =
-      newStatus === "accepted"
-        ? {
-            status: "accepted",
-            accepted_by: user.id,
-            accepted_by_name: profile?.discord_name || "Unknown",
-            accepted_at: new Date().toISOString(),
-          }
-        : {
-            status: "declined",
-            declined_by: user.id,
-            declined_by_name: profile?.discord_name || "Unknown",
-            declined_at: new Date().toISOString(),
-          };
-
-    const { error, count } = await supabase
-      .from("applications")
-      .update(updateData, { count: "exact" })
-      .eq("id", id)
-      .eq("status", "pending");
-
-    if (error) {
-      alert("Update failed: " + error.message);
-      return;
-    }
-
-    if (!count) {
-      alert("This application was already changed or blocked by RLS.");
-      loadApplications();
+    if (!targetUserId) {
+      alert(
+        "Application accepted, but I could not find this user's profile. They may need to log in once with Discord."
+      );
+      setApplications((old) => old.filter((a) => a.id !== id));
       loadPendingCount();
       return;
     }
 
-    if (newStatus === "accepted") {
-      const app = applications.find((a) => a.id === id);
+    await supabase
+      .from("applications")
+      .update({ user_id: targetUserId })
+      .eq("id", id);
 
-      if (app?.user_id) {
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .update({
-            guild_role: "Trial",
-            signup_approved: true,
-            accepted_application: true,
-          })
-          .eq("user_id", app.user_id);
-const { data: existingMain } = await supabase
-  .from("guild_characters")
-  .select("id")
-  .eq("user_id", app.user_id)
-  .eq("name", app.character_name)
-  .maybeSingle();
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({
+        guild_role: "Trial",
+        signup_approved: true,
+        accepted_application: true,
+        main_character: app.character_name,
+        main_realm: app.realm,
+      })
+      .eq("user_id", targetUserId);
 
-if (!existingMain) {
-  const { error: characterError } = await supabase
-  .from("guild_characters")
-  .insert({
-    
-    user_id: app.user_id,
-
-    name: app.character_name,
-    realm: app.realm,
-
-    class: app.class,
-    spec: app.spec,
-
-    ilvl: app.ilvl,
-    progress: app.raid_progress,
-
-    mythic_plus_score: app.raider_io_score,
-    avatar_url: app.avatar_url,
-
-    is_main: true,
-  });
-  if (characterError) {
-  alert(characterError.message);
-}
-}
-
-if (app.alt_name) {
-    
-  const { data: existingAlt } = await supabase
-    .from("guild_characters")
-    .select("id")
-    .eq("user_id", app.user_id)
-    .eq("name", app.alt_name)
-    .maybeSingle();
-
-  if (!existingAlt) {
-    await supabase.from("guild_characters").insert({
-      user_id: app.user_id,
-
-      name: app.alt_name,
-      realm: app.alt_realm,
-
-      class: app.alt_class,
-      spec: app.alt_spec,
-
-      ilvl: app.alt_ilvl,
-      progress: app.alt_progress,
-
-      mythic_plus_score: app.alt_score,
-      avatar_url: app.alt_avatar_url,
-
-      is_main: false,
-    });
-  }
-}
-        if (profileError) {
-          alert(
-            "Application accepted, but profile update failed: " +
-              profileError.message
-          );
-        }
-      }
+    if (profileError) {
+      alert("Profile update failed: " + profileError.message);
+      return;
     }
 
-    setApplications((old) => old.filter((app) => app.id !== id));
-    loadPendingCount();
+    const { data: existingMain } = await supabase
+      .from("guild_characters")
+      .select("id")
+      .eq("user_id", targetUserId)
+      .eq("name", app.character_name)
+      .maybeSingle();
+
+    if (!existingMain) {
+      await supabase.from("guild_characters").insert({
+        user_id: targetUserId,
+        name: app.character_name,
+        realm: app.realm,
+        class: app.class,
+        spec: app.spec,
+        ilvl: app.ilvl,
+        progress: app.raid_progress,
+        mythic_plus_score: app.raider_io_score,
+        avatar_url: app.avatar_url,
+        is_main: true,
+      });
+    }
+
+    if (app.alt_name) {
+      const { data: existingAlt } = await supabase
+        .from("guild_characters")
+        .select("id")
+        .eq("user_id", targetUserId)
+        .eq("name", app.alt_name)
+        .maybeSingle();
+
+      if (!existingAlt) {
+        await supabase.from("guild_characters").insert({
+          user_id: targetUserId,
+          name: app.alt_name,
+          realm: app.alt_realm,
+          class: app.alt_class,
+          spec: app.alt_spec,
+          ilvl: app.alt_ilvl,
+          progress: app.alt_progress,
+          mythic_plus_score: app.alt_score,
+          avatar_url: app.alt_avatar_url,
+          is_main: false,
+        });
+      }
+    }
   }
 
+  setApplications((old) => old.filter((app) => app.id !== id));
+  loadPendingCount();
+}
   const filteredApps = applications
     .filter((app) => {
       const q = search.toLowerCase();
@@ -484,7 +498,7 @@ const factionBg =
                     return (
                       <div
                         key={app.id}
-                        className="relative h-[550px] overflow-hidden rounded-sm border bg-black transition-all duration-300 hover:-translate-y-3 hover:scale-[1.03]"
+                        className="relative h-[590px] overflow-hidden rounded-sm border bg-black transition-all duration-300 hover:-translate-y-3 hover:scale-[1.03]"
                         style={{
                           borderColor: color,
                           boxShadow: `0 0 16px ${color}44`,
@@ -539,7 +553,7 @@ const factionBg =
 
                         <div className="absolute bottom-0 left-0 right-0 px-5 pb-3 text-center">
                           <h2
-                            className="mt-8 text-3xl font-black drop-shadow-[0_2px_8px_black]"
+                            className="mt-12 text-3xl font-black drop-shadow-[0_2px_8px_black]"
                             style={{ color }}
                           >
                             {app.character_name || "Unknown"}
@@ -582,7 +596,7 @@ const factionBg =
                             </div>
                           </div>
 
-                          <div className="mt-5 flex justify-between text-sm font-bold">
+                          <div className="appLinksBar">
                             <a
                               href={
                                 app.raider_io ||
@@ -590,10 +604,32 @@ const factionBg =
                               }
                               target="_blank"
                               rel="noreferrer"
-                              className="relative z-20 text-sky-400 hover:text-sky-300"
+                              className="appLink appLinkRio"
                             >
-                              Raider.IO ↗
+                              <span className="appLinkIcon">◆</span>
+                              <span>Raider.IO</span>
                             </a>
+{app.discord_id && (
+  <a
+    href={`discord://-/users/${app.discord_id}`}
+    onClick={(e) => {
+      e.preventDefault();
+
+      window.location.href = `discord://-/users/${app.discord_id}`;
+
+      setTimeout(() => {
+        window.open(
+          `https://discord.com/users/${app.discord_id}`,
+          "_blank"
+        );
+      }, 500);
+    }}
+    className="appLink appLinkDiscord"
+  >
+    <span className="appLinkIcon">💜</span>
+    <span>DM</span>
+  </a>
+)}
 
                             <a
                               href={
@@ -602,9 +638,10 @@ const factionBg =
                               }
                               target="_blank"
                               rel="noreferrer"
-                              className="relative z-20 text-sky-400 hover:text-sky-300"
+                              className="appLink appLinkLogs"
                             >
-                              Warcraft Logs ↗
+                              <span className="appLinkIcon">📜</span>
+                              <span>Warcraft Logs</span>
                             </a>
                           </div>
 
@@ -846,6 +883,84 @@ const factionBg =
           font-size: 13px;
           font-weight: 900;
           box-shadow: 0 0 14px rgba(168, 85, 247, 0.65);
+        }
+
+
+        .appLinksBar {
+          position: relative;
+          z-index: 25;
+          margin-top: 20px;
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
+          align-items: center;
+          gap: 14px;
+          padding: 12px 14px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(0, 0, 0, 0.72);
+          box-shadow:
+            inset 0 0 18px rgba(255, 255, 255, 0.03),
+            0 0 18px rgba(0, 0, 0, 0.65);
+        }
+
+        .appLink {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          color: #ffffff;
+          font-size: 13px;
+          font-weight: 900;
+          letter-spacing: 0.2px;
+          text-decoration: none;
+          white-space: nowrap;
+          transition: 0.25s ease;
+          text-shadow: 0 0 10px rgba(0, 0, 0, 0.95);
+        }
+
+        .appLink:hover {
+          transform: translateY(-2px) scale(1.06);
+          color: #fff4cc;
+        }
+
+        .appLinkIcon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 18px;
+          line-height: 1;
+          filter: drop-shadow(0 0 8px currentColor);
+        }
+
+        .appLinkRio .appLinkIcon {
+          color: #3b82f6;
+        }
+
+        .appLinkRio:hover {
+          text-shadow: 0 0 14px rgba(59, 130, 246, 0.95);
+        }
+
+        .appLinkDiscord .appLinkIcon {
+          color: #a855f7;
+        }
+
+        .appLinkDiscord:hover {
+          text-shadow: 0 0 14px rgba(168, 85, 247, 0.95);
+        }
+
+        .appLinkLogs .appLinkIcon {
+          color: #f5c451;
+        }
+
+        .appLinkLogs:hover {
+          text-shadow: 0 0 14px rgba(245, 196, 81, 0.95);
+        }
+
+        @media (max-width: 520px) {
+          .appLinksBar {
+            grid-template-columns: 1fr;
+            border-radius: 18px;
+          }
         }
 
         .deleteOverlay {

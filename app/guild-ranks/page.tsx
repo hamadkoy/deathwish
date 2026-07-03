@@ -30,6 +30,7 @@ type Profile = {
   main_realm?: string;
   signup_approved?: boolean;
   accepted_application?: boolean;
+  guild_joined_at?: string | null;
 };
 
 const guildRoleOrder: Record<GuildRole, number> = {
@@ -53,6 +54,7 @@ const rankTabs: RankTab[] = [
 
 export default function GuildRanksPage() {
   const [users, setUsers] = useState<Profile[]>([]);
+  const [applicantUserIds, setApplicantUserIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<RankTab>("All");
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
@@ -61,19 +63,6 @@ export default function GuildRanksPage() {
 
   useEffect(() => {
     loadUsers();
-
-    const channel = supabase
-      .channel("realtime-guild-ranks")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "profiles" },
-        () => loadUsers()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   async function loadUsers() {
@@ -90,9 +79,24 @@ export default function GuildRanksPage() {
       return;
     }
 
+    const { data: appData } = await supabase
+      .from("applications")
+      .select("user_id")
+      .not("user_id", "is", null);
+
+    setApplicantUserIds(new Set((appData || []).map((a) => String(a.user_id))));
     setUsers(data || []);
     setLoading(false);
   }
+
+  const isApprovedGuildUser = (u: Profile) => {
+    const rank = normalizeGuildRole(u.guild_role);
+    return u.accepted_application === true && rank !== "Guest";
+  };
+
+  const isRevokedUser = (u: Profile) => {
+    return applicantUserIds.has(u.user_id) && u.accepted_application === false;
+  };
 
   async function updateGuildRank(userId: string, guildRole: GuildRole) {
     const updates =
@@ -119,6 +123,21 @@ export default function GuildRanksPage() {
     }
 
     await loadUsers();
+  }
+
+  async function updateJoinedDate(userId: string, date: string) {
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.user_id === userId ? { ...u, guild_joined_at: date || null } : u
+      )
+    );
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ guild_joined_at: date || null })
+      .eq("user_id", userId);
+
+    if (error) alert(error.message);
   }
 
   async function updateDiscordName(userId: string) {
@@ -156,20 +175,65 @@ export default function GuildRanksPage() {
 
     await loadUsers();
   }
+async function restoreFromApplication(userId: string) {
+  const { data: app } = await supabase
+    .from("applications")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
+  await updateGuildRank(userId, "Trial");
+
+  if (!app) {
+    alert("No application found for this user.");
+    return;
+  }
+
+  const { data: existing } = await supabase
+    .from("guild_characters")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("name", app.character_name)
+    .maybeSingle();
+
+  if (!existing) {
+    await supabase.from("guild_characters").insert({
+      user_id: userId,
+      name: app.character_name,
+      realm: app.realm,
+      class: app.class,
+      spec: app.spec,
+      ilvl: app.ilvl,
+      progress: app.raid_progress,
+      mythic_plus_score: app.raider_io_score,
+      avatar_url: app.avatar_url,
+      is_main: true,
+    });
+  }
+
+  await supabase
+    .from("profiles")
+    .update({
+      main_character: app.character_name,
+      main_realm: app.realm,
+    })
+    .eq("user_id", userId);
+
+  await loadUsers();
+}
   const filteredUsers = useMemo(() => {
     return [...users]
       .filter((u) => {
         const rank = normalizeGuildRole(u.guild_role);
-        const revoked = rank === "Guest" || u.accepted_application === false;
+        const approved = isApprovedGuildUser(u);
+        const revoked = isRevokedUser(u);
 
         if (activeTab === "Revoked") return revoked;
+        if (activeTab === "All") return approved;
 
-        if (activeTab === "All") {
-          return !revoked;
-        }
-
-        return rank === activeTab && !revoked;
+        return approved && rank === activeTab;
       })
       .filter((u) =>
         (u.discord_name || "").toLowerCase().includes(search.toLowerCase())
@@ -177,23 +241,14 @@ export default function GuildRanksPage() {
       .sort((a, b) => {
         const aRole = normalizeGuildRole(a.guild_role);
         const bRole = normalizeGuildRole(b.guild_role);
-
         const roleDiff = guildRoleOrder[aRole] - guildRoleOrder[bRole];
         if (roleDiff !== 0) return roleDiff;
-
         return (a.discord_name || "").localeCompare(b.discord_name || "");
       });
-  }, [users, search, activeTab]);
+  }, [users, search, activeTab, applicantUserIds]);
 
-  const activeUsers = users.filter((u) => {
-    const rank = normalizeGuildRole(u.guild_role);
-    return rank !== "Guest" && u.accepted_application !== false;
-  });
-
-  const revokedUsers = users.filter((u) => {
-    const rank = normalizeGuildRole(u.guild_role);
-    return rank === "Guest" || u.accepted_application === false;
-  });
+  const activeUsers = users.filter((u) => isApprovedGuildUser(u));
+  const revokedUsers = users.filter((u) => isRevokedUser(u));
 
   const counts = {
     total: activeUsers.length,
@@ -277,6 +332,7 @@ export default function GuildRanksPage() {
               <div>Main Character</div>
               <div>Guild Rank</div>
               <div>Signup Access</div>
+              <div>Joined</div>
               <div>Actions</div>
             </div>
 
@@ -289,19 +345,15 @@ export default function GuildRanksPage() {
                 const rank = normalizeGuildRole(user.guild_role);
                 const isOwner =
                   (user.discord_name || "").toLowerCase() === "koyjin";
-
-                const isRevoked =
-                  rank === "Guest" || user.accepted_application === false;
+                const isRevoked = isRevokedUser(user);
+                const isApproved = isApprovedGuildUser(user);
 
                 return (
                   <div key={user.user_id} style={tableRow}>
                     <div style={userCell}>
                       <img
                         src={user.avatar_url || "/logo.png"}
-                        style={{
-                          ...avatar,
-                          cursor: "pointer",
-                        }}
+                        style={{ ...avatar, cursor: "pointer" }}
                         alt=""
                         title="View Garrison"
                         onClick={() => {
@@ -317,19 +369,13 @@ export default function GuildRanksPage() {
                             onChange={(e) => setEditingName(e.target.value)}
                             onBlur={() => updateDiscordName(user.user_id)}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                updateDiscordName(user.user_id);
-                              }
-
+                              if (e.key === "Enter") updateDiscordName(user.user_id);
                               if (e.key === "Escape") {
                                 setEditingNameId(null);
                                 setEditingName("");
                               }
                             }}
-                            style={{
-                              ...input,
-                              width: 220,
-                            }}
+                            style={{ ...input, width: 220 }}
                           />
                         ) : (
                           <div
@@ -377,11 +423,24 @@ export default function GuildRanksPage() {
                     </div>
 
                     <div>
-                      {isRevoked ? (
+                      {isApproved ? (
+                        <span style={approved}>✓ Approved</span>
+                      ) : isRevoked ? (
                         <span style={revokedText}>✕ Revoked</span>
                       ) : (
-                        <span style={approved}>✓ Approved</span>
+                        <span style={muted}>Pending</span>
                       )}
+                    </div>
+
+                    <div>
+                      <input
+                        type="date"
+                        value={user.guild_joined_at || ""}
+                        onChange={(e) =>
+                          updateJoinedDate(user.user_id, e.target.value)
+                        }
+                        style={dateInput}
+                      />
                     </div>
 
                     <div style={actions}>
@@ -408,7 +467,7 @@ export default function GuildRanksPage() {
                       ) : isRevoked ? (
                         <button
                           type="button"
-                          onClick={() => updateGuildRank(user.user_id, "Trial")}
+                         onClick={() => restoreFromApplication(user.user_id)}
                           style={restoreBtn}
                         >
                           Restore Trial
@@ -605,7 +664,7 @@ const input: React.CSSProperties = {
 
 const tableHead: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1.4fr 1.2fr .9fr .8fr 1.4fr",
+  gridTemplateColumns: "1.3fr 1.1fr .8fr .8fr .9fr 1.4fr",
   padding: "16px 20px",
   background: "rgba(168,85,247,.08)",
   color: "#f0abfc",
@@ -614,7 +673,7 @@ const tableHead: React.CSSProperties = {
 
 const tableRow: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1.4fr 1.2fr .9fr .8fr 1.4fr",
+  gridTemplateColumns: "1.3fr 1.1fr .8fr .8fr .9fr 1.4fr",
   alignItems: "center",
   padding: "16px 20px",
   borderTop: "1px solid rgba(255,255,255,.06)",
@@ -682,6 +741,17 @@ const select: React.CSSProperties = {
   border: "1px solid rgba(168,85,247,.35)",
   padding: "0 10px",
   fontWeight: 900,
+};
+
+const dateInput: React.CSSProperties = {
+  width: 145,
+  height: 38,
+  borderRadius: 8,
+  border: "1px solid rgba(168,85,247,.35)",
+  background: "rgba(0,0,0,.4)",
+  color: "white",
+  padding: "0 10px",
+  fontWeight: 800,
 };
 
 const rankBadge: React.CSSProperties = {

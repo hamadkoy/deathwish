@@ -5,10 +5,10 @@ import { supabase } from "@/lib/supabase";
 
 type GuildProfile = {
   user_id: string;
+  discord_id: string | null;
   discord_name: string | null;
   avatar_url: string | null;
   guild_role: string | null;
-  discord_id: string | null;
 };
 
 type PerformanceRank = "S" | "A" | "B" | "C" | "F";
@@ -91,10 +91,9 @@ async function loadAttendanceFromSheet() {
 
   const result: Record<string, number> = {};
 
-  // Find the first roster row (where the User ID begins)
   const startRow = rows.findIndex((row) => {
-    const id = String(row[10] || "").trim(); // Column K
-    return /^\d{16,20}$/.test(id);
+    const discordId = String(row[10] || "").trim();
+    return /^\d{16,20}$/.test(discordId);
   });
 
   if (startRow === -1) {
@@ -105,19 +104,15 @@ async function loadAttendanceFromSheet() {
   for (let i = startRow; i < rows.length; i++) {
     const row = rows[i];
 
-    const userId = String(row[10] || "").trim();       // K
-    const attendance = Number(
-      String(row[12] || "0").replace(/,/g, "")         // M
-    );
+    const discordId = String(row[10] || "").trim();
+    const attendance = Number(String(row[12] || "0").replace(/,/g, ""));
 
-    if (!userId) continue;
+    if (!/^\d{16,20}$/.test(discordId)) continue;
 
-    result[userId] = Number.isFinite(attendance)
-      ? attendance
-      : 0;
+    result[discordId] = Number.isFinite(attendance) ? attendance : 0;
   }
 
-  console.log(result);
+  console.log("ATTENDANCE MAP BY DISCORD ID:", result);
 
   return result;
 }
@@ -425,28 +420,29 @@ export default function MountOrderPage() {
             linear-gradient(rgba(5, 0, 12, 0.65), rgba(5, 0, 12, 0.95)),
             url("/Roster.png") center / cover fixed;
           color: white;
-          padding: 120px 40px 60px;
+          padding: 72px 18px 30px;
         }
 
         .mountWrap {
-          max-width: 1450px;
+          width: min(1180px, 96vw);
           margin: 0 auto;
         }
 
         .mountHeader {
           text-align: center;
-          margin-bottom: 35px;
+          margin-bottom: 14px;
         }
 
         .mountHeader h1 {
-          font-size: 46px;
+          font-size: 34px;
           margin: 0;
           color: #f5d76e;
         }
 
         .mountHeader p {
           color: #d8c9ff;
-          margin-top: 10px;
+          margin-top: 6px;
+          font-size: 12px;
         }
 
         .mountTableWrap {
@@ -458,21 +454,21 @@ export default function MountOrderPage() {
           z-index: 30;
           pointer-events: none;
           filter:
-            drop-shadow(0 0 16px rgba(255, 215, 0, 0.9))
-            drop-shadow(0 0 28px rgba(59, 130, 246, 0.75));
+            drop-shadow(0 0 14px rgba(255, 215, 0, 0.9))
+            drop-shadow(0 0 24px rgba(59, 130, 246, 0.75));
         }
 
         .tableBirdLeft {
-          width: 170px;
-          top: -95px;
-          left: -65px;
+          width: 105px;
+          top: -58px;
+          left: -30px;
           animation: birdFloatLeft 5s ease-in-out infinite;
         }
 
         .tableBirdRight {
-          width: 170px;
-          top: -95px;
-          right: -65px;
+          width: 105px;
+          top: -58px;
+          right: -30px;
           transform: scaleX(-1);
           animation: birdFloatRight 6s ease-in-out infinite;
         }
@@ -483,7 +479,7 @@ export default function MountOrderPage() {
           }
 
           50% {
-            transform: translateY(-18px) rotate(4deg);
+            transform: translateY(-12px) rotate(4deg);
           }
         }
 
@@ -493,13 +489,13 @@ export default function MountOrderPage() {
           }
 
           50% {
-            transform: scaleX(-1) translateY(-18px) rotate(-4deg);
+            transform: scaleX(-1) translateY(-12px) rotate(-4deg);
           }
         }
 
         .mountTable {
           border: 1px solid rgba(168, 85, 247, 0.55);
-          border-radius: 18px;
+          border-radius: 16px;
           overflow: hidden;
           background: rgba(5, 0, 12, 0.82);
         }
@@ -507,15 +503,15 @@ export default function MountOrderPage() {
         .tableHead,
         .tableRow {
           display: grid;
-          grid-template-columns: 90px 2fr 230px 230px 160px 320px;
+          grid-template-columns: 64px 1.55fr 150px 140px 130px 230px;
           align-items: center;
-          gap: 18px;
-          padding: 18px 28px;
+          gap: 10px;
+          padding: 9px 18px;
         }
 
         .tableHead.noActions,
         .tableRow.noActions {
-          grid-template-columns: 90px 2fr 230px 230px 160px;
+          grid-template-columns: 64px 1.55fr 150px 140px 130px;
         }
 
         .tableHead {
@@ -523,23 +519,24 @@ export default function MountOrderPage() {
           color: #f5d76e;
           font-weight: 900;
           text-transform: uppercase;
-          font-size: 13px;
+          font-size: 11px;
           letter-spacing: 1px;
         }
 
         .tableRow {
+          min-height: 52px;
           border-top: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .playerBox {
           display: flex;
           align-items: center;
-          gap: 14px;
+          gap: 10px;
         }
 
         .playerBox img {
-          width: 58px;
-          height: 58px;
+          width: 38px;
+          height: 38px;
           border-radius: 50%;
           object-fit: cover;
           border: 2px solid #a855f7;
@@ -547,17 +544,19 @@ export default function MountOrderPage() {
 
         .playerBox strong {
           display: block;
-          font-size: 17px;
+          font-size: 13px;
+          line-height: 1.1;
         }
 
         .playerBox small {
           color: #c9b6ff;
+          font-size: 10px;
         }
 
         .rankBox,
         .attendanceBox,
         .totalBox {
-          font-size: 26px;
+          font-size: 21px;
           font-weight: 900;
           color: #f5d76e;
         }
@@ -571,21 +570,27 @@ export default function MountOrderPage() {
         }
 
         .rankSelect {
-          width: 110px;
-          height: 52px;
-          border-radius: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          width: 82px;
+          height: 36px;
+          border-radius: 10px;
+          border: 1px solid rgba(255, 255, 255, 0.22);
           color: white;
           text-align: center;
-          font-size: 22px;
+          font-size: 17px;
           font-weight: 900;
-          padding: 0 14px;
+          padding: 0 8px;
           cursor: pointer;
           transition: all 0.22s ease;
         }
 
+        .rankSelect option {
+          background: #090012;
+          color: white;
+          font-weight: 900;
+        }
+
         .rankSelect:hover {
-          transform: scale(1.08);
+          transform: scale(1.06);
           filter: brightness(1.18);
         }
 
@@ -593,53 +598,55 @@ export default function MountOrderPage() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 90px;
-          height: 46px;
-          border-radius: 12px;
-          font-size: 22px;
+          width: 78px;
+          height: 36px;
+          border-radius: 10px;
+          font-size: 18px;
           font-weight: 900;
         }
 
         .rankS {
           background: linear-gradient(135deg, #facc15, #a16207);
-          box-shadow: 0 0 18px rgba(250, 204, 21, 0.55);
+          box-shadow: 0 0 16px rgba(250, 204, 21, 0.55);
         }
 
         .rankA {
           background: linear-gradient(135deg, #0284c7, #38bdf8);
-          box-shadow: 0 0 18px rgba(56, 189, 248, 0.45);
+          box-shadow: 0 0 16px rgba(56, 189, 248, 0.45);
         }
 
         .rankB {
           background: linear-gradient(135deg, #15803d, #22c55e);
-          box-shadow: 0 0 18px rgba(34, 197, 94, 0.45);
+          box-shadow: 0 0 16px rgba(34, 197, 94, 0.45);
         }
 
         .rankC {
           background: linear-gradient(135deg, #4b5563, #9ca3af);
-          box-shadow: 0 0 18px rgba(156, 163, 175, 0.25);
+          box-shadow: 0 0 16px rgba(156, 163, 175, 0.25);
         }
 
         .rankF {
           background: linear-gradient(135deg, #7f1d1d, #ef4444);
-          box-shadow: 0 0 18px rgba(239, 68, 68, 0.45);
+          box-shadow: 0 0 16px rgba(239, 68, 68, 0.45);
         }
 
         .actionBox {
           display: flex;
-          gap: 10px;
+          gap: 8px;
         }
 
         button {
           border: none;
-          border-radius: 10px;
-          padding: 12px 18px;
+          border-radius: 9px;
+          padding: 9px 13px;
           cursor: pointer;
           color: white;
           font-weight: 900;
+          font-size: 12px;
           background: linear-gradient(135deg, #7e22ce, #a855f7);
           transition: all 0.22s ease;
           box-shadow: 0 0 12px rgba(168, 85, 247, 0.35);
+          white-space: nowrap;
         }
 
         button:hover:not(:disabled) {
@@ -667,22 +674,23 @@ export default function MountOrderPage() {
         }
 
         .completedBox {
-          margin-top: 35px;
+          margin-top: 22px;
           background: rgba(5, 0, 12, 0.78);
           border: 1px solid rgba(34, 197, 94, 0.45);
-          border-radius: 18px;
-          padding: 22px;
+          border-radius: 16px;
+          padding: 16px;
         }
 
         .completedBox h2 {
           color: #22c55e;
           margin-top: 0;
+          font-size: 24px;
         }
 
         .completedRow {
           display: flex;
           justify-content: space-between;
-          padding: 10px 0;
+          padding: 8px 0;
           border-top: 1px solid rgba(255, 255, 255, 0.08);
         }
       `}</style>

@@ -247,7 +247,16 @@ return;
       router.push("/login");
       return;
     }
+console.log("AUTH USER:", user);
+console.log("USER METADATA:", user.user_metadata);
+console.log("IDENTITIES:", user.identities);
 
+const discordId =
+  user.identities?.[0]?.identity_data?.provider_id ??
+  user.user_metadata?.provider_id ??
+  null;
+
+console.log("DISCORD ID FOUND:", discordId);
     const { data: profile } = await supabase
       .from("profiles")
       .select("avatar_url")
@@ -256,7 +265,8 @@ return;
 console.log("MAIN", character);
 console.log("ALT", altCharacter);
     const { error } = await supabase.from("applications").insert({
-      user_id: user.id,
+user_id: user.id,
+discord_id: discordId,
 faction: character.faction,
       character_name: character.name,
       realm: character.realm,
