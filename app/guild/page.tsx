@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+
 const raids = [
   { name: "Blackrock Foundry", img: "/Blackrock foundry.png", date: "May 2015" },
   { name: "Hellfire Citadel", img: "/Hellfire Citadel.png", date: "Nov 2015" },
@@ -19,12 +20,87 @@ const raids = [
   { name: "Manaforge Omega", img: "/Manaforge Omega.png", date: "Sep 2025" },
 ];
 
+// Coverflow geometry
+const N = raids.length;
+const CARD_WIDTH = 560;
+const CARD_HEIGHT = 340;
+const SPACING = 400; // horizontal distance between neighboring cards
+const MAX_ANGLE = 48; // degrees the side cards rotate
+const VISIBLE_RANGE = 3.4; // how many cards deep either side stay rendered
+const AUTO_SPEED = 0.14; // index-units per second — slow drift
+
 export default function GuildPage() {
 const [user, setUser] = useState<any>(null);
 const [profile, setProfile] = useState<any>(null);
 const [onlineCount, setOnlineCount] = useState(4);
 const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
 const [onlineOpen, setOnlineOpen] = useState(false);
+
+// --- Coverflow state ---
+const [pos, setPos] = useState(0); // continuous "center index", float
+const [animated, setAnimated] = useState(false);
+const [hoverPaused, setHoverPaused] = useState(false);
+const [clickPaused, setClickPaused] = useState(false);
+const paused = hoverPaused || clickPaused;
+
+const rafRef = useRef<number | null>(null);
+const lastTimeRef = useRef<number | null>(null);
+const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+useEffect(() => {
+  const tick = (time: number) => {
+    if (lastTimeRef.current == null) lastTimeRef.current = time;
+    const delta = time - lastTimeRef.current;
+    lastTimeRef.current = time;
+
+    if (!paused) {
+      setPos((p) => {
+        let next = p + (AUTO_SPEED * delta) / 1000;
+        next = ((next % N) + N) % N;
+        return next;
+      });
+    }
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  rafRef.current = requestAnimationFrame(tick);
+  return () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    lastTimeRef.current = null;
+  };
+}, [paused]);
+
+const pauseThenResume = () => {
+  setClickPaused(true);
+  if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+  clickTimerRef.current = setTimeout(() => setClickPaused(false), 3800);
+};
+
+const jump = (dir: 1 | -1) => {
+  setAnimated(true);
+  if (animTimerRef.current) clearTimeout(animTimerRef.current);
+  animTimerRef.current = setTimeout(() => setAnimated(false), 550);
+
+  setPos((p) => {
+    let next = p + dir;
+    next = ((next % N) + N) % N;
+    return next;
+  });
+  pauseThenResume();
+};
+
+const goLeft = () => jump(-1);
+const goRight = () => jump(1);
+
+const goTo = (index: number) => {
+  setAnimated(true);
+  if (animTimerRef.current) clearTimeout(animTimerRef.current);
+  animTimerRef.current = setTimeout(() => setAnimated(false), 550);
+  setPos(index);
+  pauseThenResume();
+};
+
 useEffect(() => {
   const loadUser = async () => {
     const {
@@ -57,65 +133,6 @@ useEffect(() => {
 }, []);
   return (
     <main className="page">
-<div className="xulContainer leftSide">
-
-  <img
-    src="/left minion.png"
-    className="xulMinion leftMinion"
-    alt=""
-  />
-
-  <div className="xulCharacter">
-
-    <img
-      src="/xul body.png"
-      className="xulBody"
-      alt=""
-    />
-
-
-
-  </div>
-
-  <img
-    src="/right minion.png"
-    className="xulMinion rightMinion"
-    alt=""
-  />
-
-</div>
-
-
-<div className="xulContainer rightSide">
-
-  <img
-    src="/left minion.png"
-    className="xulMinion leftMinion"
-    alt=""
-  />
-
-  <div className="xulCharacter">
-
-    <img
-      src="/xul body.png"
-      className="xulBody"
-      alt=""
-    />
-
-
-
-
-
-  </div>
-
-  <img
-    src="/right minion.png"
-    className="xulMinion rightMinion"
-    alt=""
-  />
-
-</div>
-
       <section className="hero">
         <h1>DEATH WISH</h1>
         <p>2-DAY CUTTING EDGE RAIDING GUILD</p>
@@ -124,21 +141,77 @@ useEffect(() => {
       <section id="raids" className="section">
         <h2>CUTTING EDGE ACHIEVEMENTS</h2>
 
-        <div className="raidGrid">
-          {raids.map((raid, i) => (
-            <div key={raid.name} className="raidCard">
-<div
-  className="raidImage defeated"
-  style={{ backgroundImage: `url("${raid.img}")` }}
->
+        <div
+          className="coverflowWrap"
+          onMouseEnter={() => setHoverPaused(true)}
+          onMouseLeave={() => setHoverPaused(false)}
+        >
+          <button
+            className="carouselArrow carouselArrowLeft"
+            onClick={goLeft}
+            aria-label="Previous achievement"
+          >
+            ‹
+          </button>
 
-  <span>{i + 1}</span>
-</div>
+          <div className="coverflowStage">
+            {raids.map((raid, i) => {
+              let diff = i - pos;
+              diff = ((diff % N) + N) % N;
+              if (diff > N / 2) diff -= N;
 
-<div className="raidName">{raid.name}</div>
-<div className="raidDate">{raid.date}</div>
-            </div>
-          ))}
+              const absDiff = Math.abs(diff);
+              if (absDiff > VISIBLE_RANGE) return null;
+
+              const translateX = diff * SPACING;
+              const rotateY = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, -diff * 32));
+              const scale = Math.max(0.5, 1 - absDiff * 0.17);
+              const translateZ = -absDiff * 110;
+              const zIndex = Math.round(100 - absDiff * 10);
+              const opacity = Math.max(0, 1 - absDiff * 0.3);
+              const isCenter = absDiff < 0.5;
+
+              return (
+                <div
+                  key={raid.name}
+                  className={`coverCard${isCenter ? " coverCardActive" : ""}`}
+                  style={{
+                    backgroundImage: `url("${raid.img}")`,
+                    transform: `translate(-50%, -50%) translateX(${translateX}px) translateZ(${translateZ}px) rotateY(${rotateY}deg) scale(${scale})`,
+                    zIndex,
+                    opacity,
+                    transition: animated
+                      ? "transform .55s cubic-bezier(.22,.9,.35,1), opacity .55s ease"
+                      : "none",
+                  }}
+                  onClick={() => goTo(i)}
+                >
+                  <div className="achievementOverlay">
+                    <div className="achievementTop">
+                      <span className="achievementNumber">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <span className="achievementBadge">CLEARED</span>
+                    </div>
+
+                    <div className="achievementText">
+                      <p>CUTTING EDGE</p>
+                      <h3>{raid.name}</h3>
+                      <small>{raid.date}</small>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <button
+            className="carouselArrow carouselArrowRight"
+            onClick={goRight}
+            aria-label="Next achievement"
+          >
+            ›
+          </button>
         </div>
       </section>
 
@@ -345,25 +418,166 @@ useEffect(() => {
           margin: 0 0 18px;
         }
 
-        .raidGrid {
-          display: grid;
-          grid-template-columns: repeat(7, 230px);
-          justify-content: center;
-          gap: 30px 18px;
+        .coverflowWrap {
+          position: relative;
+          max-width: 1500px;
+          margin: 0 auto;
+          padding: 0 70px;
         }
 
-        .raidCard {
-          width: 220px;
-          height: 265px;
-          text-align: center;
-          cursor: pointer;
+        .coverflowStage {
           position: relative;
+          height: 500px;
+          perspective: 2000px;
+        }
+
+        .carouselArrow {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 200;
+
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          background: rgba(0,0,0,.75);
+          border: 1px solid rgba(217,70,239,.6);
+          color: #f5ead0;
+          font-size: 26px;
+          font-weight: 900;
+          line-height: 1;
+          cursor: pointer;
+
+          box-shadow: 0 0 16px rgba(217,70,239,.35);
+          transition: all .2s ease;
+        }
+
+        .carouselArrow:hover {
+          background: rgba(0,0,0,.92);
+          border-color: #e879f9;
+          box-shadow: 0 0 26px rgba(217,70,239,.75);
+          transform: translateY(-50%) scale(1.1);
+        }
+
+        .carouselArrowLeft {
+          left: 0;
+        }
+
+        .carouselArrowRight {
+          right: 0;
+        }
+
+        .coverCard {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: ${CARD_WIDTH}px;
+          height: ${CARD_HEIGHT}px;
+          border-radius: 20px;
+          background-size: cover;
+          background-position: center;
+          overflow: hidden;
+          cursor: pointer;
+
+          border: 1px solid rgba(168,85,247,.55);
+          box-shadow:
+            0 25px 50px rgba(0,0,0,.75),
+            0 0 22px rgba(168,85,247,.3);
+
+          transform-style: preserve-3d;
+          backface-visibility: hidden;
+        }
+
+        .coverCard::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background:
+            linear-gradient(90deg, rgba(0,0,0,.85), rgba(0,0,0,.22)),
+            radial-gradient(circle at top right, rgba(217,70,239,.25), transparent 45%);
           z-index: 1;
         }
 
-        .raidCard:hover {
-          z-index: 20;
+        .coverCardActive {
+          border-color: #e879f9;
+          box-shadow:
+            0 30px 60px rgba(0,0,0,.85),
+            0 0 40px rgba(217,70,239,.7),
+            0 0 85px rgba(168,85,247,.4);
         }
+
+        .achievementOverlay {
+          position: absolute;
+          inset: 0;
+          z-index: 3;
+          padding: 26px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+
+        .achievementTop {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .achievementNumber {
+          color: rgba(255,255,255,.35);
+          font-size: 44px;
+          font-weight: 900;
+          line-height: 1;
+          text-shadow: 0 0 12px black;
+        }
+
+        .achievementBadge {
+          padding: 6px 12px;
+          border-radius: 999px;
+          background: rgba(0,0,0,.72);
+          border: 1px solid rgba(201,170,113,.8);
+          color: #f5ead0;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 1px;
+        }
+
+        .achievementText p {
+          margin: 0 0 8px;
+          color: #e879f9;
+          font-size: 12px;
+          font-weight: 900;
+          letter-spacing: 2px;
+          text-shadow: 0 2px 8px black;
+        }
+
+        .achievementText h3 {
+          margin: 0;
+          color: #fff3d0;
+          font-size: 28px;
+          line-height: 1;
+          font-weight: 900;
+          text-transform: uppercase;
+          text-shadow:
+            0 2px 8px black,
+            0 0 12px rgba(245,234,208,.25);
+        }
+
+        .achievementText small {
+          display: block;
+          margin-top: 9px;
+          color: #f5ead0;
+          font-size: 12px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          text-shadow: 0 2px 8px black;
+        }
+
 .dayLabel {
   display: flex;
   align-items: center;
@@ -379,105 +593,6 @@ useEffect(() => {
     drop-shadow(0 0 2px rgba(201,170,113,.7))
     drop-shadow(0 0 4px rgba(201,170,113,.3));
 }
-.raidImage {
-  width: 205px;
-  height: 205px;
-  margin: 0 auto;
-  border-radius: 50%;
-  border: 2px solid rgba(168, 85, 247, 0.85);
-  background-size: cover;
-  background-position: center;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 8px;
-  box-shadow:
-    0 0 18px rgba(0, 0, 0, 0.7),
-    0 0 16px rgba(168, 85, 247, 0.35);
-  transition: all 0.25s ease;
-}
-.defeated {
-  position: relative;
-  overflow: hidden;
-}
-.defeated::after {
-  content: "CLEARED";
-
-  position: absolute;
-  left: 50%;
-  bottom: 14px;
-
-  transform: translateX(-50%);
-
-  padding: 5px 12px;
-
-  border-radius: 999px;
-
-  background: rgba(0,0,0,.75);
-  border: 1px solid rgba(201,170,113,.75);
-
-  color: #f5ead0;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 1px;
-
-  z-index: 5;
-}
-.raidDate {
-  margin-top: 5px;
-  color: #f5ead0;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  text-shadow: 0 2px 6px black;
-}
-.raidCard:hover {
-  z-index: 20;
-}
-
-.raidCard:hover .raidImage {
-  animation-play-state: paused;
-  transform: scale(1.16);
-  border-color: #e879f9;
-  box-shadow:
-    0 0 30px rgba(217, 70, 239, 0.95),
-    0 0 65px rgba(168, 85, 247, 0.55);
-}
-
-.raidImage span {
-  width: 30px;
-  height: 30px;
-
-  position: absolute;
-  bottom: 42px; /* moved up */
-
-  border-radius: 50%;
-  border: 2px solid #c9aa71;
-
-  background: rgba(0,0,0,.82);
-  color: #f5ead0;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  font-weight: 900;
-  font-size: 13px;
-
-  z-index: 6;
-}
-
-        .raidName {
-          margin-top: 10px;
-          color: #f1e2bb;
-          font-size: 12px;
-          font-weight: 900;
-          text-transform: uppercase;
-          line-height: 1.1;
-          text-shadow: 0 2px 6px black;
-        }
-
         .infoGrid {
           max-width: 1850px;
           margin: 0 auto;
@@ -690,44 +805,6 @@ useEffect(() => {
 
   transition: all .2s ease;
 }
-.raidCard {
-  animation: floatRaid 4.5s ease-in-out infinite;
-}
-
-.raidCard:nth-child(2n) {
-  animation-delay: .4s;
-}
-
-.raidCard:nth-child(3n) {
-  animation-delay: .8s;
-}
-
-.raidImage {
-  animation: purplePulse 3s ease-in-out infinite;
-}
-
-@keyframes floatRaid {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
-}
-
-@keyframes purplePulse {
-  0%, 100% {
-    box-shadow:
-      0 0 18px rgba(0,0,0,.7),
-      0 0 12px rgba(168,85,247,.35);
-  }
-  50% {
-    box-shadow:
-      0 0 20px rgba(0,0,0,.75),
-      0 0 28px rgba(217,70,239,.65),
-      0 0 55px rgba(168,85,247,.25);
-  }
-}
 .signOutBtn:hover {
   transform: scale(1.05);
 
@@ -783,123 +860,6 @@ useEffect(() => {
   margin: 2px 0 0;
   color: #86efac;
   font-size: 11px;
-}
-.xulContainer {
-  position: fixed;
-  bottom: 10px;
-  width: 500px;
-  height: 650px;
-  z-index: 10;
-  pointer-events: none;
-}
-
-.leftSide {
-  left: 20px;
-}
-
-.rightSide {
-  right: 20px;
-  transform: scaleX(-1);
-}
-
-.xulCharacter {
-  position: absolute;
-  left: 130px;
-  bottom: 0;
-  width: 280px;
-  height: 650px;
-  overflow: visible;
-}
-
-.xulBody {
-  position: absolute;
-  width: 250px;
-  left: 20px;
-  bottom: 120px;
-  z-index: 5;
-  animation: bodyBob .8s infinite ease-in-out;
-  filter:
-    drop-shadow(0 0 8px rgba(168,85,247,.75))
-    drop-shadow(0 0 18px rgba(34,197,94,.25));
-}
-
-.xulLeg {
-  position: absolute;
-  z-index: 3;
-  transform-origin: top center;
-  filter:
-    drop-shadow(0 0 7px rgba(168,85,247,.55));
-}
-
-.leftLeg {
-  width: 68px;
-  left: 48px;
-  bottom: 14px;
-  animation: walkLeft .45s infinite alternate ease-in-out;
-}
-
-.rightLeg {
-  width: 68px;
-  left: 92px;
-  bottom: 14px;
-  animation: walkRight .45s infinite alternate ease-in-out;
-}
-
-.xulMinion {
-  position: absolute;
-  width: 150px;
-  z-index: 4;
-  filter:
-    drop-shadow(0 0 10px rgba(168,85,247,.9))
-    drop-shadow(0 0 20px rgba(59,130,246,.4));
-}
-
-.leftMinion {
-  left: 0;
-  bottom: 130px;
-  animation: minionFloat .8s infinite ease-in-out;
-}
-
-.rightMinion {
-  right: 0;
-  bottom: 130px;
-  animation: minionFloat 1s infinite ease-in-out;
-}
-
-@keyframes walkLeft {
-  from {
-    transform: rotate(-16deg) translateY(0);
-  }
-  to {
-    transform: rotate(16deg) translateY(-6px);
-  }
-}
-
-@keyframes walkRight {
-  from {
-    transform: rotate(16deg) translateY(-6px);
-  }
-  to {
-    transform: rotate(-16deg) translateY(0);
-  }
-}
-
-@keyframes bodyBob {
-  0%, 100% {
-    transform: translateY(0) scale(1);
-  }
-  50% {
-    transform: translateY(-8px) scale(1.015);
-  }
-}
-
-@keyframes minionFloat {
-  0%, 100% {
-    transform: translateY(0) scale(1);
-  }
-  50% {
-    transform: translateY(-12px) scale(1.04);
-  }
 }
 footer {
   text-align: center;
