@@ -27,7 +27,7 @@ export default function LoginPage() {
           <button
             className="discordBtn"
             onClick={async () => {
-localStorage.setItem("redirectAfterLogin", "/runs");
+localStorage.setItem("redirectAfterLogin", "/");
 
               await supabase.auth.signInWithOAuth({
                 provider: "discord",
