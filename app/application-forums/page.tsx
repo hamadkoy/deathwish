@@ -631,18 +631,25 @@ const factionBg =
   </a>
 )}
 
-                            <a
-                              href={
-                                app.warcraft_logs ||
-                                `https://www.warcraftlogs.com/character/eu/${app.realm}/${app.character_name}`
-                              }
-                              target="_blank"
-                              rel="noreferrer"
-                              className="appLink appLinkLogs"
-                            >
-                              <span className="appLinkIcon">📜</span>
-                              <span>Warcraft Logs</span>
-                            </a>
+<a
+  href={`https://www.warcraftlogs.com/character/eu/${encodeURIComponent(
+    String(app.realm || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/'/g, "")
+  )}/${encodeURIComponent(
+    String(app.character_name || "")
+      .trim()
+      .toLowerCase()
+  )}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="appLink appLinkLogs"
+>
+  <span className="appLinkIcon">📜</span>
+  <span>Warcraft Logs</span>
+</a>
                           </div>
 
 <button
