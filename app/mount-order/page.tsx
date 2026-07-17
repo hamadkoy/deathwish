@@ -21,6 +21,7 @@ type MountRow = {
   attendance: number;
   note: string;
   received: boolean;
+  rankOverride: PerformanceRank | null;
   mountName: string;
   receivedAt: string | null;
   mountImage: string | null;
@@ -211,7 +212,9 @@ export default function MountOrderPage() {
           .from("profiles")
           .select("user_id, discord_id, discord_name, avatar_url, guild_role")
           .eq("accepted_application", true),
-        supabase.from("mount_order").select("user_id, note, received"),
+     supabase
+  .from("mount_order")
+  .select("user_id, note, received, rank_override"),
         supabase.from("mount_votes").select("voter_id, target_id, rank"),
         auth.user
           ? supabase
@@ -235,12 +238,17 @@ export default function MountOrderPage() {
     // migration hasn't run, the select errors and we fall back to bare rows
     // rather than emptying the page.
     let mountData = mountResult.data;
-    if (mountResult.error) {
-      const retry = await supabase
-        .from("mount_order")
-        .select("user_id, note, received");
-      mountData = retry.data;
-    }
+if (mountResult.error) {
+  console.error("Mount order load error:", mountResult.error);
+
+  say(
+    `Mount order error: ${mountResult.error.message}`,
+    true,
+  );
+
+  setLoading(false);
+  return;
+}
 
     const mountByUser = new Map(
       (mountData ?? []).map((m: any) => [m.user_id as string, m]),
@@ -254,8 +262,13 @@ export default function MountOrderPage() {
           user_id: profile.user_id,
           attendance: attendanceMap[String(profile.discord_id || "")] ?? 0,
           note: mount?.note ?? "",
-          received: mount?.received ?? false,
-          mountName: "",
+received: mount?.received ?? false,
+rankOverride:
+  mount?.rank_override &&
+  ["S", "A", "B", "C", "F"].includes(mount.rank_override)
+    ? (mount.rank_override as PerformanceRank)
+    : null,
+mountName: "",
           receivedAt: null,
           mountImage: null,
           profile,
@@ -298,24 +311,33 @@ export default function MountOrderPage() {
     return map;
   }, [votes, weightById]);
 
-  const scored = useMemo(
-    () =>
-      rows.map((row) => {
-        const cast = votesByTarget.get(row.user_id) ?? [];
-        const { rank, weights, totalWeight } = tallyRank(cast, weightById);
-        const performance = performancePoints[rank];
-        return {
-          ...row,
-          cast,
-          rank,
-          weights,
-          totalWeight,
-          performance,
-          total: row.attendance + performance,
-        };
-      }),
-    [rows, votesByTarget, weightById],
-  );
+const scored = useMemo(
+  () =>
+    rows.map((row) => {
+      const cast = votesByTarget.get(row.user_id) ?? [];
+
+      const {
+        rank: votedRank,
+        weights,
+        totalWeight,
+      } = tallyRank(cast, weightById);
+
+      const rank = row.rankOverride ?? votedRank;
+      const performance = performancePoints[rank];
+
+      return {
+        ...row,
+        cast,
+        votedRank,
+        rank,
+        weights,
+        totalWeight,
+        performance,
+        total: row.attendance + performance,
+      };
+    }),
+  [rows, votesByTarget, weightById],
+);
 
   type Scored = (typeof scored)[number];
 
@@ -409,13 +431,17 @@ export default function MountOrderPage() {
 
     const next = { ...row, ...patch };
 
-    const payload: Record<string, unknown> = {
-      user_id: row.user_id,
-      attendance: row.attendance,
-      performance: row.performance,
-      note: next.note,
-      received: next.received,
-    };
+const finalRank = next.rankOverride ?? row.votedRank;
+const finalPerformance = performancePoints[finalRank];
+
+const payload: Record<string, unknown> = {
+  user_id: row.user_id,
+  attendance: row.attendance,
+  performance: finalPerformance,
+  note: next.note,
+  received: next.received,
+  rank_override: next.rankOverride,
+};
 
     let { error } = await supabase
       .from("mount_order")
@@ -489,7 +515,20 @@ export default function MountOrderPage() {
       </main>
     );
   }
+async function saveRankOverride(
+  row: Scored,
+  rankOverride: PerformanceRank | null,
+) {
+  const saved = await persist(row, { rankOverride });
 
+  if (!saved) return;
+
+  say(
+    rankOverride
+      ? `${row.profile.discord_name ?? "Player"} forced to rank ${rankOverride}`
+      : `${row.profile.discord_name ?? "Player"} returned to community voting`,
+  );
+}
   return (
     <main className="moPage">
       <div className="moBackdrop" aria-hidden="true" />
@@ -654,13 +693,15 @@ export default function MountOrderPage() {
                           )}
                         </div>
 
-                        <small>
-                          {row.cast.length === 0
-                            ? "No votes"
-                            : `${row.cast.length} ${
-                                row.cast.length === 1 ? "vote" : "votes"
-                              } · ${row.totalWeight} pts`}
-                        </small>
+<small className={row.rankOverride ? "moOverrideLabel" : ""}>
+  {row.rankOverride
+    ? `Guild Master override · Community voted ${row.votedRank}`
+    : row.cast.length === 0
+      ? "No votes"
+      : `${row.cast.length} ${
+          row.cast.length === 1 ? "vote" : "votes"
+        } · ${row.totalWeight} pts`}
+</small>
                       </div>
 
                       <div className="moTot">{row.total.toLocaleString()}</div>
@@ -812,7 +853,40 @@ export default function MountOrderPage() {
                               every vote here.
                             </p>
                           )}
+{canWriteNote && (
+  <>
+    <h4 className="gap">Guild Master override</h4>
 
+    <div className="moOverride">
+      <button
+        className={!row.rankOverride ? "selected auto" : "auto"}
+        onClick={() => saveRankOverride(row, null)}
+        disabled={busyId === row.user_id}
+      >
+        Auto
+      </button>
+
+      {rankOrder.map((rank) => (
+        <button
+          key={rank}
+          className={`r${rank} ${
+            row.rankOverride === rank ? "selected" : ""
+          }`}
+          onClick={() => saveRankOverride(row, rank)}
+          disabled={busyId === row.user_id}
+        >
+          {rank}
+        </button>
+      ))}
+    </div>
+
+    <p className="moQuiet">
+      {row.rankOverride
+        ? `Guild Master forced this player to ${row.rankOverride}. Community vote was ${row.votedRank}.`
+        : `Using community vote: ${row.votedRank}.`}
+    </p>
+  </>
+)}
                           <h4 className="gap">Guild Master note</h4>
                           <NoteEditor
                             value={row.note}
@@ -2006,7 +2080,89 @@ const css = `
   .moGroup + .moGroup {
     border-top: 1px solid rgba(255, 255, 255, 0.085);
   }
+.moOverride {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 8px;
+}
 
+.moOverride button {
+  width: 42px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 9px;
+  cursor: pointer;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 900;
+  opacity: 0.48;
+  filter: saturate(0.45);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.moOverride button:hover:not(:disabled) {
+  opacity: 1;
+  filter: none;
+  transform: translateY(-2px);
+}
+
+.moOverride button.selected {
+  opacity: 1;
+  filter: none;
+  border-color: #f5d76e;
+  box-shadow:
+    0 0 0 2px rgba(245, 215, 110, 0.28),
+    0 0 16px rgba(245, 215, 110, 0.35);
+}
+
+.moOverride button.auto {
+  width: auto;
+  padding: 0 13px;
+  background: rgba(168, 85, 247, 0.18);
+  color: #d8c6ff;
+}
+
+.moOverride button.auto.selected {
+  color: #f5d76e;
+  background: rgba(245, 215, 110, 0.12);
+}
+
+.moOverride button.rS {
+  background: linear-gradient(135deg, #facc15, #a16207);
+}
+
+.moOverride button.rA {
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+}
+
+.moOverride button.rB {
+  background: linear-gradient(135deg, #22c55e, #15803d);
+}
+
+.moOverride button.rC {
+  background: linear-gradient(135deg, #9ca3af, #4b5563);
+}
+
+.moOverride button.rF {
+  background: linear-gradient(135deg, #ef4444, #7f1d1d);
+}
+
+.moOverride button:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
+}
+
+.moOverrideLabel {
+  color: #f5d76e !important;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
   .moGroup:hover {
     border-color: transparent;
     box-shadow: none;
