@@ -14,7 +14,17 @@ type GuildProfile = {
 type PerformanceRank = "S" | "A" | "B" | "C" | "F";
 type Tab = "standings" | "notes" | "received";
 
-type Vote = { voter_id: string; target_id: string; rank: PerformanceRank };
+type VoteTotal = {
+  target_id: string;
+  rank: PerformanceRank;
+  vote_count: number;
+  weighted_points: number;
+};
+
+type MyVote = {
+  target_id: string;
+  rank: PerformanceRank;
+};
 
 type MountRow = {
   user_id: string;
@@ -35,7 +45,7 @@ const allowedRanks = [
   "Officer",
   "Guild Master",
 ];
-const voterRanks = ["Raider", "Death Wish", "Officer", "Guild Master"];
+const voterRanks = ["Death Wish", "Officer", "Guild Master"];
 const officerRanks = ["Officer", "Guild Master"];
 
 /** Officer and Guild Master votes count as two. Raider and Death Wish count as one. */
@@ -71,39 +81,6 @@ const rankMeaning: Record<PerformanceRank, string> = {
   C: "Baseline",
   F: "Cost us pulls",
 };
-
-/**
- * Weighted plurality. Each vote contributes its caster's weight, so one
- * officer (3) outweighs two raiders (1 + 1). Tie goes to the better letter.
- * No votes at all -> C.
- */
-function tallyRank(votes: Vote[], weight: (voterId: string) => number) {
-  const weights: Record<PerformanceRank, number> = {
-    S: 0,
-    A: 0,
-    B: 0,
-    C: 0,
-    F: 0,
-  };
-  for (const v of votes) weights[v.rank] += weight(v.voter_id);
-
-  let winner: PerformanceRank = "C";
-  let best = 0;
-
-  for (const r of rankOrder) {
-    if (weights[r] > best) {
-      best = weights[r];
-      winner = r;
-    }
-  }
-
-  const totalWeight = rankOrder.reduce((sum, r) => sum + weights[r], 0);
-  return {
-    rank: best === 0 ? ("C" as PerformanceRank) : winner,
-    weights,
-    totalWeight,
-  };
-}
 
 function parseCsv(text: string) {
   const rows: string[][] = [];
@@ -177,7 +154,8 @@ function formatDate(iso: string | null) {
 
 export default function MountOrderPage() {
   const [rows, setRows] = useState<MountRow[]>([]);
-  const [votes, setVotes] = useState<Vote[]>([]);
+  const [voteTotals, setVoteTotals] = useState<VoteTotal[]>([]);
+  const [myVotes, setMyVotes] = useState<MyVote[]>([]);
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState<{ id: string; rank: string | null } | null>(
     null,
@@ -194,6 +172,7 @@ export default function MountOrderPage() {
   const canVote = me?.rank ? voterRanks.includes(me.rank) : false;
   const canEdit = me?.rank ? officerRanks.includes(me.rank) : false;
   const canWriteNote = me?.rank === "Guild Master";
+  const canResetVotes = me?.rank === "Guild Master";
   const myWeight = weightOf(me?.rank);
 
   const say = useCallback((text: string, bad = false) => {
@@ -205,25 +184,37 @@ export default function MountOrderPage() {
   const loadData = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
 
-    const [attendanceMap, profilesResult, mountResult, votesResult, meResult] =
-      await Promise.all([
-        loadAttendanceFromSheet(),
-        supabase
-          .from("profiles")
-          .select("user_id, discord_id, discord_name, avatar_url, guild_role")
-          .eq("accepted_application", true),
-     supabase
-  .from("mount_order")
-  .select("user_id, note, received, rank_override"),
-        supabase.from("mount_votes").select("voter_id, target_id, rank"),
-        auth.user
-          ? supabase
-              .from("profiles")
-              .select("guild_role")
-              .eq("user_id", auth.user.id)
-              .single()
-          : Promise.resolve({ data: null as any }),
-      ]);
+const [
+  attendanceMap,
+  profilesResult,
+  mountResult,
+  voteTotalsResult,
+  myVotesResult,
+  meResult,
+] = await Promise.all([
+  loadAttendanceFromSheet(),
+
+  supabase
+    .from("profiles")
+    .select("user_id, discord_id, discord_name, avatar_url, guild_role")
+    .eq("accepted_application", true),
+
+  supabase
+    .from("mount_order")
+    .select("user_id, note, received, rank_override"),
+
+  supabase.rpc("get_mount_vote_totals"),
+
+  supabase.rpc("get_my_mount_votes"),
+
+  auth.user
+    ? supabase
+        .from("profiles")
+        .select("guild_role")
+        .eq("user_id", auth.user.id)
+        .single()
+    : Promise.resolve({ data: null as any }),
+]);
 
     if (auth.user)
       setMe({ id: auth.user.id, rank: meResult?.data?.guild_role ?? null });
@@ -275,7 +266,21 @@ mountName: "",
         };
       });
 
-    setVotes((votesResult.data as Vote[]) ?? []);
+setVoteTotals(
+  ((voteTotalsResult.data ?? []) as any[]).map((item) => ({
+    target_id: item.target_id,
+    rank: item.rank as PerformanceRank,
+    vote_count: Number(item.vote_count ?? 0),
+    weighted_points: Number(item.weighted_points ?? 0),
+  })),
+);
+
+setMyVotes(
+  ((myVotesResult.data ?? []) as any[]).map((item) => ({
+    target_id: item.target_id,
+    rank: item.rank as PerformanceRank,
+  })),
+);
     setRows(merged);
     setLoading(false);
   }, [say]);
@@ -287,56 +292,69 @@ mountName: "",
     };
   }, [loadData]);
 
-  const profileById = useMemo(() => {
-    const map = new Map<string, GuildProfile>();
-    for (const row of rows) map.set(row.user_id, row.profile);
-    return map;
-  }, [rows]);
+const totalsByTarget = useMemo(() => {
+  const map = new Map<string, VoteTotal[]>();
 
-  const weightById = useCallback(
-    (voterId: string) => weightOf(profileById.get(voterId)?.guild_role),
-    [profileById],
-  );
+  for (const vote of voteTotals) {
+    const existing = map.get(vote.target_id);
 
-  const votesByTarget = useMemo(() => {
-    const map = new Map<string, Vote[]>();
-    for (const v of votes) {
-      const list = map.get(v.target_id);
-      if (list) list.push(v);
-      else map.set(v.target_id, [v]);
+    if (existing) {
+      existing.push(vote);
+    } else {
+      map.set(vote.target_id, [vote]);
     }
-    // Heavy voters first so the list reads in order of influence.
-    for (const list of map.values())
-      list.sort((a, b) => weightById(b.voter_id) - weightById(a.voter_id));
-    return map;
-  }, [votes, weightById]);
+  }
+
+  return map;
+}, [voteTotals]);
 
 const scored = useMemo(
   () =>
     rows.map((row) => {
-      const cast = votesByTarget.get(row.user_id) ?? [];
+      const totals = totalsByTarget.get(row.user_id) ?? [];
 
-      const {
-        rank: votedRank,
-        weights,
-        totalWeight,
-      } = tallyRank(cast, weightById);
+      const weights: Record<PerformanceRank, number> = {
+        S: 0,
+        A: 0,
+        B: 0,
+        C: 0,
+        F: 0,
+      };
+
+      let voteCount = 0;
+      let totalWeight = 0;
+
+      for (const result of totals) {
+        weights[result.rank] = result.weighted_points;
+        voteCount += result.vote_count;
+        totalWeight += result.weighted_points;
+      }
+
+      let votedRank: PerformanceRank = "C";
+      let bestWeight = 0;
+
+      for (const rank of rankOrder) {
+        if (weights[rank] > bestWeight) {
+          bestWeight = weights[rank];
+          votedRank = rank;
+        }
+      }
 
       const rank = row.rankOverride ?? votedRank;
       const performance = performancePoints[rank];
 
       return {
         ...row,
-        cast,
         votedRank,
         rank,
         weights,
+        voteCount,
         totalWeight,
         performance,
         total: row.attendance + performance,
       };
     }),
-  [rows, votesByTarget, weightById],
+  [rows, totalsByTarget],
 );
 
   type Scored = (typeof scored)[number];
@@ -369,63 +387,120 @@ const scored = useMemo(
     [received, matches],
   );
 
-  const myVoteFor = useCallback(
-    (targetId: string) =>
-      me
-        ? votes.find((v) => v.voter_id === me.id && v.target_id === targetId)
-            ?.rank
-        : undefined,
-    [votes, me],
+const myVoteFor = useCallback(
+  (targetId: string) =>
+    myVotes.find((vote) => vote.target_id === targetId)?.rank,
+  [myVotes],
+);
+async function refreshVoteResults() {
+  const [totalsResult, mineResult] = await Promise.all([
+    supabase.rpc("get_mount_vote_totals"),
+    supabase.rpc("get_my_mount_votes"),
+  ]);
+
+  if (totalsResult.error) {
+    say(totalsResult.error.message, true);
+    return;
+  }
+
+  setVoteTotals(
+    ((totalsResult.data ?? []) as any[]).map((item) => ({
+      target_id: item.target_id,
+      rank: item.rank as PerformanceRank,
+      vote_count: Number(item.vote_count ?? 0),
+      weighted_points: Number(item.weighted_points ?? 0),
+    })),
   );
 
-  async function castVote(targetId: string, rank: PerformanceRank) {
-    if (!me) return;
+  setMyVotes(
+    ((mineResult.data ?? []) as any[]).map((item) => ({
+      target_id: item.target_id,
+      rank: item.rank as PerformanceRank,
+    })),
+  );
+}
+async function castVote(
+  targetId: string,
+  rank: PerformanceRank,
+) {
+  if (!me || !canVote) return;
 
-    const previous = votes;
-    const next = votes.filter(
-      (v) => !(v.voter_id === me.id && v.target_id === targetId),
-    );
-    next.push({ voter_id: me.id, target_id: targetId, rank });
-    setVotes(next);
+  const previousMyVotes = myVotes;
 
-    const { error } = await supabase
-      .from("mount_votes")
-      .upsert(
-        { voter_id: me.id, target_id: targetId, rank },
-        { onConflict: "voter_id,target_id" },
-      );
+  setMyVotes((current) => [
+    ...current.filter((vote) => vote.target_id !== targetId),
+    {
+      target_id: targetId,
+      rank,
+    },
+  ]);
 
-    if (error) {
-      setVotes(previous);
-      say(error.message, true);
-      return;
-    }
+  const { error } = await supabase.rpc("cast_mount_vote", {
+    p_target_id: targetId,
+    p_rank: rank,
+  });
 
-    say(
-      `Voted ${rank} for ${profileById.get(targetId)?.discord_name ?? "player"}`,
-    );
+  if (error) {
+    setMyVotes(previousMyVotes);
+    say(error.message, true);
+    return;
   }
 
-  async function clearVote(targetId: string) {
-    if (!me) return;
+  await refreshVoteResults();
 
-    const previous = votes;
-    setVotes(
-      votes.filter((v) => !(v.voter_id === me.id && v.target_id === targetId)),
-    );
+  say(`Voted ${rank}`);
+}
 
-    const { error } = await supabase
-      .from("mount_votes")
-      .delete()
-      .eq("voter_id", me.id)
-      .eq("target_id", targetId);
+async function clearVote(targetId: string) {
+  if (!me) return;
 
-    if (error) {
-      setVotes(previous);
-      say(error.message, true);
-    }
+  const previous = myVotes;
+
+  setMyVotes((current) =>
+    current.filter((vote) => vote.target_id !== targetId),
+  );
+
+  const { error } = await supabase.rpc("remove_mount_vote", {
+    p_target_id: targetId,
+  });
+
+  if (error) {
+    setMyVotes(previous);
+    say(error.message, true);
+    return;
   }
 
+  await refreshVoteResults();
+  say("Vote removed");
+}
+async function resetAllVotes() {
+  if (!me || me.rank !== "Guild Master") return;
+
+  const accepted = window.confirm(
+    "Reset every performance vote? This cannot be undone.",
+  );
+
+  if (!accepted) return;
+
+  setBusyId("reset-all-votes");
+
+  const { error } = await supabase.rpc(
+    "reset_all_mount_votes",
+  );
+
+  setBusyId(null);
+
+  if (error) {
+    say(`Could not reset votes: ${error.message}`, true);
+    return;
+  }
+
+  setVoteTotals([]);
+  setMyVotes([]);
+  setOpenId(null);
+
+  say("All performance votes have been reset");
+}
   async function persist(row: Scored, patch: Partial<MountRow>) {
     setBusyId(row.user_id);
 
@@ -501,6 +576,21 @@ const payload: Record<string, unknown> = {
     if (await persist(row, { note })) say("Note saved");
   }
 
+  async function saveRankOverride(
+    row: Scored,
+    rankOverride: PerformanceRank | null,
+  ) {
+    const saved = await persist(row, { rankOverride });
+
+    if (!saved) return;
+
+    say(
+      rankOverride
+        ? `${row.profile.discord_name ?? "Player"} forced to rank ${rankOverride}`
+        : `${row.profile.discord_name ?? "Player"} returned to community voting`,
+    );
+  }
+
   if (loading) {
     return (
       <main className="moPage">
@@ -515,20 +605,6 @@ const payload: Record<string, unknown> = {
       </main>
     );
   }
-async function saveRankOverride(
-  row: Scored,
-  rankOverride: PerformanceRank | null,
-) {
-  const saved = await persist(row, { rankOverride });
-
-  if (!saved) return;
-
-  say(
-    rankOverride
-      ? `${row.profile.discord_name ?? "Player"} forced to rank ${rankOverride}`
-      : `${row.profile.discord_name ?? "Player"} returned to community voting`,
-  );
-}
   return (
     <main className="moPage">
       <div className="moBackdrop" aria-hidden="true" />
@@ -601,7 +677,15 @@ async function saveRankOverride(
                 <em>{count}</em>
               </button>
             ))}
-
+{canResetVotes && (
+  <button
+    className="moResetVotes"
+    onClick={resetAllVotes}
+    disabled={busyId === "reset-all-votes"}
+  >
+    {busyId === "reset-all-votes" ? "Resetting..." : "Reset All Votes"}
+  </button>
+)}
             <input
               className="moSearch"
               value={query}
@@ -696,11 +780,11 @@ async function saveRankOverride(
 <small className={row.rankOverride ? "moOverrideLabel" : ""}>
   {row.rankOverride
     ? `Guild Master override · Community voted ${row.votedRank}`
-    : row.cast.length === 0
+    : row.voteCount === 0
       ? "No votes"
-      : `${row.cast.length} ${
-          row.cast.length === 1 ? "vote" : "votes"
-        } · ${row.totalWeight} pts`}
+      : `${row.voteCount} anonymous ${
+          row.voteCount === 1 ? "vote" : "votes"
+        }`}
 </small>
                       </div>
 
@@ -740,72 +824,44 @@ async function saveRankOverride(
                     {open && (
                       <div className="moPanel">
                         {/* ----- who voted ----- */}
-                        <div className="moCol">
-                          <h4>
-                            Who voted
-                            <span className="moWeightNote">
-                              Officer and Guild Master count ×{heavyWeight}
-                            </span>
-                          </h4>
+ <div className="moCol">
+  <h4>Anonymous vote results</h4>
 
-                          {row.cast.length === 0 && (
-                            <p className="moQuiet">Nobody has voted yet.</p>
-                          )}
+  {row.voteCount === 0 ? (
+    <p className="moQuiet">No votes have been submitted yet.</p>
+  ) : (
+    <div className="moSpread">
+      {rankOrder.map((rank) => (
+        <span className="moSpreadRow" key={rank}>
+          <span className={`moChip mini r${rank}`}>
+            {rank}
+          </span>
 
-                          <ul className="moVoteList">
-                            {row.cast.map((v) => {
-                              const voter = profileById.get(v.voter_id);
-                              const w = weightOf(voter?.guild_role);
-                              return (
-                                <li key={v.voter_id}>
-                                  <img
-                                    src={
-                                      voter?.avatar_url ?? "/default-avatar.png"
-                                    }
-                                    alt=""
-                                    loading="lazy"
-                                  />
-                                  <span className="moVoteWho">
-                                    <b>{voter?.discord_name ?? "Unknown"}</b>
-                                    <i>{voter?.guild_role ?? "Trial"}</i>
-                                  </span>
-                                  {w > 1 && (
-                                    <span className="moWeight">×{w}</span>
-                                  )}
-                                  <span className={`moChip mini r${v.rank}`}>
-                                    {v.rank}
-                                  </span>
-                                </li>
-                              );
-                            })}
-                          </ul>
+          <span className="moTrack">
+            <span
+              className={`moFill r${rank}`}
+              style={{
+                transform: `scaleX(${
+                  row.totalWeight > 0
+                    ? row.weights[rank] / row.totalWeight
+                    : 0
+                })`,
+              }}
+            />
+          </span>
 
-                          {row.totalWeight > 0 && (
-                            <div className="moSpread">
-                              {rankOrder.map((r) => (
-                                <span className="moSpreadRow" key={r}>
-                                  <span className={`moChip mini r${r}`}>
-                                    {r}
-                                  </span>
-                                  <span className="moTrack">
-                                    <span
-                                      className={`moFill r${r}`}
-                                      style={{
-                                        transform: `scaleX(${row.weights[r] / row.totalWeight})`,
-                                      }}
-                                    />
-                                  </span>
-                                  <b>{row.weights[r]}</b>
-                                </span>
-                              ))}
-                              <p className="moQuiet tiny">
-                                {row.totalWeight} weighted points · verdict{" "}
-                                {row.rank} · {rankMeaning[row.rank]}
-                              </p>
-                            </div>
-                          )}
-                        </div>
+          <b>{row.weights[rank]}</b>
+        </span>
+      ))}
 
+      <p className="moQuiet tiny">
+        {row.voteCount} anonymous{" "}
+        {row.voteCount === 1 ? "vote" : "votes"} · final verdict{" "}
+        {row.rank}
+      </p>
+    </div>
+  )}
+</div>
                         {/* ----- your verdict ----- */}
                         <div className="moCol">
                           <h4>
@@ -835,7 +891,7 @@ async function saveRankOverride(
                               <p className="moQuiet">
                                 {mine
                                   ? `You voted ${mine} — ${rankMeaning[mine]}.`
-                                  : "Pick a letter. The guild sees who voted what."}
+                                  : "Pick a letter. Votes are anonymous to other users."}
                               </p>
 
                               {mine && (
@@ -849,8 +905,7 @@ async function saveRankOverride(
                             </>
                           ) : (
                             <p className="moQuiet">
-                              Voting opens at Raider rank. You can still read
-                              every vote here.
+                              Only Death Wish, Officer, and Guild Master can vote.
                             </p>
                           )}
 {canWriteNote && (
@@ -1290,10 +1345,6 @@ const css = `
 
 
 
-.tl { ... }
-.tr { ... }
-.bl { ... }
-.br { ... }
 
   /* ===================== tabs ===================== */
   .moTabs {
@@ -1518,7 +1569,35 @@ const css = `
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
   }
+.moResetVotes {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid rgba(239, 68, 68, 0.65);
+  border-radius: 9px;
+  background: rgba(127, 29, 29, 0.28);
+  color: #fca5a5;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
 
+.moResetVotes:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #ef4444;
+  background: rgba(185, 28, 28, 0.42);
+  color: #ffffff;
+}
+
+.moResetVotes:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
   .moPerf b {
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     font-size: 17px;
@@ -2363,4 +2442,4 @@ const css = `
     .moBootBird, .moBootBird img { animation: none; }
     * { transition-duration: 0.01ms !important; }
   }
-`;
+    `;
