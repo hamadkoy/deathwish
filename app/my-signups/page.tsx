@@ -84,7 +84,10 @@ const weeks = Array.from(
   new Set(
     merged
       .map((s) => s.run?.week)
-      .filter(Boolean)
+      .filter(
+        (week): week is number =>
+          week !== null && week !== undefined
+      )
   )
 ).sort((a, b) => a - b);
 
@@ -113,9 +116,19 @@ setLoading(false);
   }
 
 function getRunDate(run?: any) {
-  if (!run?.day || !run?.time || !run?.week) return null;
+  if (
+    !run?.day ||
+    !run?.time ||
+    run?.week === null ||
+    run?.week === undefined
+  ) {
+    return null;
+  }
 
-  const start = new Date("2026-03-18T07:00:00");
+  // New season:
+  // Week 0 = August 12, 2026
+  // Week 1 = August 19, 2026
+  const start = new Date("2026-08-12T07:00:00");
 
   const dayOffset: Record<string, number> = {
     Wednesday: 0,
@@ -127,13 +140,20 @@ function getRunDate(run?: any) {
     Tuesday: 6,
   };
 
-  const cleanTime = run.time.replace("ST", "").trim();
+  const cleanTime = run.time
+    .toString()
+    .replace("ST", "")
+    .replace("st", "")
+    .trim();
+
   const [hour, minute] = cleanTime.split(":").map(Number);
+
+  const weekNumber = Number(run.week);
 
   const runDate = new Date(
     start.getTime() +
-      (run.week - 1) * 7 * 24 * 60 * 60 * 1000 +
-      (dayOffset[run.day] || 0) * 24 * 60 * 60 * 1000
+      weekNumber * 7 * 24 * 60 * 60 * 1000 +
+      (dayOffset[run.day] ?? 0) * 24 * 60 * 60 * 1000
   );
 
   runDate.setHours(hour || 0, minute || 0, 0, 0);
@@ -294,7 +314,14 @@ return (
       style={selectedWeek === week ? dayBtnActive : dayBtn}
       onClick={() => setSelectedWeek(week)}
     >
-      Week {week}
+    Week {week} —{" "}
+{new Date(
+  new Date("2026-08-12T07:00:00").getTime() +
+    week * 7 * 24 * 60 * 60 * 1000
+).toLocaleDateString("en-US", {
+  month: "numeric",
+  day: "numeric",
+})}
     </button>
   ))}
 </section>

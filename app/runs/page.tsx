@@ -15,6 +15,13 @@ import {
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { useRouter, useSearchParams } from "next/navigation";
+
+// ==============================
+// Season Settings
+// ==============================
+const SEASON_START = new Date("2026-08-12T07:00:00");
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
 type Run = {
   id: number;
   title: string;
@@ -67,23 +74,25 @@ type Character = {
 };
 
 function getCurrentWeek() {
-  const start = new Date("2026-03-18T07:00:00");
   const now = new Date();
+  const diffMs = now.getTime() - SEASON_START.getTime();
 
-  const diffMs = now.getTime() - start.getTime();
-  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  // Before the season begins, keep Week 0 selected.
+  if (diffMs < 0) {
+    return 0;
+  }
 
-  const week = Math.floor(diffMs / weekMs) + 1;
-
-  return Math.max(week, 1);
+  return Math.floor(diffMs / WEEK_MS);
 }
 
 function getShortWeekRange(week: number) {
-  const start = new Date("2026-03-18T07:00:00");
   const weekStart = new Date(
-    start.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000
+    SEASON_START.getTime() + week * WEEK_MS
   );
-  const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const weekEnd = new Date(
+    weekStart.getTime() + WEEK_MS
+  );
 
   return `${weekStart.getMonth() + 1}/${weekStart.getDate()} → ${
     weekEnd.getMonth() + 1
@@ -95,8 +104,6 @@ function formatRunDate(date: string) {
   return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
 }
 function getRunDateFromWeekAndDay(week: number, day: string) {
-  const start = new Date("2026-03-18T07:00:00");
-
   const dayOffset: Record<string, number> = {
     Wednesday: 0,
     Thursday: 1,
@@ -108,9 +115,9 @@ function getRunDateFromWeekAndDay(week: number, day: string) {
   };
 
   const date = new Date(
-    start.getTime() +
-      (week - 1) * 7 * 24 * 60 * 60 * 1000 +
-      (dayOffset[day] || 0) * 24 * 60 * 60 * 1000
+    SEASON_START.getTime() +
+      week * WEEK_MS +
+      (dayOffset[day] ?? 0) * 24 * 60 * 60 * 1000
   );
 
   return date.toISOString().split("T")[0];
@@ -245,20 +252,23 @@ useEffect(() => {
 
     if (error) return;
 
-    const uniqueWeeks = Array.from(
-      new Set(
-        (data || [])
-          .map((r) => r.week)
-          .filter(Boolean)
+const uniqueWeeks = Array.from(
+  new Set(
+    (data || [])
+      .map((r) => r.week)
+      .filter(
+        (week): week is number =>
+          week !== null && week !== undefined
       )
-    ).sort((a, b) => a - b);
+  )
+).sort((a, b) => a - b);
 const savedWeeks = JSON.parse(localStorage.getItem("weeks") || "[]");
 
   const mergedWeeks = Array.from(
   new Set([...uniqueWeeks, ...savedWeeks])
 ).sort((a, b) => a - b);
 
-setWeeks(mergedWeeks.length > 0 ? mergedWeeks : [1]);
+setWeeks(mergedWeeks.length > 0 ? mergedWeeks : [0]);
   }
 
   loadWeeks();
@@ -1177,7 +1187,7 @@ if (nextWeeks.length > 0) {
 if (nextWeeks.length > 0) {
   setSelectedWeek(nextWeeks[nextWeeks.length - 1]);
 } else {
-  setSelectedWeek(1);
+  setSelectedWeek(0);
 }
 
       await loadRuns();
@@ -1770,8 +1780,8 @@ boxShadow:
     <div style={{ width: 170, display: "flex", justifyContent: "center" }}>
 <button
 onClick={() => {
-  const nextWeek =
-    weeks.length > 0 ? Math.max(...weeks) + 1 : 1;
+const nextWeek =
+  weeks.length > 0 ? Math.max(...weeks) + 1 : 0;
 
   const updatedWeeks = [...weeks, nextWeek];
 
@@ -2383,11 +2393,14 @@ style={{
 
     setEditRunDay(day);
 
-    if (editingRun?.week) {
-      setEditRunDate(
-        getRunDateFromWeekAndDay(editingRun.week, day)
-      );
-    }
+if (
+  editingRun?.week !== null &&
+  editingRun?.week !== undefined
+) {
+  setEditRunDate(
+    getRunDateFromWeekAndDay(editingRun.week, day)
+  );
+}
   }}
   style={createInput}
 >
