@@ -19,7 +19,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 // ==============================
 // Season Settings
 // ==============================
-const SEASON_START = new Date("2026-08-12T07:00:00");
+const SEASON_START = new Date("2026-08-19T07:00:00");
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 type Run = {
@@ -77,17 +77,17 @@ function getCurrentWeek() {
   const now = new Date();
   const diffMs = now.getTime() - SEASON_START.getTime();
 
-  // Before the season begins, keep Week 0 selected.
+  // Before the season begins
   if (diffMs < 0) {
-    return 0;
+    return 1;
   }
 
-  return Math.floor(diffMs / WEEK_MS);
+  return Math.floor(diffMs / WEEK_MS) + 1;
 }
 
 function getShortWeekRange(week: number) {
   const weekStart = new Date(
-    SEASON_START.getTime() + week * WEEK_MS
+    SEASON_START.getTime() + (week - 1) * WEEK_MS
   );
 
   const weekEnd = new Date(
@@ -116,7 +116,7 @@ function getRunDateFromWeekAndDay(week: number, day: string) {
 
   const date = new Date(
     SEASON_START.getTime() +
-      week * WEEK_MS +
+      (week - 1) * WEEK_MS +
       (dayOffset[day] ?? 0) * 24 * 60 * 60 * 1000
   );
 
@@ -268,7 +268,7 @@ const savedWeeks = JSON.parse(localStorage.getItem("weeks") || "[]");
   new Set([...uniqueWeeks, ...savedWeeks])
 ).sort((a, b) => a - b);
 
-setWeeks(mergedWeeks.length > 0 ? mergedWeeks : [0]);
+setWeeks(mergedWeeks.length > 0 ? mergedWeeks : [1]);
   }
 
   loadWeeks();
@@ -1187,7 +1187,7 @@ if (nextWeeks.length > 0) {
 if (nextWeeks.length > 0) {
   setSelectedWeek(nextWeeks[nextWeeks.length - 1]);
 } else {
-  setSelectedWeek(0);
+  setSelectedWeek(1);
 }
 
       await loadRuns();
@@ -1781,7 +1781,7 @@ boxShadow:
 <button
 onClick={() => {
 const nextWeek =
-  weeks.length > 0 ? Math.max(...weeks) + 1 : 0;
+  weeks.length > 0 ? Math.max(...weeks) + 1 : 1;
 
   const updatedWeeks = [...weeks, nextWeek];
 
