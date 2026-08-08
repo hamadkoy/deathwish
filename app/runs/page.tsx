@@ -288,6 +288,8 @@ const [popup, setPopup] = useState<{
 
   const [raidFilter, setRaidFilter] =
     useState<"All" | "HC" | "Mythic">("All");
+const [typeFilter, setTypeFilter] =
+  useState<"All" | "VIP" | "Saved">("All");
 const [dayFilter, setDayFilter] = useState<string>("All");
   const [newRunIlvl, setNewRunIlvl] = useState("");
   const [newRunTitle, setNewRunTitle] = useState("");
@@ -992,6 +994,9 @@ async function sendChatMessage() {
 }
 const [banishLogs, setBanishLogs] = useState<any[]>([]);
 const [banishOpen, setBanishOpen] = useState(false);
+const [statsOpen, setStatsOpen] = useState(false);
+const [statsSort, setStatsSort] = useState<"total" | "vip" | "saved">("total");
+const [statsSortDesc, setStatsSortDesc] = useState(true);
 useEffect(() => {
   loadBanishLogs();
 
@@ -1152,12 +1157,21 @@ const filteredRuns = runs.filter((run) => {
   const matchesDay =
     dayFilter === "All" || run.day === dayFilter;
 
-  return matchesRaid && matchesDay;
+  const matchesType =
+    typeFilter === "All" || getRunCategory(run) === typeFilter;
+
+  return matchesRaid && matchesDay && matchesType;
 });
 
 const filteredBanishLogs = banishLogs.filter(
   (log) => Number(log.week) === Number(selectedWeek)
 );
+
+const playerStats = [...buildPlayerStats(signups, runs)].sort((a, b) => {
+  const diff = b[statsSort] - a[statsSort];
+  return statsSortDesc ? diff : -diff;
+});
+
 async function deleteSelectedWeek() {
   setPopup({
     title: "Delete Week",
@@ -1922,6 +1936,45 @@ justifyContent: "center",
       <FilterButton label="HC" active={raidFilter === "HC"} onClick={() => setRaidFilter("HC")} />
       <FilterButton label="Mythic" active={raidFilter === "Mythic"} onClick={() => setRaidFilter("Mythic")} />
     </div>
+
+    <div
+      style={{
+        ...controlLabel,
+        marginTop: 14,
+        textAlign: "center",
+        paddingLeft: 26,
+      }}
+    >
+      Run Type Filter
+    </div>
+
+    <div
+      style={{
+        display: "flex",
+        gap: 12,
+        marginTop: 10,
+        justifyContent: "center",
+        alignItems: "center",
+        width: "100%",
+        paddingLeft: 26,
+      }}
+    >
+      <FilterButton
+        label="All"
+        active={typeFilter === "All"}
+        onClick={() => setTypeFilter("All")}
+      />
+      <FilterButton
+        label="VIP"
+        active={typeFilter === "VIP"}
+        onClick={() => setTypeFilter("VIP")}
+      />
+      <FilterButton
+        label="Saved"
+        active={typeFilter === "Saved"}
+        onClick={() => setTypeFilter("Saved")}
+      />
+    </div>
   </div>
 </div>
 
@@ -2141,9 +2194,274 @@ style={{
   ))}
 </div>
       </section>
+
+{/* ============================== */}
+{/* LEFT SIDE - PLAYER RUN COUNTER */}
+{/* ============================== */}
+{!isMobile && !statsOpen && (
+  <button
+    onClick={() => {
+      setStatsOpen(true);
+      setBanishOpen(false);
+    }}
+    style={{
+      position: "fixed",
+      left: 24,
+      bottom: 180,
+      width: 62,
+      height: 62,
+      borderRadius: "50%",
+      border: "1px solid rgba(168,85,247,.7)",
+      background: "linear-gradient(135deg,#4c1d95,#a855f7)",
+      color: "white",
+      fontSize: 24,
+      cursor: "pointer",
+      zIndex: 999,
+      boxShadow: "0 0 24px rgba(168,85,247,.7)",
+    }}
+  >
+    📊
+  </button>
+)}
+
+{!isMobile && statsOpen && (
+  <div
+    style={{
+      position: "fixed",
+      left: 20,
+      top: 120,
+      width: 400,
+      maxHeight: "72vh",
+      display: "flex",
+      flexDirection: "column",
+      padding: 18,
+      borderRadius: 18,
+      background: "rgba(8,0,20,.94)",
+      border: "1px solid rgba(168,85,247,.45)",
+      boxShadow: "0 0 30px rgba(168,85,247,.35)",
+      backdropFilter: "blur(12px)",
+      zIndex: 998,
+    }}
+  >
+    <button
+      onClick={() => setStatsOpen(false)}
+      style={{
+        position: "absolute",
+        top: 10,
+        right: 12,
+        background: "transparent",
+        border: "none",
+        color: "white",
+        fontSize: 22,
+        cursor: "pointer",
+      }}
+    >
+      ×
+    </button>
+
+    <div
+      style={{
+        color: "#c084fc",
+        fontWeight: 900,
+        fontSize: 22,
+        textAlign: "center",
+        marginBottom: 4,
+        textShadow: "0 0 14px rgba(168,85,247,.7)",
+      }}
+    >
+      RUN COUNT
+    </div>
+
+    <div
+      style={{
+        color: "#9ca3af",
+        fontSize: 12,
+        textAlign: "center",
+        marginBottom: 14,
+      }}
+    >
+      Week {selectedWeek} • {playerStats.length} players
+    </div>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 70px 70px",
+        gap: 8,
+        padding: "8px 10px",
+        borderRadius: 10,
+        background: "rgba(168,85,247,.14)",
+        border: "1px solid rgba(168,85,247,.3)",
+        fontSize: 12,
+        fontWeight: 900,
+        letterSpacing: 1,
+        color: "#d8b4fe",
+      }}
+    >
+      <div
+        onClick={() => {
+          if (statsSort === "total") {
+            setStatsSortDesc(!statsSortDesc);
+          } else {
+            setStatsSort("total");
+            setStatsSortDesc(true);
+          }
+        }}
+        style={{
+          cursor: "pointer",
+          color: statsSort === "total" ? "#facc15" : "#d8b4fe",
+        }}
+      >
+        USER NAME{" "}
+        {statsSort === "total" ? (statsSortDesc ? "▼" : "▲") : ""}
+      </div>
+
+      <div
+        onClick={() => {
+          if (statsSort === "vip") {
+            setStatsSortDesc(!statsSortDesc);
+          } else {
+            setStatsSort("vip");
+            setStatsSortDesc(true);
+          }
+        }}
+        style={{
+          textAlign: "center",
+          cursor: "pointer",
+          color: statsSort === "vip" ? "#facc15" : "#d8b4fe",
+          textShadow:
+            statsSort === "vip"
+              ? "0 0 10px rgba(250,204,21,.7)"
+              : "none",
+        }}
+      >
+        VIP {statsSort === "vip" ? (statsSortDesc ? "▼" : "▲") : ""}
+      </div>
+
+      <div
+        onClick={() => {
+          if (statsSort === "saved") {
+            setStatsSortDesc(!statsSortDesc);
+          } else {
+            setStatsSort("saved");
+            setStatsSortDesc(true);
+          }
+        }}
+        style={{
+          textAlign: "center",
+          cursor: "pointer",
+          color: statsSort === "saved" ? "#facc15" : "#d8b4fe",
+          textShadow:
+            statsSort === "saved"
+              ? "0 0 10px rgba(250,204,21,.7)"
+              : "none",
+        }}
+      >
+        SAVED {statsSort === "saved" ? (statsSortDesc ? "▼" : "▲") : ""}
+      </div>
+    </div>
+
+    <div style={{ overflowY: "auto", marginTop: 8, minHeight: 0 }}>
+      {playerStats.length === 0 && (
+        <div
+          style={{
+            color: "#9ca3af",
+            textAlign: "center",
+            padding: 18,
+            fontSize: 14,
+          }}
+        >
+          No signups this week yet.
+        </div>
+      )}
+
+      {playerStats.map((p) => (
+        <div
+          key={p.key}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 70px 70px",
+            alignItems: "center",
+            gap: 8,
+            padding: "9px 10px",
+            marginBottom: 6,
+            borderRadius: 10,
+            background: "rgba(0,0,0,.4)",
+            border: "1px solid rgba(168,85,247,.18)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              minWidth: 0,
+            }}
+          >
+            <img
+              src={
+                p.avatar ||
+                "https://cdn.discordapp.com/embed/avatars/0.png"
+              }
+              alt=""
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: "50%",
+                objectFit: "cover",
+                border: "1px solid rgba(168,85,247,.5)",
+                flexShrink: 0,
+              }}
+            />
+            <b
+              title={p.name}
+              style={{
+                color: "white",
+                fontSize: 14,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {p.name}
+            </b>
+          </div>
+
+          <div
+            style={{
+              textAlign: "center",
+              color: "#facc15",
+              fontWeight: 900,
+              fontSize: 14,
+              textShadow: "0 0 10px rgba(250,204,21,.6)",
+            }}
+          >
+            {p.vip} Run
+          </div>
+
+          <div
+            style={{
+              textAlign: "center",
+              color: "#22c55e",
+              fontWeight: 900,
+              fontSize: 14,
+              textShadow: "0 0 10px rgba(34,197,94,.6)",
+            }}
+          >
+            {p.saved} Run
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
 {isAdmin && !isMobile && !banishOpen && (
   <button
-    onClick={() => setBanishOpen(true)}
+    onClick={() => {
+      setBanishOpen(true);
+      setStatsOpen(false);
+    }}
     style={{
       position: "fixed",
       left: 24,
@@ -3382,6 +3700,68 @@ setAdminAddSpec={setAdminAddSpec}
   </div>
 </main>
   );
+}
+
+// ==============================
+// Player Run Counter helpers
+// ==============================
+function getRunCategory(run: Run): "VIP" | "Saved" {
+  const t = (run.title || "").toLowerCase();
+
+  if (t.includes("saved") || t.includes("save")) return "Saved";
+
+  return "VIP";
+}
+
+function buildPlayerStats(signups: Signup[], runs: Run[]) {
+  const map = new Map<
+    string,
+    {
+      key: string;
+      name: string;
+      avatar: string;
+      vip: number;
+      saved: number;
+      total: number;
+    }
+  >();
+
+  signups.forEach((s) => {
+    // runs only ever holds the selected week, so this filters the week too
+    const run = runs.find((r) => r.id === s.run_id);
+
+    if (!run) return;
+
+    if (s.role === "Bench") return; // delete this line if bench should count
+
+    const key = s.discord_id || s.player.split(" - ")[0];
+
+    const entry =
+      map.get(key) || {
+        key,
+        name: s.player.split(" - ")[0],
+        avatar: s.avatar_url || "",
+        vip: 0,
+        saved: 0,
+        total: 0,
+      };
+
+    if (getRunCategory(run) === "Saved") {
+      entry.saved += 1;
+    } else {
+      entry.vip += 1;
+    }
+
+    entry.total += 1;
+
+    if (!entry.avatar && s.avatar_url) {
+      entry.avatar = s.avatar_url;
+    }
+
+    map.set(key, entry);
+  });
+
+  return Array.from(map.values()).sort((a, b) => b.total - a.total);
 }
 
 function FilterButton({
