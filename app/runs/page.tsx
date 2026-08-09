@@ -1958,23 +1958,16 @@ justifyContent: "center",
       <FilterButton label="HC" active={raidFilter === "HC"} onClick={() => setRaidFilter("HC")} />
       <FilterButton label="Mythic" active={raidFilter === "Mythic"} onClick={() => setRaidFilter("Mythic")} />
     </div>
+  </div>
 
-    <div
-      style={{
-        ...controlLabel,
-        marginTop: 14,
-        textAlign: "center",
-        paddingLeft: 26,
-      }}
-    >
-      Run Type Filter
-    </div>
+  <div style={{ ...controlBox, borderLeft: "1px solid rgba(168,85,247,.25)" }}>
+    <div style={controlLabel}>Run Type Filter</div>
 
     <div
       style={{
         display: "flex",
         gap: 12,
-        marginTop: 10,
+        marginTop: 12,
         justifyContent: "center",
         alignItems: "center",
         width: "100%",
@@ -4452,12 +4445,12 @@ function darkenColor(color: string) {
 
 const controlPanel: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr 2.2fr 1.2fr",
+  gridTemplateColumns: "1fr 1fr 2.2fr 1.2fr 1.2fr",
   alignItems: "center",
   gap: 0,
 
   width: "100%",
-  maxWidth: 1050,
+  maxWidth: 1320,
   margin: "0",
   padding: "22px 28px",
 transition: "all .22s ease",
