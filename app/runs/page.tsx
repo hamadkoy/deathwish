@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import SideNav from "../components/SideNav";
 import { supabase } from "@/lib/supabase";
 import {
@@ -522,12 +522,24 @@ setEuropeDay(day);
   };
 }, []);
   useEffect(() => {
+  // Only tick while a run is actually counting down, so the whole
+  // page isn't re-rendering every second for no reason.
+  const anyLocked = runs.some(
+    (r) =>
+      r.signup_open_at &&
+      new Date(r.signup_open_at).getTime() +
+        (hasEarlyAccess ? -EARLY_ACCESS_MS : 0) >
+        Date.now()
+  );
+
+  if (!anyLocked) return;
+
   const timer = setInterval(() => {
     setNowTick(Date.now());
   }, 1000);
 
   return () => clearInterval(timer);
-}, []);
+}, [runs, hasEarlyAccess]);
 useEffect(() => {
   chatBottomRef.current?.scrollIntoView({
     behavior: "smooth",
@@ -1015,7 +1027,7 @@ async function sendChatMessage() {
   setChatInput("");
 }
 const [banishLogs, setBanishLogs] = useState<any[]>([]);
-const [banishOpen, setBanishOpen] = useState(false);
+const [openSpotsOpen, setOpenSpotsOpen] = useState(false);
 const [statsOpen, setStatsOpen] = useState(false);
 const [statsSort, setStatsSort] = useState<"total" | "vip" | "saved">("total");
 const [statsSortDesc, setStatsSortDesc] = useState(true);
@@ -1185,14 +1197,55 @@ const filteredRuns = runs.filter((run) => {
   return matchesRaid && matchesDay && matchesType;
 });
 
-const filteredBanishLogs = banishLogs.filter(
-  (log) => Number(log.week) === Number(selectedWeek)
-);
+// Runs in this week that still have free Tank/Healer/DPS spots
+const openSpotRuns = useMemo(() => {
+  const roleMeta: { role: string; color: string }[] = [
+    { role: "Tank", color: "#1d8cff" },
+    { role: "Healer", color: "#22c55e" },
+    { role: "DPS", color: "#ff4d8d" },
+  ];
 
-const playerStats = [...buildPlayerStats(signups, runs)].sort((a, b) => {
-  const diff = b[statsSort] - a[statsSort];
-  return statsSortDesc ? diff : -diff;
-});
+  return filteredRuns
+    .filter((run) => {
+      if (run.finished) return false;
+
+      const openAt = getEffectiveSignupOpen(run);
+
+      return openAt === null || openAt <= nowTick;
+    })
+    .map((run) => {
+      const limits = getLimits(run);
+
+      const slots = roleMeta
+        .map(({ role, color }) => {
+          const limit =
+            role === "Tank"
+              ? limits.tank
+              : role === "Healer"
+              ? limits.healer
+              : limits.dps;
+
+          const taken = signups.filter(
+            (s) => s.run_id === run.id && s.role === role
+          ).length;
+
+          return { role, color, free: limit - taken };
+        })
+        .filter((slot) => slot.free > 0);
+
+      return { run, slots };
+    })
+    .filter((entry) => entry.slots.length > 0);
+}, [filteredRuns, signups, nowTick]);
+
+const playerStats = useMemo(
+  () =>
+    [...buildPlayerStats(signups, runs)].sort((a, b) => {
+      const diff = b[statsSort] - a[statsSort];
+      return statsSortDesc ? diff : -diff;
+    }),
+  [signups, runs, statsSort, statsSortDesc]
+);
 
 async function deleteSelectedWeek() {
   setPopup({
@@ -1802,9 +1855,22 @@ boxShadow:
           }}
         />
 
-<h1 style={{ ...heroTitle, position: "relative", zIndex: 2 }}>
-          Sign up Page
-        </h1>
+<div style={heroTitleWrap}>
+  <div style={heroTitleGlow} />
+
+  <div style={heroCrest}>
+    <span style={heroCrestWingLeft} />
+    <span style={heroCrestGem} />
+    <span style={heroCrestWingRight} />
+  </div>
+
+  <h1 style={heroTitle}>
+    <span style={heroTitleShadowLayer}>Sign up Page</span>
+    <span style={heroTitleTopLayer}>Sign up Page</span>
+  </h1>
+
+  <div style={heroSubtitle}>DEATH WISH \u2022 RAID ROSTER</div>
+</div>
         
   <div style={epicTitleOrnament}>
   <div style={epicLineLeft} />
@@ -2217,7 +2283,7 @@ style={{
   <button
     onClick={() => {
       setStatsOpen(true);
-      setBanishOpen(false);
+      setOpenSpotsOpen(false);
     }}
     style={{
       position: "fixed",
@@ -2471,10 +2537,10 @@ style={{
   </div>
 )}
 
-{isAdmin && !isMobile && !banishOpen && (
+{!isMobile && !openSpotsOpen && (
   <button
     onClick={() => {
-      setBanishOpen(true);
+      setOpenSpotsOpen(true);
       setStatsOpen(false);
     }}
     style={{
@@ -2484,35 +2550,39 @@ style={{
       width: 62,
       height: 62,
       borderRadius: "50%",
-      border: "1px solid rgba(239,68,68,.7)",
-      background: "linear-gradient(135deg,#7f1d1d,#ef4444)",
+      border: "1px solid rgba(34,197,94,.7)",
+      background: "linear-gradient(135deg,#065f46,#22c55e)",
       color: "white",
       fontSize: 26,
       cursor: "pointer",
       zIndex: 999,
-      boxShadow: "0 0 24px rgba(239,68,68,.75)",
+      boxShadow: "0 0 24px rgba(34,197,94,.75)",
     }}
   >
-    ☠
+    \u2694
   </button>
 )}
-{isAdmin && !isMobile && banishOpen && (
+
+{!isMobile && openSpotsOpen && (
   <div
     style={{
       position: "fixed",
       left: 20,
       top: 120,
       width: 430,
+      maxHeight: "72vh",
+      display: "flex",
+      flexDirection: "column",
       padding: 18,
       borderRadius: 18,
-      background: "rgba(8,0,20,.92)",
-      border: "1px solid rgba(239,68,68,.45)",
-      boxShadow: "0 0 28px rgba(239,68,68,.35)",
-      zIndex: 999,
+      background: "rgba(8,0,20,.94)",
+      border: "1px solid rgba(34,197,94,.45)",
+      boxShadow: "0 0 28px rgba(34,197,94,.3)",
+      zIndex: 998,
     }}
   >
     <button
-      onClick={() => setBanishOpen(false)}
+      onClick={() => setOpenSpotsOpen(false)}
       style={{
         position: "absolute",
         top: 10,
@@ -2524,50 +2594,125 @@ style={{
         cursor: "pointer",
       }}
     >
-      ×
+      \u00d7
     </button>
 
     <div
       style={{
-        color: "#ef4444",
+        color: "#22c55e",
         fontWeight: 900,
-        fontSize: 24,
+        fontSize: 22,
         textAlign: "center",
-        marginBottom: 14,
+        textShadow: "0 0 14px rgba(34,197,94,.7)",
       }}
     >
-      ☠ BANISH
+      \u2694 OPEN SPOTS
     </div>
 
-    {filteredBanishLogs.length === 0 && (
-      <div style={{ color: "#9ca3af", textAlign: "center" }}>
-        No unsigned players yet.
-      </div>
-    )}
+    <div
+      style={{
+        color: "#9ca3af",
+        fontSize: 12,
+        textAlign: "center",
+        marginTop: 4,
+        marginBottom: 12,
+      }}
+    >
+      Week {selectedWeek} \u2022 click a role to sign instantly
+    </div>
 
-  {filteredBanishLogs.map((log) => (
-      <div
-        key={log.id}
-        style={{
-          padding: 10,
-          marginBottom: 10,
-          borderRadius: 10,
-          background: "rgba(0,0,0,.35)",
-        }}
-      >
-        <div style={{ color: "#fff", fontWeight: 800 }}>
-          {log.player.split(" - ")[0]}
+    <div style={{ overflowY: "auto", minHeight: 0 }}>
+      {openSpotRuns.length === 0 && (
+        <div
+          style={{
+            color: "#9ca3af",
+            textAlign: "center",
+            padding: 18,
+            fontSize: 14,
+          }}
+        >
+          No open spots right now.
         </div>
+      )}
 
-        <div style={{ color: "#c084fc", fontSize: 12 }}>
-          {log.run_title} — Run ID #{log.run_id}
-        </div>
+      {openSpotRuns.map((entry) => (
+        <div
+          key={entry.run.id}
+          style={{
+            padding: 12,
+            marginBottom: 10,
+            borderRadius: 12,
+            background: "rgba(0,0,0,.42)",
+            border: "1px solid rgba(34,197,94,.22)",
+          }}
+        >
+          <div
+            style={{
+              color: "#fff",
+              fontWeight: 900,
+              fontSize: 15,
+            }}
+          >
+            {entry.run.title}
+          </div>
 
-        <div style={{ color: "#9ca3af", fontSize: 11 }}>
-          Unsigned: {new Date(log.unsigned_at).toLocaleString("en-GB")}
+          <div
+            style={{
+              color: "#c084fc",
+              fontSize: 12,
+              marginTop: 2,
+              marginBottom: 10,
+            }}
+          >
+            {entry.run.day} \u2022 {entry.run.time}
+            {entry.run.ilvl_required
+              ? ` \u2022 ${entry.run.ilvl_required}+ ilvl`
+              : ""}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+            }}
+          >
+            {entry.slots.map((slot) => (
+              <button
+                key={slot.role}
+                onClick={() => addSignup(entry.run.id, slot.role)}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform =
+                    "translateY(-2px) scale(1.05)";
+                  e.currentTarget.style.boxShadow = `0 0 20px ${slot.color}`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform =
+                    "translateY(0) scale(1)";
+                  e.currentTarget.style.boxShadow = `0 0 10px ${slot.color}66`;
+                }}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  color: "white",
+                  fontWeight: 900,
+                  fontSize: 13,
+                  border: `1px solid ${slot.color}`,
+                  background: `linear-gradient(180deg, ${slot.color}44, rgba(0,0,0,.55))`,
+                  boxShadow: `0 0 10px ${slot.color}66`,
+                  transition: "all .18s ease",
+                  textShadow: "0 1px 2px black",
+                }}
+              >
+                {getRoleIcon(slot.role)} {getRoleLabel(slot.role)} \u00b7{" "}
+                {slot.free} left
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
-    ))}
+      ))}
+    </div>
   </div>
 )}
 
@@ -4500,7 +4645,7 @@ const page: React.CSSProperties = {
   minHeight: "125vh",
   background: `
   linear-gradient(rgba(0,0,0,.22), rgba(0,0,0,.68)),
-  url('/bg.png') center top / cover fixed
+  url('/bg.png') center top / cover
 `,
   color: "white",
   fontFamily: "Arial, sans-serif",
@@ -4515,14 +4660,110 @@ const hero: React.CSSProperties = {
   paddingTop: 30,
 };
 
+const heroTitleWrap: React.CSSProperties = {
+  position: "relative",
+  zIndex: 2,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  paddingTop: 4,
+};
+
+const heroTitleGlow: React.CSSProperties = {
+  position: "absolute",
+  top: 18,
+  left: "50%",
+  transform: "translateX(-50%)",
+  width: 720,
+  height: 150,
+  borderRadius: "50%",
+  background:
+    "radial-gradient(ellipse at center, rgba(192,132,252,.38), rgba(124,58,237,.14) 55%, transparent 75%)",
+  filter: "blur(22px)",
+  pointerEvents: "none",
+  zIndex: 0,
+};
+
+const heroCrest: React.CSSProperties = {
+  position: "relative",
+  zIndex: 2,
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  marginBottom: 2,
+};
+
+const heroCrestWingLeft: React.CSSProperties = {
+  display: "block",
+  width: 110,
+  height: 2,
+  background:
+    "linear-gradient(to right, transparent, rgba(192,132,252,.9))",
+  boxShadow: "0 0 10px rgba(192,132,252,.9)",
+};
+
+const heroCrestWingRight: React.CSSProperties = {
+  display: "block",
+  width: 110,
+  height: 2,
+  background:
+    "linear-gradient(to left, transparent, rgba(192,132,252,.9))",
+  boxShadow: "0 0 10px rgba(192,132,252,.9)",
+};
+
+const heroCrestGem: React.CSSProperties = {
+  display: "block",
+  width: 9,
+  height: 9,
+  transform: "rotate(45deg)",
+  border: "1px solid #e9d5ff",
+  background:
+    "linear-gradient(135deg, rgba(255,255,255,.95), rgba(192,132,252,.6))",
+  boxShadow:
+    "0 0 10px rgba(255,255,255,.9), 0 0 18px rgba(192,132,252,.8)",
+};
+
 const heroTitle: React.CSSProperties = {
-    fontSize: 64,
+  position: "relative",
+  zIndex: 2,
+  fontSize: 64,
   fontFamily: "Georgia, serif",
   margin: 0,
-  marginBottom: -6,
-letterSpacing: 1,
-  color: "#f3e8ff",
-  textShadow: "0 0 18px #a855f7",
+  marginBottom: -2,
+  letterSpacing: 2,
+  lineHeight: 1.1,
+  display: "inline-block",
+};
+
+const heroTitleShadowLayer: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  color: "transparent",
+  WebkitTextStroke: "2px rgba(168,85,247,.55)",
+  filter: "blur(6px)",
+  pointerEvents: "none",
+};
+
+const heroTitleTopLayer: React.CSSProperties = {
+  position: "relative",
+  background:
+    "linear-gradient(180deg, #ffffff 0%, #f3e8ff 42%, #c084fc 100%)",
+  WebkitBackgroundClip: "text",
+  backgroundClip: "text",
+  color: "transparent",
+  textShadow: "0 0 26px rgba(168,85,247,.55)",
+  filter: "drop-shadow(0 2px 3px rgba(0,0,0,.75))",
+};
+
+const heroSubtitle: React.CSSProperties = {
+  position: "relative",
+  zIndex: 2,
+  marginTop: 6,
+  color: "#c084fc",
+  fontSize: 13,
+  fontWeight: 900,
+  letterSpacing: 6,
+  textShadow: "0 0 12px rgba(168,85,247,.75)",
 };
 
 const weekButtons: React.CSSProperties = {
