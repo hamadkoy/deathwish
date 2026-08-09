@@ -325,6 +325,20 @@ const isOfficer =
 
 const canFinishRun = isAdmin || isOfficer;
 
+// Soulreaper and above get signups 24h earlier than everyone else
+// (isAdmin covers Dreadlord, isOfficer covers Nightblade + Soulreaper)
+const hasEarlyAccess = isAdmin || isOfficer;
+
+const EARLY_ACCESS_MS = 24 * 60 * 60 * 1000;
+
+function getEffectiveSignupOpen(run: Run) {
+  if (!run.signup_open_at) return null;
+
+  const openAt = new Date(run.signup_open_at).getTime();
+
+  return hasEarlyAccess ? openAt - EARLY_ACCESS_MS : openAt;
+}
+
 const canMarkAttendance =
   fixedRole === "Dreadlord" ||
   fixedRole === "Nightblade";
@@ -499,6 +513,14 @@ setEuropeDay(day);
 
     return () => clearInterval(timer);
   }, []);
+  useEffect(() => {
+  // Force the page to render at 80%, like browser zoom
+  (document.body.style as any).zoom = "0.8";
+
+  return () => {
+    (document.body.style as any).zoom = "";
+  };
+}, []);
   useEffect(() => {
   const timer = setInterval(() => {
     setNowTick(Date.now());
@@ -2814,12 +2836,14 @@ const isLeftCard = index % 2 === 0;
     s.role !== "Bench" &&
     s.role !== "Loot Body"
 ).length;
+const effectiveOpenAt = getEffectiveSignupOpen(run);
+
 const signupLocked =
-  run.signup_open_at &&
-  new Date(run.signup_open_at).getTime() > nowTick;
+  effectiveOpenAt !== null && effectiveOpenAt > nowTick;
+
   const countdownText =
-  signupLocked && run.signup_open_at
-    ? formatCountdown(run.signup_open_at)
+  signupLocked && effectiveOpenAt !== null
+    ? formatCountdown(new Date(effectiveOpenAt).toISOString())
     : null;
     const runLog = logs.find((l) => l.run_id === run.id);
 return (
@@ -3197,6 +3221,26 @@ setEditRunSignupOpenAt(toDatetimeLocal(run.signup_open_at));
     >
       {countdownText}
     </div>
+
+    {hasEarlyAccess && (
+      <div
+        style={{
+          marginTop: 10,
+          display: "inline-block",
+          padding: "5px 14px",
+          borderRadius: 999,
+          color: "#c084fc",
+          fontSize: 13,
+          fontWeight: 900,
+          letterSpacing: 1,
+          background: "rgba(168,85,247,.14)",
+          border: "1px solid rgba(168,85,247,.45)",
+          boxShadow: "0 0 14px rgba(168,85,247,.35)",
+        }}
+      >
+        ⚡ EARLY ACCESS — 24H HEAD START
+      </div>
+    )}
   </div>
 ) : (
 <div
@@ -4460,7 +4504,7 @@ const controlSub: React.CSSProperties = {
 const page: React.CSSProperties = {
   position: "relative",
   overflow: "hidden",
-  minHeight: "100vh",
+  minHeight: "125vh",
   background: `
   linear-gradient(rgba(0,0,0,.22), rgba(0,0,0,.68)),
   url('/bg.png') center top / cover fixed
