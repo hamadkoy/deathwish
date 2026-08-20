@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
+
 const TOTAL_SPREADSHEET_ID =
   "1rXKtKuuEJj8ORkQ_LclEJGc0v1ccbuguj5u8v46yeuU";
 const MAIN_SPREADSHEET_ID = "1B8xawLZIGElNneqfOpUW6MZAURIb_F9n36NSZJL5sz8";
@@ -14,11 +15,50 @@ function normalize(text: any) {
   return (text || "").toString().trim().toLowerCase();
 }
 
+// Handles plain numbers, comma separators, and k / m suffixes.
+// "800,000" -> 800000   "3000k" -> 3000000   "1.5m" -> 1500000
 function parseNumber(value: any) {
   if (!value) return 0;
-  const cleaned = value.toString().replace(/,/g, "").trim();
-  const num = Number(cleaned);
-  return Number.isNaN(num) ? 0 : num;
+
+  const cleaned = value
+    .toString()
+    .replace(/,/g, "")
+    .replace(/g\b/gi, "")
+    .trim()
+    .toLowerCase();
+
+  if (!cleaned) return 0;
+
+  const match = cleaned.match(/^(-?\d*\.?\d+)\s*([km])?$/);
+
+  if (!match) return 0;
+
+  const base = Number(match[1]);
+
+  if (Number.isNaN(base)) return 0;
+
+  if (match[2] === "k") return base * 1_000;
+  if (match[2] === "m") return base * 1_000_000;
+
+  return base;
+}
+
+// A player row is any row whose first cell looks like a Discord ID.
+function isPlayerRow(row: any[]) {
+  return /^\d{5,}$/.test((row?.[0] || "").toString().trim());
+}
+
+// A pot row has no Discord ID and carries a label containing "pot"
+// somewhere in the first few columns (e.g. "Dawn Pot", "Oblivion Pot").
+function getPotLabel(row: any[]) {
+  if (isPlayerRow(row)) return null;
+
+  for (let i = 0; i < 4; i++) {
+    const text = (row?.[i] || "").toString().trim();
+    if (text && normalize(text).includes("pot")) return text;
+  }
+
+  return null;
 }
 
 export async function GET(req: Request) {
@@ -29,37 +69,85 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Missing discordId" }, { status: 400 });
   }
 
-const auth = new google.auth.GoogleAuth({
-  credentials: {
-    client_email: process.env.GOOGLE_CLIENT_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-  },
-  scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-});
+  const auth = new google.auth.GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_CLIENT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    },
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  });
 
-const authClient = await auth.getClient();
+  const authClient = await auth.getClient();
 
-const sheets = google.sheets({
-  version: "v4",
-  auth: authClient as any,
-});
+  const sheets = google.sheets({
+    version: "v4",
+    auth: authClient as any,
+  });
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: MAIN_SPREADSHEET_ID,
     range: MAIN_RANGE,
   });
-const historyRes = await sheets.spreadsheets.values.get({
-  spreadsheetId: HISTORY_SPREADSHEET_ID,
-  range: HISTORY_RANGE,
-});
-const rows = res.data.values || [];
-const historyRows = historyRes.data.values || [];
-const typeHeaders = rows[0] || []; // 4/9M, 9/9HC
-const headers = rows[1] || [];     // Thursday 15:00, Payout Character, Balance
-const players = rows.slice(2);     // actual player rows
-  const player = players.find((row) => row[0]?.toString().trim() === discordId);
 
-const hasWeeklyPlayer = !!player;
+  const historyRes = await sheets.spreadsheets.values.get({
+    spreadsheetId: HISTORY_SPREADSHEET_ID,
+    range: HISTORY_RANGE,
+  });
+
+  const rows = res.data.values || [];
+  const historyRows = historyRes.data.values || [];
+
+  const typeHeaders = rows[0] || []; // 4/9M, 9/9HC
+  const headers = rows[1] || []; // Thursday 15:00, Payout Character, Balance
+  const dataRows = rows.slice(2); // players + pot rows + note rows
+
+  const playerRows = dataRows.filter(isPlayerRow);
+
+  const potRows = dataRows
+    .map((row) => ({ label: getPotLabel(row), row }))
+    .filter((entry) => entry.label !== null) as {
+    label: string;
+    row: any[];
+  }[];
+
+  // Rows with no ID and no pot label — freeform notes like
+  // "Kuwait buyer 1.5m" or "Collected from both".
+  const noteRows = dataRows.filter(
+    (row) => !isPlayerRow(row) && !getPotLabel(row)
+  );
+
+  // Summary/formula cells that live in the same rows but aren't notes.
+  const NOTE_BLOCKLIST = [
+    "total gold",
+    "total payment paid",
+    "false",
+    "true",
+    "#n/a",
+    "#ref!",
+    "-",
+  ];
+
+  function isRealNote(text: string) {
+    const n = normalize(text);
+    if (!n) return false;
+    if (NOTE_BLOCKLIST.includes(n)) return false;
+    if (parseNumber(text) > 0) return false;
+    return true;
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[bank] player rows:", playerRows.length);
+    console.log(
+      "[bank] pot rows:",
+      potRows.map((p) => p.label)
+    );
+  }
+
+  const player = playerRows.find(
+    (row) => row[0]?.toString().trim() === discordId
+  );
+
+  const hasWeeklyPlayer = !!player;
 
   const balanceIndex = headers.findIndex((h) =>
     normalize(h).includes("balance")
@@ -85,93 +173,121 @@ const hasWeeklyPlayer = !!player;
     payoutTypeIndex,
   ]);
 
-const cuts = hasWeeklyPlayer
-  ? headers
-      .map((header, index) => {
-        const raw = player?.[index] || "";
-        const amount = parseNumber(raw);
+  const cuts = hasWeeklyPlayer
+    ? headers
+        .map((header, index) => {
+          const raw = player?.[index] || "";
+          const amount = parseNumber(raw);
 
-        const runText = typeHeaders[index]?.toString() || "";
-        const dayText = headers[index]?.toString() || "";
+          const runText = typeHeaders[index]?.toString() || "";
+          const dayText = headers[index]?.toString() || "";
 
-        return {
-          id: index,
-          date: dayText,
-          run: runText,
-          character: player?.[payoutCharacterIndex] || "Not set",
-          cut: amount,
-          status:
-            normalize(player?.[statusIndex]).includes("mailed") ||
-            normalize(player?.[statusIndex]).includes("paid")
-              ? "Paid"
-              : "Pending",
-          source: "Bot (!cuts)",
-          note: "",
-        };
-      })
-      .filter((cut) => !ignored.has(cut.id) && cut.cut > 0)
-  : [];
-// HISTORY SHEET
+          // Everyone with a cut in this column was in the run.
+          const boosterRows = playerRows.filter(
+            (row) => parseNumber(row[index]) > 0
+          );
 
-const historyHeaders = historyRows.find((row) =>
-  row.some((cell) => normalize(cell).includes("week 1"))
-) || [];
+          const boosters = boosterRows.length;
 
-const historyPlayer = historyRows.find(
-  (row) => row[0]?.toString().trim() === discordId
-);
+          const pot = boosterRows.reduce(
+            (sum, row) => sum + parseNumber(row[index]),
+            0
+          );
 
-const history: { week: string; amount: number }[] = [];
+          // Per-community pots for this run column.
+          const pots = potRows
+            .map((entry) => ({
+              name: entry.label,
+              amount: parseNumber(entry.row[index]),
+            }))
+            .filter((p) => p.amount > 0);
 
-if (historyPlayer) {
-  for (let i = 0; i < historyHeaders.length; i++) {
-    const header = historyHeaders[i]?.toString().trim() || "";
-    const amount = parseNumber(historyPlayer[i]);
+          const potTotal = pots.reduce((sum, p) => sum + p.amount, 0);
 
-    if (
-      header.toLowerCase().startsWith("week") &&
-      amount > 0
-    ) {
-      history.push({
-        week: header,
-        amount,
-      });
-    }
-  }
-}
-// FAST TOTAL BALANCE FROM TOTAL TAB
-let combinedTotalBalance = 0;
+          const notes = noteRows
+            .map((row) => (row[index] || "").toString().trim())
+            .filter(isRealNote);
 
-const totalRes = await sheets.spreadsheets.values.get({
-  spreadsheetId: TOTAL_SPREADSHEET_ID,
-  range: "'Total'!A1:C1000",
-});
+          return {
+            id: index,
+            date: dayText,
+            run: runText,
+            character: player?.[payoutCharacterIndex] || "Not set",
+            cut: amount,
+            status:
+              normalize(player?.[statusIndex]).includes("mailed") ||
+              normalize(player?.[statusIndex]).includes("paid")
+                ? "Paid"
+                : "Pending",
+            source: "Bot (!cuts)",
+            note: "",
+            boosters,
+            pot,
+            pots,
+            potTotal,
+            notes,
+          };
+        })
+        .filter((cut) => !ignored.has(cut.id) && cut.cut > 0)
+    : [];
 
-const totalRows = totalRes.data.values || [];
-const totalHeaders = totalRows[0] || [];
+  // HISTORY SHEET
 
-const userIdIndex = totalHeaders.findIndex(
-  (h) => normalize(h) === "user id"
-);
+  const historyHeaders =
+    historyRows.find((row) =>
+      row.some((cell) => normalize(cell).includes("week 1"))
+    ) || [];
 
-const totalIndex = totalHeaders.findIndex(
-  (h) => normalize(h) === "total"
-);
-
-if (userIdIndex !== -1 && totalIndex !== -1) {
-  const totalUserRow = totalRows.find(
-    (row) => row[userIdIndex]?.toString().trim() === discordId
+  const historyPlayer = historyRows.find(
+    (row) => row[0]?.toString().trim() === discordId
   );
 
-  if (totalUserRow) {
-    combinedTotalBalance = parseNumber(totalUserRow[totalIndex]);
+  const history: { week: string; amount: number }[] = [];
+
+  if (historyPlayer) {
+    for (let i = 0; i < historyHeaders.length; i++) {
+      const header = historyHeaders[i]?.toString().trim() || "";
+      const amount = parseNumber(historyPlayer[i]);
+
+      if (header.toLowerCase().startsWith("week") && amount > 0) {
+        history.push({
+          week: header,
+          amount,
+        });
+      }
+    }
   }
-}
+
+  // FAST TOTAL BALANCE FROM TOTAL TAB
+  let combinedTotalBalance = 0;
+
+  const totalRes = await sheets.spreadsheets.values.get({
+    spreadsheetId: TOTAL_SPREADSHEET_ID,
+    range: "'Total'!A1:C1000",
+  });
+
+  const totalRows = totalRes.data.values || [];
+  const totalHeaders = totalRows[0] || [];
+
+  const userIdIndex = totalHeaders.findIndex((h) => normalize(h) === "user id");
+
+  const totalIndex = totalHeaders.findIndex((h) => normalize(h) === "total");
+
+  if (userIdIndex !== -1 && totalIndex !== -1) {
+    const totalUserRow = totalRows.find(
+      (row) => row[userIdIndex]?.toString().trim() === discordId
+    );
+
+    if (totalUserRow) {
+      combinedTotalBalance = parseNumber(totalUserRow[totalIndex]);
+    }
+  }
+
   return NextResponse.json({
     balance: combinedTotalBalance,
-status: player?.[statusIndex] || "Unknown",
-payoutCharacter: player?.[payoutCharacterIndex] || "Not set",
-payoutType: player?.[payoutTypeIndex] || "Not set",
+    status: player?.[statusIndex] || "Unknown",
+    payoutCharacter: player?.[payoutCharacterIndex] || "Not set",
+    payoutType: player?.[payoutTypeIndex] || "Not set",
     cuts,
     history,
   });
