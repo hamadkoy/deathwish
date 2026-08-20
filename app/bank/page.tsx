@@ -12,9 +12,16 @@ type PotEntry = {
 
 type RosterEntry = {
   name: string;
+  discordId?: string;
   isSelf: boolean;
   hidden: boolean;
   cut: number | null;
+};
+
+type ProfileLite = {
+  discord_name?: string;
+  discord_id?: string;
+  avatar_url?: string;
 };
 
 type Cut = {
@@ -57,6 +64,30 @@ const [seasons, setSeasons] = useState<any[]>([]);
 const [detailsFor, setDetailsFor] = useState<Cut | null>(null);
 const [rank, setRank] = useState("Unknown");
 const [canSeeAllCuts, setCanSeeAllCuts] = useState(false);
+const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+
+// Matches a roster entry to a Discord profile: by Discord ID when the
+// profiles table has one, otherwise by the name before the realm suffix.
+function findProfile(entry: RosterEntry): ProfileLite | undefined {
+  if (entry.discordId) {
+    const byId = profiles.find(
+      (p) => p.discord_id && p.discord_id === entry.discordId
+    );
+    if (byId) return byId;
+  }
+
+  const short = (entry.name || "")
+    .split("-")[0]
+    .replace(/[^a-z0-9]/gi, "")
+    .toLowerCase();
+
+  if (!short) return undefined;
+
+  return profiles.find(
+    (p) =>
+      (p.discord_name || "").replace(/[^a-z0-9]/gi, "").toLowerCase() === short
+  );
+}
 
 const filteredCuts = useMemo(
   () => (activeTab === "This Week" ? cuts : []),
@@ -79,6 +110,19 @@ const activeSeason = useMemo(
   () => seasonTabs.find((s) => `${s.name} History` === activeTab),
   [seasonTabs, activeTab]
 );
+
+useEffect(() => {
+  loadProfiles();
+}, []);
+
+async function loadProfiles() {
+  try {
+    const { data } = await supabase.from("profiles").select("*").limit(1000);
+    setProfiles(data || []);
+  } catch (err) {
+    console.error(err);
+  }
+}
 
 useEffect(() => {
   loadBalance();
@@ -118,30 +162,25 @@ const authHeaders = session?.access_token
   ? { Authorization: `Bearer ${session.access_token}` }
   : undefined;
 
-const [res, seasonRes] = await Promise.all([
-  fetch(`/api/bank?discordId=${discordId}`, {
-    signal: controller.signal,
-    headers: authHeaders,
-  }),
-  fetch(`/api/bank-history?discordId=${discordId}`, {
-    signal: controller.signal,
-  }),
-]);
+// One request now — the API returns cuts, both seasons and the
+// total balance together.
+const res = await fetch(`/api/bank?discordId=${discordId}`, {
+  signal: controller.signal,
+  headers: authHeaders,
+});
 
 clearTimeout(timeout);
 
     const data = await res.json();
-    const seasonData = await seasonRes.json();
 
     console.log("BANK DATA:", data);
-    console.log("SEASON DATA:", seasonData);
 
     setRank(data.rank || "Unknown");
     setCanSeeAllCuts(!!data.canSeeAllCuts);
     setBalance(data.balance || 0);
     setCuts(data.cuts || []);
     setHistory(data.history || []);
-    setSeasons(seasonData.seasons || []);
+    setSeasons(data.seasons || []);
   } catch (err) {
     console.error(err);
     setRank("Unknown");
@@ -354,26 +393,34 @@ function potIcon(name: string) {
                 </div>
               )}
 
-              <div style={{ display: "grid", gap: 8 }}>
-                {detailsFor.roster.map((r, i) => (
-                  <div
-                    key={i}
-                    style={r.isSelf ? rosterRowSelf : rosterRow}
-                  >
-                    <span style={{ fontWeight: 800 }}>
-                      {r.name}
-                      {r.isSelf && <span style={youTag}>YOU</span>}
-                    </span>
+              <div style={rosterGrid}>
+                {detailsFor.roster.map((r, i) => {
+                  const profile = findProfile(r);
 
-                    {r.hidden ? (
-                      <span style={hiddenCut}>🔒 Hidden</span>
-                    ) : (
-                      <span style={goldText}>
-                        {Number(r.cut || 0).toLocaleString()}g
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  return (
+                    <div key={i} style={r.isSelf ? rosterCardSelf : rosterCard}>
+                      <img
+                        src={profile?.avatar_url || "/logo.png"}
+                        alt=""
+                        style={rosterAvatar}
+                      />
+
+                      <div style={rosterName} title={r.name}>
+                        {profile?.discord_name || r.name}
+                      </div>
+
+                      {r.hidden ? (
+                        <div style={hiddenCut}>🔒</div>
+                      ) : (
+                        <div style={rosterCut}>
+                          {Number(r.cut || 0).toLocaleString()}g
+                        </div>
+                      )}
+
+                      {r.isSelf && <div style={youTag}>YOU</div>}
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}
@@ -1309,7 +1356,7 @@ const modalOverlay: React.CSSProperties = {
 
 const modalBox: React.CSSProperties = {
   width: "100%",
-  maxWidth: 560,
+  maxWidth: 940,
   maxHeight: "84vh",
   overflowY: "auto",
   background: "linear-gradient(180deg, rgba(12,10,28,0.98), rgba(4,9,18,0.98))",
@@ -1442,39 +1489,68 @@ const potTotalIcon: React.CSSProperties = {
   color: "#d8b4fe",
 };
 
-const rosterRow: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "11px 14px",
-  borderRadius: 10,
-  background: "rgba(255,255,255,0.03)",
-  border: "1px solid rgba(255,255,255,0.07)",
-  fontSize: 14,
+const rosterGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+  gap: 10,
 };
 
-const rosterRowSelf: React.CSSProperties = {
-  ...rosterRow,
+const rosterCard: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 6,
+  padding: "14px 8px",
+  borderRadius: 12,
+  background: "rgba(255,255,255,0.03)",
+  border: "1px solid rgba(255,255,255,0.07)",
+  textAlign: "center",
+};
+
+const rosterCardSelf: React.CSSProperties = {
+  ...rosterCard,
   background: "rgba(217,70,239,0.12)",
-  border: "1px solid rgba(217,70,239,0.4)",
+  border: "1px solid rgba(217,70,239,0.45)",
+};
+
+const rosterAvatar: React.CSSProperties = {
+  width: 46,
+  height: 46,
+  borderRadius: "50%",
+  objectFit: "cover",
+  border: "2px solid rgba(168,85,247,0.5)",
+};
+
+const rosterName: React.CSSProperties = {
+  fontWeight: 800,
+  fontSize: 12,
+  width: "100%",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const rosterCut: React.CSSProperties = {
+  color: "#facc15",
+  fontWeight: 900,
+  fontSize: 13,
 };
 
 const youTag: React.CSSProperties = {
-  marginLeft: 10,
   padding: "2px 8px",
   borderRadius: 999,
   background: "rgba(217,70,239,0.25)",
   border: "1px solid rgba(217,70,239,0.5)",
   color: "#f5d0fe",
-  fontSize: 10,
+  fontSize: 9,
   fontWeight: 900,
   letterSpacing: 1,
 };
 
 const hiddenCut: React.CSSProperties = {
   color: "#6b7280",
-  fontWeight: 800,
-  fontSize: 13,
+  fontWeight: 900,
+  fontSize: 15,
 };
 
 const lockNotice: React.CSSProperties = {

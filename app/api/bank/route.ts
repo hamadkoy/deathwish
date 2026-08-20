@@ -2,15 +2,16 @@ import { NextResponse } from "next/server";
 import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
 
-const TOTAL_SPREADSHEET_ID =
-  "1rXKtKuuEJj8ORkQ_LclEJGc0v1ccbuguj5u8v46yeuU";
+// Midnight Season 1, Midnight Season 2 and Total are all tabs inside
+// this one spreadsheet, so they're read together in a single batchGet.
+const TOTAL_SPREADSHEET_ID = "1rXKtKuuEJj8ORkQ_LclEJGc0v1ccbuguj5u8v46yeuU";
+
+const SEASON_1_RANGE = "'Midnight Season 1'!A1:AZ200";
+const SEASON_2_RANGE = "'Midnight Season 2'!A1:AZ200";
+const TOTAL_RANGE = "'Total'!A1:D1000";
+
 const MAIN_SPREADSHEET_ID = "1B8xawLZIGElNneqfOpUW6MZAURIb_F9n36NSZJL5sz8";
 const MAIN_RANGE = "Sheet1!A3:AZ1000";
-
-const HISTORY_SPREADSHEET_ID =
-  "1FzmX_mZWl2Ho7TfRJDn-UYSo9rehTwuB6Au5Zu32Juc";
-
-const HISTORY_RANGE = "Extern!A1:Z500";
 
 function normalize(text: any) {
   return (text || "").toString().trim().toLowerCase();
@@ -44,6 +45,55 @@ function parseNumber(value: any) {
   return base;
 }
 
+// Sheet values are identical for every user, so cache briefly.
+const CACHE_TTL_MS = 60_000;
+const sheetCache = new Map<string, { at: number; values: any }>();
+
+function fromCache(key: string) {
+  const hit = sheetCache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.values;
+  return null;
+}
+
+function toCache(key: string, values: any) {
+  sheetCache.set(key, { at: Date.now(), values });
+  return values;
+}
+
+async function getValues(
+  sheets: any,
+  spreadsheetId: string,
+  range: string
+): Promise<any[][]> {
+  const key = `${spreadsheetId}::${range}`;
+  const hit = fromCache(key);
+  if (hit) return hit;
+
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range });
+
+  return toCache(key, res.data.values || []);
+}
+
+// One request for many ranges in the same spreadsheet.
+async function batchGet(
+  sheets: any,
+  spreadsheetId: string,
+  ranges: string[]
+): Promise<any[][][]> {
+  const key = `${spreadsheetId}::batch::${ranges.join("|")}`;
+  const hit = fromCache(key);
+  if (hit) return hit;
+
+  const res = await sheets.spreadsheets.values.batchGet({
+    spreadsheetId,
+    ranges,
+  });
+
+  const out = (res.data.valueRanges || []).map((r: any) => r.values || []);
+
+  return toCache(key, out);
+}
+
 // A player row is any row whose first cell looks like a Discord ID.
 function isPlayerRow(row: any[]) {
   return /^\d{5,}$/.test((row?.[0] || "").toString().trim());
@@ -57,8 +107,6 @@ function displayName(key: string) {
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
-// Returns the community key for a row, or null. Looks at the first few
-// columns and ignores the word "pot" so "DAWN" and "Dawn Pot" both match.
 function getCommunityKey(row: any[]) {
   if (isPlayerRow(row)) return null;
 
@@ -71,6 +119,56 @@ function getCommunityKey(row: any[]) {
   }
 
   return null;
+}
+
+// Reads one season tab (Player / User ID / Total / Week N columns)
+// and pulls out this player's weekly amounts.
+function readSeasonTab(rows: any[][], discordId: string) {
+  const headerRowIndex = rows.findIndex((row: any[]) => {
+    const text = row.map(normalize);
+    return (
+      text.includes("player") &&
+      text.includes("user id") &&
+      text.includes("total")
+    );
+  });
+
+  if (headerRowIndex === -1) return { total: 0, runs: 0, weeks: [] as any[] };
+
+  const headers = rows[headerRowIndex];
+
+  const userIdIndex = headers.findIndex((h: any) => normalize(h) === "user id");
+  const playerIndex = headers.findIndex((h: any) => normalize(h) === "player");
+  const totalIndex = headers.findIndex((h: any) => normalize(h) === "total");
+  const runsIndex = headers.findIndex((h: any) => normalize(h) === "runs");
+
+  const playerRow = rows
+    .slice(headerRowIndex + 1)
+    .find((row: any[]) => row[userIdIndex]?.toString().trim() === discordId);
+
+  if (!playerRow) return { total: 0, runs: 0, weeks: [] as any[] };
+
+  const weeks: any[] = [];
+
+  headers.forEach((header: any, index: number) => {
+    if (!normalize(header).startsWith("week")) return;
+
+    const amount = parseNumber(playerRow[index]);
+
+    if (amount > 0) {
+      weeks.push({
+        week: header,
+        amount,
+        character: playerRow[playerIndex] || "Unknown",
+      });
+    }
+  });
+
+  return {
+    total: parseNumber(playerRow[totalIndex]),
+    runs: parseNumber(playerRow[runsIndex]),
+    weeks,
+  };
 }
 
 // Roles come from Supabase (profiles.site_role), same as the admin page.
@@ -137,13 +235,12 @@ async function getViewerRole(req: Request) {
   }
 }
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const discordId = searchParams.get("discordId");
+// The Google client is expensive to build, so it's created once and
+// reused across requests instead of on every page load.
+let sheetsClient: any = null;
 
-  if (!discordId) {
-    return NextResponse.json({ error: "Missing discordId" }, { status: 400 });
-  }
+async function getSheets() {
+  if (sheetsClient) return sheetsClient;
 
   const auth = new google.auth.GoogleAuth({
     credentials: {
@@ -153,29 +250,45 @@ export async function GET(req: Request) {
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   });
 
-  const authClient = await auth.getClient();
-
-  const sheets = google.sheets({
+  sheetsClient = google.sheets({
     version: "v4",
-    auth: authClient as any,
+    auth: (await auth.getClient()) as any,
   });
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: MAIN_SPREADSHEET_ID,
-    range: MAIN_RANGE,
-  });
+  return sheetsClient;
+}
 
-  const historyRes = await sheets.spreadsheets.values.get({
-    spreadsheetId: HISTORY_SPREADSHEET_ID,
-    range: HISTORY_RANGE,
-  });
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const discordId = searchParams.get("discordId");
 
-  const rows = res.data.values || [];
-  const historyRows = historyRes.data.values || [];
+  if (!discordId) {
+    return NextResponse.json({ error: "Missing discordId" }, { status: 400 });
+  }
+
+  const sheets = await getSheets();
+
+  // Two network calls total: the weekly sheet, and one batch covering
+  // both season tabs plus Total. Both run at the same time.
+  const [rows, seasonBatch, viewer] = await Promise.all([
+    getValues(sheets, MAIN_SPREADSHEET_ID, MAIN_RANGE),
+    batchGet(sheets, TOTAL_SPREADSHEET_ID, [
+      SEASON_1_RANGE,
+      SEASON_2_RANGE,
+      TOTAL_RANGE,
+    ]),
+    getViewerRole(req),
+  ]);
+
+  const season1Rows = seasonBatch[0] || [];
+  const season2Rows = seasonBatch[1] || [];
+  const totalRows = seasonBatch[2] || [];
+
+  const canSeeAllCuts = viewer.canSeeAllCuts;
 
   const typeHeaders = rows[0] || []; // 4/9M, 9/9HC
   const headers = rows[1] || []; // Thursday 15:00, Payout Character, Balance
-  const dataRows = rows.slice(2); // players + pot rows + note rows
+  const dataRows = rows.slice(2); // players + pot rows
 
   const playerRows = dataRows.filter(isPlayerRow);
 
@@ -186,22 +299,11 @@ export async function GET(req: Request) {
     row: any[];
   }[];
 
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[bank] player rows:", playerRows.length);
-    console.log(
-      "[bank] pot rows:",
-      potRows.map((p) => p.key)
-    );
-  }
-
   const player = playerRows.find(
     (row) => row[0]?.toString().trim() === discordId
   );
 
   const hasWeeklyPlayer = !!player;
-
-  const viewer = await getViewerRole(req);
-  const canSeeAllCuts = viewer.canSeeAllCuts;
 
   const balanceIndex = headers.findIndex((h) =>
     normalize(h).includes("balance")
@@ -271,10 +373,10 @@ export async function GET(req: Request) {
 
               return {
                 name,
+                discordId: (row[0] || "").toString().trim(),
                 isSelf,
                 hidden: !canSeeAllCuts && !isSelf,
-                cut:
-                  canSeeAllCuts || isSelf ? parseNumber(row[index]) : null,
+                cut: canSeeAllCuts || isSelf ? parseNumber(row[index]) : null,
               };
             })
             .sort((a, b) => (b.cut || 0) - (a.cut || 0));
@@ -302,51 +404,50 @@ export async function GET(req: Request) {
         .filter((cut) => !ignored.has(cut.id) && cut.cut > 0)
     : [];
 
-  // HISTORY SHEET
+  // SEASON 1 — read straight from its tab in the same spreadsheet.
+  const season1 = readSeasonTab(season1Rows, discordId);
 
-  const historyHeaders =
-    historyRows.find((row) =>
-      row.some((cell) => normalize(cell).includes("week 1"))
-    ) || [];
+  const history = season1.weeks.map((w) => ({
+    week: w.week,
+    amount: w.amount,
+  }));
 
-  const historyPlayer = historyRows.find(
-    (row) => row[0]?.toString().trim() === discordId
-  );
+  // SEASON 2 — same shape the page already renders.
+  const season2 = readSeasonTab(season2Rows, discordId);
 
-  const history: { week: string; amount: number }[] = [];
+  const seasons = [
+    {
+      name: "Midnight Season 2",
+      total: season2.total,
+      runs: season2.runs,
+      isBreak: false,
+      rows: season2.weeks.map((w) => ({
+        week: w.week,
+        type: "MYTHIC",
+        character: w.character,
+        cut: w.amount,
+        status: "Paid",
+        runs: season2.runs,
+      })),
+    },
+  ];
 
-  if (historyPlayer) {
-    for (let i = 0; i < historyHeaders.length; i++) {
-      const header = historyHeaders[i]?.toString().trim() || "";
-      const amount = parseNumber(historyPlayer[i]);
-
-      if (header.toLowerCase().startsWith("week") && amount > 0) {
-        history.push({
-          week: header,
-          amount,
-        });
-      }
-    }
-  }
-
-  // FAST TOTAL BALANCE FROM TOTAL TAB
+  // TOTAL BALANCE
   let combinedTotalBalance = 0;
 
-  const totalRes = await sheets.spreadsheets.values.get({
-    spreadsheetId: TOTAL_SPREADSHEET_ID,
-    range: "'Total'!A1:C1000",
-  });
-
-  const totalRows = totalRes.data.values || [];
   const totalHeaders = totalRows[0] || [];
 
-  const userIdIndex = totalHeaders.findIndex((h) => normalize(h) === "user id");
+  const userIdIndex = totalHeaders.findIndex(
+    (h: any) => normalize(h) === "user id"
+  );
 
-  const totalIndex = totalHeaders.findIndex((h) => normalize(h) === "total");
+  const totalIndex = totalHeaders.findIndex(
+    (h: any) => normalize(h) === "total"
+  );
 
   if (userIdIndex !== -1 && totalIndex !== -1) {
     const totalUserRow = totalRows.find(
-      (row) => row[userIdIndex]?.toString().trim() === discordId
+      (row: any[]) => row[userIdIndex]?.toString().trim() === discordId
     );
 
     if (totalUserRow) {
@@ -364,5 +465,6 @@ export async function GET(req: Request) {
     payoutType: player?.[payoutTypeIndex] || "Not set",
     cuts,
     history,
+    seasons,
   });
 }

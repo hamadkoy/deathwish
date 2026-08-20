@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { syncDiscordProfile } from "@/lib/syncDiscordProfile";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -10,6 +11,9 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     async function finishLogin() {
       await supabase.auth.getSession();
+
+      // Refresh the stored Discord avatar/name before moving on.
+      await syncDiscordProfile();
 
       const savedPage = localStorage.getItem("redirectAfterLogin");
 

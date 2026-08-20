@@ -24,9 +24,33 @@ function isSeasonTab(name: string) {
   return n.includes("season");
 }
 
+// Sheet data is the same for everyone, so a short cache removes almost
+// all of the load time on repeat visits.
+const CACHE_TTL_MS = 60_000;
+const cache = new Map<string, { at: number; value: any }>();
+
+async function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const hit = cache.get(key);
+
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value as T;
+
+  const value = await load();
+
+  cache.set(key, { at: Date.now(), value });
+
+  return value;
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const discordId = searchParams.get("discordId");
+
+  // Optional: ?seasons=Midnight Season 2,Midnight Season 3
+  // Limits how many tabs we read. Without it every season tab is fetched.
+  const seasonFilter = (searchParams.get("seasons") || "")
+    .split(",")
+    .map((s) => normalize(s))
+    .filter(Boolean);
 
   if (!discordId) {
     return NextResponse.json({ error: "Missing discordId" }, { status: 400 });
@@ -45,139 +69,161 @@ export async function GET(req: Request) {
     auth: (await auth.getClient()) as any,
   });
 
-  const meta = await sheets.spreadsheets.get({
-    spreadsheetId: SPREADSHEET_ID,
+  const allTabs = await cached("tabs", async () => {
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID,
+    });
+
+    return (
+      meta.data.sheets
+        ?.map((s) => s.properties?.title || "")
+        .filter((name) => name && isSeasonTab(name)) || []
+    );
   });
 
-  const tabs =
-    meta.data.sheets
-      ?.map((s) => s.properties?.title || "")
-      .filter((name) => name && isSeasonTab(name)) || [];
+  const tabs = seasonFilter.length
+    ? allTabs.filter((t) => seasonFilter.includes(normalize(t)))
+    : allTabs;
 
-  const seasons: any[] = [];
-
-  for (const tab of tabs) {
-    try {
-      const res = await sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `'${tab}'!A1:AZ1000`,
-      });
-
-      const rows = res.data.values || [];
-
-      const headerRowIndex = rows.findIndex((row) => {
-        const text = row.map(normalize);
-        return (
-          text.includes("player") &&
-          text.includes("user id") &&
-          text.includes("total")
-        );
-      });
-
-      if (headerRowIndex === -1) {
-        seasons.push({ name: tab, total: 0, runs: 0, rows: [] });
-        continue;
-      }
-
-      const headers = rows[headerRowIndex];
-
-      const userIdIndex = headers.findIndex((h) => normalize(h) === "user id");
-      const playerIndex = headers.findIndex((h) => normalize(h) === "player");
-      const totalIndex = headers.findIndex((h) => normalize(h) === "total");
-      const runsIndex = headers.findIndex((h) => normalize(h) === "runs");
-
-      const playerRow = rows
-        .slice(headerRowIndex + 1)
-        .find((row) => row[userIdIndex]?.toString().trim() === discordId);
-
-      if (!playerRow) {
-        seasons.push({ name: tab, total: 0, runs: 0, rows: [] });
-        continue;
-      }
-
-      const total = parseNumber(playerRow[totalIndex]);
-      const runs = parseNumber(playerRow[runsIndex]);
-
-      const weekRows: any[] = [];
-
-      headers.forEach((header, index) => {
-        const h = normalize(header);
-
-        if (!h.startsWith("week")) return;
-
-        const amount = parseNumber(playerRow[index]);
-
-        if (amount > 0) {
-          weekRows.push({
-            week: header,
-            type: "MYTHIC",
-            character: playerRow[playerIndex] || "Unknown",
-            cut: amount,
-            status: "Paid",
-            source: "Google Sheet",
-            notes: "-",
+  // Every tab is read at the same time rather than one after another.
+  const seasons = await Promise.all(
+    tabs.map(async (tab) => {
+      try {
+        const rows = await cached(`tab::${tab}`, async () => {
+          const res = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `'${tab}'!A1:AZ1000`,
           });
+
+          return res.data.values || [];
+        });
+
+        const headerRowIndex = rows.findIndex((row: any[]) => {
+          const text = row.map(normalize);
+          return (
+            text.includes("player") &&
+            text.includes("user id") &&
+            text.includes("total")
+          );
+        });
+
+        if (headerRowIndex === -1) {
+          return { name: tab, total: 0, runs: 0, rows: [] };
         }
-      });
 
-      const rowsForTable =
-        weekRows.length > 0
-          ? weekRows
-          : total > 0
-          ? [
-              {
-                week: "Season Total",
-                type: "ALL RUNS",
-                character: playerRow[playerIndex] || "Unknown",
-                cut: total,
-                status: "Paid",
-                source: "Google Sheet",
-                notes: `${runs.toLocaleString()} runs`,
-              },
-            ]
-          : [];
+        const headers = rows[headerRowIndex];
 
-const isBreak = normalize(tab) === "dragonflight season 1";
+        const userIdIndex = headers.findIndex(
+          (h: any) => normalize(h) === "user id"
+        );
+        const playerIndex = headers.findIndex(
+          (h: any) => normalize(h) === "player"
+        );
+        const totalIndex = headers.findIndex(
+          (h: any) => normalize(h) === "total"
+        );
+        const runsIndex = headers.findIndex((h: any) => normalize(h) === "runs");
 
-seasons.push({
-  name: tab,
-  total: isBreak ? 0 : total,
-  runs: isBreak ? 0 : runs,
-  isBreak,
-  rows: isBreak
-    ? [
-        {
-          type: "BREAK",
-          character: "-",
-          cut: 0,
-          status: "Paid",
-          source: "Season Break",
-          runs: 0,
-        },
-      ]
-    : rowsForTable.map((r) => ({
-        ...r,
-        runs,
-      })),
-});
-    } catch {
-      seasons.push({ name: tab, total: 0, runs: 0, rows: [] });
-    }
-  }
+        const playerRow = rows
+          .slice(headerRowIndex + 1)
+          .find(
+            (row: any[]) => row[userIdIndex]?.toString().trim() === discordId
+          );
 
-const countedSeasons = seasons.filter((s) => !s.isBreak);
+        if (!playerRow) {
+          return { name: tab, total: 0, runs: 0, rows: [] };
+        }
 
-const totalGoldMade = countedSeasons.reduce((sum, s) => sum + s.total, 0);
-const numberOfRuns = countedSeasons.reduce((sum, s) => sum + s.runs, 0);
+        const total = parseNumber(playerRow[totalIndex]);
+        const runs = parseNumber(playerRow[runsIndex]);
+
+        const weekRows: any[] = [];
+
+        headers.forEach((header: any, index: number) => {
+          const h = normalize(header);
+
+          if (!h.startsWith("week")) return;
+
+          const amount = parseNumber(playerRow[index]);
+
+          if (amount > 0) {
+            weekRows.push({
+              week: header,
+              type: "MYTHIC",
+              character: playerRow[playerIndex] || "Unknown",
+              cut: amount,
+              status: "Paid",
+              source: "Google Sheet",
+              notes: "-",
+            });
+          }
+        });
+
+        const rowsForTable =
+          weekRows.length > 0
+            ? weekRows
+            : total > 0
+            ? [
+                {
+                  week: "Season Total",
+                  type: "ALL RUNS",
+                  character: playerRow[playerIndex] || "Unknown",
+                  cut: total,
+                  status: "Paid",
+                  source: "Google Sheet",
+                  notes: `${runs.toLocaleString()} runs`,
+                },
+              ]
+            : [];
+
+        const isBreak = normalize(tab) === "dragonflight season 1";
+
+        return {
+          name: tab,
+          total: isBreak ? 0 : total,
+          runs: isBreak ? 0 : runs,
+          isBreak,
+          rows: isBreak
+            ? [
+                {
+                  type: "BREAK",
+                  character: "-",
+                  cut: 0,
+                  status: "Paid",
+                  source: "Season Break",
+                  runs: 0,
+                },
+              ]
+            : rowsForTable.map((r) => ({
+                ...r,
+                runs,
+              })),
+        };
+      } catch {
+        return { name: tab, total: 0, runs: 0, rows: [] };
+      }
+    })
+  );
+
+  const countedSeasons = seasons.filter((s: any) => !s.isBreak);
+
+  const totalGoldMade = countedSeasons.reduce(
+    (sum: number, s: any) => sum + s.total,
+    0
+  );
+  const numberOfRuns = countedSeasons.reduce(
+    (sum: number, s: any) => sum + s.runs,
+    0
+  );
 
   const highestSeasonGain = seasons.reduce(
-    (best, s) => (s.total > best.total ? s : best),
+    (best: any, s: any) => (s.total > best.total ? s : best),
     { name: "-", total: 0 }
   );
 
   const highestWeekGain = seasons
-    .flatMap((s) => s.rows.map((r: any) => ({ ...r, season: s.name })))
-    .reduce((best, r) => (r.cut > best.cut ? r : best), {
+    .flatMap((s: any) => s.rows.map((r: any) => ({ ...r, season: s.name })))
+    .reduce((best: any, r: any) => (r.cut > best.cut ? r : best), {
       week: "-",
       season: "-",
       cut: 0,
