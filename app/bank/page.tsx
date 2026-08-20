@@ -5,6 +5,11 @@ import { Coins, CalendarDays, Hourglass, BadgeCheck } from "lucide-react";
 import SideNav from "@/app/components/SideNav";
 import { supabase } from "@/lib/supabase";
 
+type PotEntry = {
+  name: string;
+  amount: number;
+};
+
 type Cut = {
   id: number;
   date: string;
@@ -14,6 +19,11 @@ type Cut = {
   status: "Paid" | "Pending";
   source: string;
   note: string;
+  boosters: number;
+  pot: number;
+  pots: PotEntry[];
+  potTotal: number;
+  notes: string[];
 };
 
 export default function BankPage() {
@@ -37,6 +47,7 @@ useEffect(() => {
  const [activeTab, setActiveTab] = useState("This Week");
 const [history, setHistory] = useState<any[]>([]);
 const [seasons, setSeasons] = useState<any[]>([]);
+const [detailsFor, setDetailsFor] = useState<Cut | null>(null);
 
 const filteredCuts = useMemo(
   () => (activeTab === "This Week" ? cuts : []),
@@ -206,6 +217,90 @@ function formatRunType(run: string) {
     {muted ? "🔇 Unmute Sound" : "🔊 Mute Sound"}
   </button>
 </div>
+    {detailsFor && (
+      <div
+        style={modalOverlay}
+        onClick={() => setDetailsFor(null)}
+      >
+        <div style={modalBox} onClick={(e) => e.stopPropagation()}>
+          <div style={modalHeader}>
+            <div>
+              <div style={modalTitle}>{detailsFor.date}</div>
+              <div style={modalSubtitle}>
+                {detailsFor.run || "Run details"}
+              </div>
+            </div>
+
+            <button
+              style={modalClose}
+              onClick={() => setDetailsFor(null)}
+              aria-label="Close details"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div style={modalStats}>
+            <ModalStat
+              label="Boosters in run"
+              value={`${detailsFor.boosters}`}
+              color="#38bdf8"
+            />
+            <ModalStat
+              label="Total pot"
+              value={`${Number(detailsFor.pot || 0).toLocaleString()}g`}
+              color="#facc15"
+            />
+            <ModalStat
+              label="Your cut"
+              value={`${Number(detailsFor.cut || 0).toLocaleString()}g`}
+              color="#d946ef"
+            />
+          </div>
+
+          <div style={modalSectionTitle}>GOLD BY COMMUNITY</div>
+
+          {detailsFor.pots?.length ? (
+            <div style={{ display: "grid", gap: 10 }}>
+              {detailsFor.pots.map((p, i) => (
+                <div key={i} style={potRow}>
+                  <span style={{ fontWeight: 900 }}>{p.name}</span>
+                  <span style={goldText}>
+                    {p.amount.toLocaleString()}g
+                  </span>
+                </div>
+              ))}
+
+              <div style={potTotalRow}>
+                <span style={{ fontWeight: 900 }}>Collected total</span>
+                <span style={goldText}>
+                  {Number(detailsFor.potTotal || 0).toLocaleString()}g
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div style={modalEmpty}>
+              No community pot recorded for this run.
+            </div>
+          )}
+
+          {detailsFor.notes?.length > 0 && (
+            <>
+              <div style={modalSectionTitle}>NOTES</div>
+
+              <div style={{ display: "grid", gap: 8 }}>
+                {detailsFor.notes.map((n, i) => (
+                  <div key={i} style={noteRow}>
+                    {n}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    )}
+
     <div style={page}>
       <div style={layout}>
         <aside style={sidebar}>
@@ -341,8 +436,9 @@ function formatRunType(run: string) {
               <div>CHARACTER</div>
               <div>CUT</div>
               <div>STATUS</div>
-              <div>SOURCE</div>
-              <div>NOTES</div>
+              <div>BOOSTERS</div>
+              <div>POT</div>
+              <div>DETAILS</div>
             </div>
 
 {activeSeason ? (
@@ -375,9 +471,13 @@ function formatRunType(run: string) {
           </span>
         </div>
 
-        <div>{row.source || "-"}</div>
+        <div>{row.runs ? row.runs.toLocaleString() : "-"}</div>
 
-        <div>{row.notes || "-"}</div>
+        <div style={goldText}>
+          {row.cut ? `${Number(row.cut).toLocaleString()}g` : "-"}
+        </div>
+
+        <div style={dimText}>-</div>
       </div>
     ))}
   </div>
@@ -416,9 +516,13 @@ function formatRunType(run: string) {
     {index === history.length - 1 ? "Pending" : "Paid"}
   </span>
 </div>
-    <div>Bot (/cuts)</div>
+    <div style={dimText}>-</div>
 
-    <div>-</div>
+    <div style={goldText}>
+      {Number(week.amount || 0).toLocaleString()}g
+    </div>
+
+    <div style={dimText}>-</div>
   </div>
 ))}
   </div>
@@ -459,8 +563,30 @@ function formatRunType(run: string) {
                     {cut.status}
                   </span>
                 </div>
-                <div>{cut.source}</div>
-                <div>{cut.note || "-"}</div>
+                <div style={boosterText}>{cut.boosters || "-"}</div>
+                <div style={goldText}>
+                  {Number(cut.pot || 0).toLocaleString()}g
+                </div>
+                <div>
+                  <button
+                    style={detailsBtn}
+                    onClick={() => setDetailsFor(cut)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        "rgba(124,58,237,0.35)";
+                      e.currentTarget.style.boxShadow =
+                        "0 0 16px rgba(168,85,247,0.55)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background =
+                        "rgba(124,58,237,0.16)";
+                      e.currentTarget.style.boxShadow =
+                        "0 0 8px rgba(168,85,247,0.18)";
+                    }}
+                  >
+                    More details
+                  </button>
+                </div>
               </div>
        ))
 )}
@@ -496,6 +622,23 @@ function formatRunType(run: string) {
     </div>
 );
 }
+function ModalStat({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color: string;
+}) {
+  return (
+    <div style={modalStatBox}>
+      <div style={modalStatLabel}>{label}</div>
+      <div style={{ ...modalStatValue, color }}>{value}</div>
+    </div>
+  );
+}
+
 function StatCard({
   title,
   value,
@@ -849,7 +992,7 @@ const table: React.CSSProperties = {
 
 const tableHead: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1.6fr 1fr 1fr 1fr 1fr 1fr",
+  gridTemplateColumns: "1fr 1.4fr 1fr 1fr 1fr .8fr 1fr 1.1fr",
   padding: "14px 16px",
   fontSize: 12,
   color: "#d6bfff",
@@ -859,7 +1002,7 @@ const tableHead: React.CSSProperties = {
 
 const tableRow: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1.6fr 1fr 1fr 1fr 1fr 1fr",
+  gridTemplateColumns: "1fr 1.4fr 1fr 1fr 1fr .8fr 1fr 1.1fr",
   padding: "18px 16px",
   alignItems: "center",
   borderBottom: "1px solid rgba(255,255,255,0.05)",
@@ -1046,4 +1189,146 @@ const showHistoryBtn: React.CSSProperties = {
   transition: "all .22s ease",
   boxShadow:
     "0 0 22px rgba(217,70,239,.45), 0 0 55px rgba(168,85,247,.28)",
+};
+
+const dimText: React.CSSProperties = {
+  color: "#6b7280",
+};
+
+const boosterText: React.CSSProperties = {
+  color: "#38bdf8",
+  fontWeight: 900,
+};
+
+const detailsBtn: React.CSSProperties = {
+  padding: "8px 16px",
+  borderRadius: 999,
+  border: "1px solid rgba(168,85,247,0.55)",
+  background: "rgba(124,58,237,0.16)",
+  color: "#d8b4fe",
+  fontWeight: 900,
+  fontSize: 13,
+  cursor: "pointer",
+  boxShadow: "0 0 8px rgba(168,85,247,0.18)",
+  transition: "all 0.2s ease",
+  whiteSpace: "nowrap",
+};
+
+const modalOverlay: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(2,6,16,0.78)",
+  backdropFilter: "blur(6px)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 10000,
+  padding: 24,
+};
+
+const modalBox: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 560,
+  maxHeight: "84vh",
+  overflowY: "auto",
+  background: "linear-gradient(180deg, rgba(12,10,28,0.98), rgba(4,9,18,0.98))",
+  border: "1px solid rgba(168,85,247,0.45)",
+  borderRadius: 20,
+  padding: 28,
+  boxShadow: "0 0 60px rgba(168,85,247,0.35)",
+  color: "white",
+};
+
+const modalHeader: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  marginBottom: 24,
+};
+
+const modalTitle: React.CSSProperties = {
+  fontSize: 26,
+  fontWeight: 900,
+};
+
+const modalSubtitle: React.CSSProperties = {
+  color: "#c4b5fd",
+  marginTop: 6,
+  fontWeight: 700,
+};
+
+const modalClose: React.CSSProperties = {
+  border: "1px solid rgba(255,255,255,0.16)",
+  background: "rgba(255,255,255,0.06)",
+  color: "#e5e7eb",
+  borderRadius: 10,
+  width: 36,
+  height: 36,
+  fontSize: 15,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const modalStats: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: 12,
+  marginBottom: 26,
+};
+
+const modalStatBox: React.CSSProperties = {
+  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(255,255,255,0.09)",
+  borderRadius: 14,
+  padding: 16,
+};
+
+const modalStatLabel: React.CSSProperties = {
+  color: "#9ca3af",
+  fontSize: 12,
+  fontWeight: 700,
+  marginBottom: 8,
+};
+
+const modalStatValue: React.CSSProperties = {
+  fontSize: 20,
+  fontWeight: 900,
+};
+
+const modalSectionTitle: React.CSSProperties = {
+  color: "#8b5cf6",
+  fontWeight: 900,
+  fontSize: 12,
+  letterSpacing: 1,
+  margin: "22px 0 14px",
+};
+
+const potRow: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "14px 16px",
+  borderRadius: 12,
+  background: "rgba(255,255,255,0.03)",
+  border: "1px solid rgba(255,255,255,0.07)",
+};
+
+const potTotalRow: React.CSSProperties = {
+  ...potRow,
+  background: "rgba(168,85,247,0.12)",
+  border: "1px solid rgba(168,85,247,0.4)",
+};
+
+const modalEmpty: React.CSSProperties = {
+  color: "#9ca3af",
+  padding: "16px 0",
+};
+
+const noteRow: React.CSSProperties = {
+  padding: "12px 16px",
+  borderRadius: 12,
+  background: "rgba(255,255,255,0.03)",
+  border: "1px solid rgba(255,255,255,0.07)",
+  color: "#d1d5db",
+  fontSize: 14,
 };
