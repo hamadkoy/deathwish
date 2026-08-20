@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
+import { createClient } from "@supabase/supabase-js";
 
 const TOTAL_SPREADSHEET_ID =
   "1rXKtKuuEJj8ORkQ_LclEJGc0v1ccbuguj5u8v46yeuU";
@@ -48,17 +49,92 @@ function isPlayerRow(row: any[]) {
   return /^\d{5,}$/.test((row?.[0] || "").toString().trim());
 }
 
-// A pot row has no Discord ID and carries a label containing "pot"
-// somewhere in the first few columns (e.g. "Dawn Pot", "Oblivion Pot").
-function getPotLabel(row: any[]) {
+// The communities we track. Matched by name, not by row position,
+// so inserting or moving rows in the sheet doesn't break anything.
+const COMMUNITIES = ["dawn", "oblivion", "sylvanas"];
+
+function displayName(key: string) {
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+// Returns the community key for a row, or null. Looks at the first few
+// columns and ignores the word "pot" so "DAWN" and "Dawn Pot" both match.
+function getCommunityKey(row: any[]) {
   if (isPlayerRow(row)) return null;
 
   for (let i = 0; i < 4; i++) {
-    const text = (row?.[i] || "").toString().trim();
-    if (text && normalize(text).includes("pot")) return text;
+    const text = normalize(row?.[i]).replace(/\bpot\b/g, "").trim();
+    if (!text) continue;
+
+    const hit = COMMUNITIES.find((c) => text === c);
+    if (hit) return hit;
   }
 
   return null;
+}
+
+// Roles come from Supabase (profiles.site_role), same as the admin page.
+// Lower number = higher rank.
+const ROLE_ORDER: Record<string, number> = {
+  Dreadlord: 0,
+  Nightblade: 1,
+  Soulreaper: 2,
+  Reaper: 3,
+  Wandering_soul: 4,
+  Lost_soul: 5,
+};
+
+const MIN_ROLE_TO_SEE_CUTS = ROLE_ORDER["Soulreaper"];
+
+function normalizeRole(role?: string | null) {
+  if (role === "Dreadlord" || role === "admin" || role === "Deathlord")
+    return "Dreadlord";
+  if (role === "Nightblade" || role === "officer" || role === "Deathbringer")
+    return "Nightblade";
+  if (role === "Soulreaper") return "Soulreaper";
+  if (role === "Reaper" || role === "Booster" || role === "booster")
+    return "Reaper";
+  if (role === "Wandering_soul" || role === "Wandering Soul")
+    return "Wandering_soul";
+  return "Lost_soul";
+}
+
+// Verifies the caller's Supabase token, then reads their role.
+// Done server-side so a spoofed header can't unlock other people's cuts.
+async function getViewerRole(req: Request) {
+  const header = req.headers.get("authorization") || "";
+  const token = header.replace(/^Bearer\s+/i, "").trim();
+
+  if (!token) return { role: "Lost_soul", canSeeAllCuts: false };
+
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    );
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser(token);
+
+    if (!user) return { role: "Lost_soul", canSeeAllCuts: false };
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("site_role")
+      .eq("user_id", user.id)
+      .single();
+
+    const role = normalizeRole(data?.site_role);
+
+    return {
+      role,
+      canSeeAllCuts: ROLE_ORDER[role] <= MIN_ROLE_TO_SEE_CUTS,
+    };
+  } catch {
+    return { role: "Lost_soul", canSeeAllCuts: false };
+  }
 }
 
 export async function GET(req: Request) {
@@ -104,42 +180,17 @@ export async function GET(req: Request) {
   const playerRows = dataRows.filter(isPlayerRow);
 
   const potRows = dataRows
-    .map((row) => ({ label: getPotLabel(row), row }))
-    .filter((entry) => entry.label !== null) as {
-    label: string;
+    .map((row) => ({ key: getCommunityKey(row), row }))
+    .filter((entry) => entry.key !== null) as {
+    key: string;
     row: any[];
   }[];
-
-  // Rows with no ID and no pot label — freeform notes like
-  // "Kuwait buyer 1.5m" or "Collected from both".
-  const noteRows = dataRows.filter(
-    (row) => !isPlayerRow(row) && !getPotLabel(row)
-  );
-
-  // Summary/formula cells that live in the same rows but aren't notes.
-  const NOTE_BLOCKLIST = [
-    "total gold",
-    "total payment paid",
-    "false",
-    "true",
-    "#n/a",
-    "#ref!",
-    "-",
-  ];
-
-  function isRealNote(text: string) {
-    const n = normalize(text);
-    if (!n) return false;
-    if (NOTE_BLOCKLIST.includes(n)) return false;
-    if (parseNumber(text) > 0) return false;
-    return true;
-  }
 
   if (process.env.NODE_ENV !== "production") {
     console.log("[bank] player rows:", playerRows.length);
     console.log(
       "[bank] pot rows:",
-      potRows.map((p) => p.label)
+      potRows.map((p) => p.key)
     );
   }
 
@@ -148,6 +199,9 @@ export async function GET(req: Request) {
   );
 
   const hasWeeklyPlayer = !!player;
+
+  const viewer = await getViewerRole(req);
+  const canSeeAllCuts = viewer.canSeeAllCuts;
 
   const balanceIndex = headers.findIndex((h) =>
     normalize(h).includes("balance")
@@ -197,16 +251,33 @@ export async function GET(req: Request) {
           // Per-community pots for this run column.
           const pots = potRows
             .map((entry) => ({
-              name: entry.label,
+              name: displayName(entry.key),
               amount: parseNumber(entry.row[index]),
             }))
             .filter((p) => p.amount > 0);
 
           const potTotal = pots.reduce((sum, p) => sum + p.amount, 0);
 
-          const notes = noteRows
-            .map((row) => (row[index] || "").toString().trim())
-            .filter(isRealNote);
+          // Everyone in this run. Amounts are stripped unless the viewer
+          // is Soulreaper or above.
+          const roster = boosterRows
+            .map((row) => {
+              const name =
+                (row[1] || "").toString().trim() ||
+                (row[0] || "").toString().trim() ||
+                "Unknown";
+
+              const isSelf = row[0]?.toString().trim() === discordId;
+
+              return {
+                name,
+                isSelf,
+                hidden: !canSeeAllCuts && !isSelf,
+                cut:
+                  canSeeAllCuts || isSelf ? parseNumber(row[index]) : null,
+              };
+            })
+            .sort((a, b) => (b.cut || 0) - (a.cut || 0));
 
           return {
             id: index,
@@ -225,7 +296,7 @@ export async function GET(req: Request) {
             pot,
             pots,
             potTotal,
-            notes,
+            roster,
           };
         })
         .filter((cut) => !ignored.has(cut.id) && cut.cut > 0)
@@ -284,6 +355,9 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json({
+    rank: viewer.role.replace("_", " "),
+    canSeeAllCuts,
+    minRankToSeeCuts: "Soulreaper",
     balance: combinedTotalBalance,
     status: player?.[statusIndex] || "Unknown",
     payoutCharacter: player?.[payoutCharacterIndex] || "Not set",

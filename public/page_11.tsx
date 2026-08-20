@@ -5,18 +5,6 @@ import { Coins, CalendarDays, Hourglass, BadgeCheck } from "lucide-react";
 import SideNav from "@/app/components/SideNav";
 import { supabase } from "@/lib/supabase";
 
-type PotEntry = {
-  name: string;
-  amount: number;
-};
-
-type RosterEntry = {
-  name: string;
-  isSelf: boolean;
-  hidden: boolean;
-  cut: number | null;
-};
-
 type Cut = {
   id: number;
   date: string;
@@ -26,11 +14,6 @@ type Cut = {
   status: "Paid" | "Pending";
   source: string;
   note: string;
-  boosters: number;
-  pot: number;
-  pots: PotEntry[];
-  potTotal: number;
-  roster: RosterEntry[];
 };
 
 export default function BankPage() {
@@ -54,23 +37,21 @@ useEffect(() => {
  const [activeTab, setActiveTab] = useState("This Week");
 const [history, setHistory] = useState<any[]>([]);
 const [seasons, setSeasons] = useState<any[]>([]);
-const [detailsFor, setDetailsFor] = useState<Cut | null>(null);
-const [rank, setRank] = useState("Unknown");
-const [canSeeAllCuts, setCanSeeAllCuts] = useState(false);
 
 const filteredCuts = useMemo(
   () => (activeTab === "This Week" ? cuts : []),
   [cuts, activeTab]
 );
 
-// Only the seasons listed here get a tab. Add a lowercase sheet-tab name
-// to show another one; nothing appears automatically.
-const SHOWN_SEASONS = ["midnight season 2"];
-
+// Season 1 is excluded here because it already has its own hardcoded tab
+// fed by the Extern sheet through /api/bank.
 const seasonTabs = useMemo(
   () =>
-    seasons.filter((s) =>
-      SHOWN_SEASONS.includes(s.name?.trim().toLowerCase())
+    seasons.filter(
+      (s) =>
+        !s.isBreak &&
+        (s.rows?.length > 0 || s.total > 0) &&
+        s.name?.trim().toLowerCase() !== "midnight season 1"
     ),
   [seasons]
 );
@@ -109,20 +90,8 @@ const timeout = setTimeout(() => {
   controller.abort();
 }, 15000);
 
-// Sent so the API can verify the caller's rank server-side.
-const {
-  data: { session },
-} = await supabase.auth.getSession();
-
-const authHeaders = session?.access_token
-  ? { Authorization: `Bearer ${session.access_token}` }
-  : undefined;
-
 const [res, seasonRes] = await Promise.all([
-  fetch(`/api/bank?discordId=${discordId}`, {
-    signal: controller.signal,
-    headers: authHeaders,
-  }),
+  fetch(`/api/bank?discordId=${discordId}`, { signal: controller.signal }),
   fetch(`/api/bank-history?discordId=${discordId}`, {
     signal: controller.signal,
   }),
@@ -136,16 +105,12 @@ clearTimeout(timeout);
     console.log("BANK DATA:", data);
     console.log("SEASON DATA:", seasonData);
 
-    setRank(data.rank || "Unknown");
-    setCanSeeAllCuts(!!data.canSeeAllCuts);
     setBalance(data.balance || 0);
     setCuts(data.cuts || []);
     setHistory(data.history || []);
     setSeasons(seasonData.seasons || []);
   } catch (err) {
     console.error(err);
-    setRank("Unknown");
-    setCanSeeAllCuts(false);
     setBalance(0);
     setCuts([]);
     setHistory([]);
@@ -172,18 +137,6 @@ function formatRunType(run: string) {
   if (text.includes("M")) return "MYTHIC";
 
   return run || "-";
-}
-
-// Community icons live in /public. Filenames are mapped explicitly
-// because they don't follow one naming pattern (Sylvanas1.png).
-function potIcon(name: string) {
-  const n = (name || "").toLowerCase();
-
-  if (n.includes("dawn")) return "/Dawn.png";
-  if (n.includes("oblivion")) return "/Oblivion.png";
-  if (n.includes("sylvanas")) return "/Sylvanas1.png";
-
-  return null;
 }
   const paid = useMemo(
     () =>
@@ -254,134 +207,6 @@ function potIcon(name: string) {
     {muted ? "🔇 Unmute Sound" : "🔊 Mute Sound"}
   </button>
 </div>
-    {detailsFor && (
-      <div
-        style={modalOverlay}
-        onClick={() => setDetailsFor(null)}
-      >
-        <div style={modalBox} onClick={(e) => e.stopPropagation()}>
-          <div style={modalHeader}>
-            <div>
-              <div style={modalTitle}>{detailsFor.date}</div>
-              <div style={modalSubtitle}>
-                {detailsFor.run || "Run details"}
-              </div>
-            </div>
-
-            <button
-              style={modalClose}
-              onClick={() => setDetailsFor(null)}
-              aria-label="Close details"
-            >
-              ✕
-            </button>
-          </div>
-
-          <div style={modalStats}>
-            <ModalStat
-              label="Boosters in run"
-              value={`${detailsFor.boosters}`}
-              color="#38bdf8"
-            />
-            <ModalStat
-              label="Total pot"
-              value={`${Number(detailsFor.pot || 0).toLocaleString()}g`}
-              color="#facc15"
-            />
-            <ModalStat
-              label="Your cut"
-              value={`${Number(detailsFor.cut || 0).toLocaleString()}g`}
-              color="#d946ef"
-            />
-          </div>
-
-          <div style={modalSectionTitle}>GOLD BY COMMUNITY</div>
-
-          {detailsFor.pots?.length ? (
-            <div style={{ display: "grid", gap: 10 }}>
-              {detailsFor.pots.map((p, i) => {
-                const icon = potIcon(p.name);
-
-                return (
-                  <div key={i} style={potRow}>
-                    <span style={potNameWrap}>
-                      {icon ? (
-                        <img src={icon} alt="" style={potIconStyle} />
-                      ) : (
-                        <span style={potIconFallback}>?</span>
-                      )}
-                      <span style={{ fontWeight: 900 }}>{p.name}</span>
-                    </span>
-
-                    <span style={goldText}>
-                      {p.amount.toLocaleString()}g
-                    </span>
-                  </div>
-                );
-              })}
-
-              <div style={potTotalRow}>
-                <span style={potNameWrap}>
-                  <img
-                    src="/DeathWish%20Icon.png"
-                    alt=""
-                    style={potIconStyle}
-                  />
-                  <span style={{ fontWeight: 900 }}>Collected total</span>
-                </span>
-
-                <span style={goldText}>
-                  {Number(detailsFor.potTotal || 0).toLocaleString()}g
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div style={modalEmpty}>
-              No community pot recorded for this run.
-            </div>
-          )}
-
-          {detailsFor.roster?.length > 0 && (
-            <>
-              <div style={modalSectionTitle}>
-                BOOSTERS IN THIS RUN ({detailsFor.roster.length})
-              </div>
-
-              {!canSeeAllCuts && (
-                <div style={lockNotice}>
-                  🔒 Cuts are hidden. Soulreaper rank or above is required to
-                  see everyone&apos;s cut. Your rank: <b>{rank}</b>.
-                </div>
-              )}
-
-              <div style={{ display: "grid", gap: 8 }}>
-                {detailsFor.roster.map((r, i) => (
-                  <div
-                    key={i}
-                    style={r.isSelf ? rosterRowSelf : rosterRow}
-                  >
-                    <span style={{ fontWeight: 800 }}>
-                      {r.name}
-                      {r.isSelf && <span style={youTag}>YOU</span>}
-                    </span>
-
-                    {r.hidden ? (
-                      <span style={hiddenCut}>🔒 Hidden</span>
-                    ) : (
-                      <span style={goldText}>
-                        {Number(r.cut || 0).toLocaleString()}g
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-        </div>
-      </div>
-    )}
-
     <div style={page}>
       <div style={layout}>
         <aside style={sidebar}>
@@ -517,9 +342,8 @@ function potIcon(name: string) {
               <div>CHARACTER</div>
               <div>CUT</div>
               <div>STATUS</div>
-              <div>BOOSTERS</div>
-              <div>POT</div>
-              <div>DETAILS</div>
+              <div>SOURCE</div>
+              <div>NOTES</div>
             </div>
 
 {activeSeason ? (
@@ -552,13 +376,9 @@ function potIcon(name: string) {
           </span>
         </div>
 
-        <div>{row.runs ? row.runs.toLocaleString() : "-"}</div>
+        <div>{row.source || "-"}</div>
 
-        <div style={goldText}>
-          {row.cut ? `${Number(row.cut).toLocaleString()}g` : "-"}
-        </div>
-
-        <div style={dimText}>-</div>
+        <div>{row.notes || "-"}</div>
       </div>
     ))}
   </div>
@@ -597,13 +417,9 @@ function potIcon(name: string) {
     {index === history.length - 1 ? "Pending" : "Paid"}
   </span>
 </div>
-    <div style={dimText}>-</div>
+    <div>Bot (/cuts)</div>
 
-    <div style={goldText}>
-      {Number(week.amount || 0).toLocaleString()}g
-    </div>
-
-    <div style={dimText}>-</div>
+    <div>-</div>
   </div>
 ))}
   </div>
@@ -644,30 +460,8 @@ function potIcon(name: string) {
                     {cut.status}
                   </span>
                 </div>
-                <div style={boosterText}>{cut.boosters || "-"}</div>
-                <div style={goldText}>
-                  {Number(cut.pot || 0).toLocaleString()}g
-                </div>
-                <div>
-                  <button
-                    style={detailsBtn}
-                    onClick={() => setDetailsFor(cut)}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background =
-                        "rgba(124,58,237,0.35)";
-                      e.currentTarget.style.boxShadow =
-                        "0 0 16px rgba(168,85,247,0.55)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background =
-                        "rgba(124,58,237,0.16)";
-                      e.currentTarget.style.boxShadow =
-                        "0 0 8px rgba(168,85,247,0.18)";
-                    }}
-                  >
-                    More details
-                  </button>
-                </div>
+                <div>{cut.source}</div>
+                <div>{cut.note || "-"}</div>
               </div>
        ))
 )}
@@ -703,23 +497,6 @@ function potIcon(name: string) {
     </div>
 );
 }
-function ModalStat({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color: string;
-}) {
-  return (
-    <div style={modalStatBox}>
-      <div style={modalStatLabel}>{label}</div>
-      <div style={{ ...modalStatValue, color }}>{value}</div>
-    </div>
-  );
-}
-
 function StatCard({
   title,
   value,
@@ -1073,7 +850,7 @@ const table: React.CSSProperties = {
 
 const tableHead: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1.4fr 1fr 1fr 1fr .8fr 1fr 1.1fr",
+  gridTemplateColumns: "1fr 1.6fr 1fr 1fr 1fr 1fr 1fr",
   padding: "14px 16px",
   fontSize: 12,
   color: "#d6bfff",
@@ -1083,7 +860,7 @@ const tableHead: React.CSSProperties = {
 
 const tableRow: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1.4fr 1fr 1fr 1fr .8fr 1fr 1.1fr",
+  gridTemplateColumns: "1fr 1.6fr 1fr 1fr 1fr 1fr 1fr",
   padding: "18px 16px",
   alignItems: "center",
   borderBottom: "1px solid rgba(255,255,255,0.05)",
@@ -1270,220 +1047,4 @@ const showHistoryBtn: React.CSSProperties = {
   transition: "all .22s ease",
   boxShadow:
     "0 0 22px rgba(217,70,239,.45), 0 0 55px rgba(168,85,247,.28)",
-};
-
-const dimText: React.CSSProperties = {
-  color: "#6b7280",
-};
-
-const boosterText: React.CSSProperties = {
-  color: "#38bdf8",
-  fontWeight: 900,
-};
-
-const detailsBtn: React.CSSProperties = {
-  padding: "8px 16px",
-  borderRadius: 999,
-  border: "1px solid rgba(168,85,247,0.55)",
-  background: "rgba(124,58,237,0.16)",
-  color: "#d8b4fe",
-  fontWeight: 900,
-  fontSize: 13,
-  cursor: "pointer",
-  boxShadow: "0 0 8px rgba(168,85,247,0.18)",
-  transition: "all 0.2s ease",
-  whiteSpace: "nowrap",
-};
-
-const modalOverlay: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(2,6,16,0.78)",
-  backdropFilter: "blur(6px)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 10000,
-  padding: 24,
-};
-
-const modalBox: React.CSSProperties = {
-  width: "100%",
-  maxWidth: 560,
-  maxHeight: "84vh",
-  overflowY: "auto",
-  background: "linear-gradient(180deg, rgba(12,10,28,0.98), rgba(4,9,18,0.98))",
-  border: "1px solid rgba(168,85,247,0.45)",
-  borderRadius: 20,
-  padding: 28,
-  boxShadow: "0 0 60px rgba(168,85,247,0.35)",
-  color: "white",
-};
-
-const modalHeader: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  marginBottom: 24,
-};
-
-const modalTitle: React.CSSProperties = {
-  fontSize: 26,
-  fontWeight: 900,
-};
-
-const modalSubtitle: React.CSSProperties = {
-  color: "#c4b5fd",
-  marginTop: 6,
-  fontWeight: 700,
-};
-
-const modalClose: React.CSSProperties = {
-  border: "1px solid rgba(255,255,255,0.16)",
-  background: "rgba(255,255,255,0.06)",
-  color: "#e5e7eb",
-  borderRadius: 10,
-  width: 36,
-  height: 36,
-  fontSize: 15,
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const modalStats: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, 1fr)",
-  gap: 12,
-  marginBottom: 26,
-};
-
-const modalStatBox: React.CSSProperties = {
-  background: "rgba(255,255,255,0.04)",
-  border: "1px solid rgba(255,255,255,0.09)",
-  borderRadius: 14,
-  padding: 16,
-};
-
-const modalStatLabel: React.CSSProperties = {
-  color: "#9ca3af",
-  fontSize: 12,
-  fontWeight: 700,
-  marginBottom: 8,
-};
-
-const modalStatValue: React.CSSProperties = {
-  fontSize: 20,
-  fontWeight: 900,
-};
-
-const modalSectionTitle: React.CSSProperties = {
-  color: "#8b5cf6",
-  fontWeight: 900,
-  fontSize: 12,
-  letterSpacing: 1,
-  margin: "22px 0 14px",
-};
-
-const potRow: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "14px 16px",
-  borderRadius: 12,
-  background: "rgba(255,255,255,0.03)",
-  border: "1px solid rgba(255,255,255,0.07)",
-};
-
-const potTotalRow: React.CSSProperties = {
-  ...potRow,
-  background: "rgba(168,85,247,0.12)",
-  border: "1px solid rgba(168,85,247,0.4)",
-};
-
-const modalEmpty: React.CSSProperties = {
-  color: "#9ca3af",
-  padding: "16px 0",
-};
-
-const potNameWrap: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-};
-
-const potIconStyle: React.CSSProperties = {
-  width: 34,
-  height: 34,
-  borderRadius: 10,
-  objectFit: "cover",
-  border: "1px solid rgba(255,255,255,0.14)",
-  boxShadow: "0 0 12px rgba(0,0,0,0.5)",
-  flexShrink: 0,
-};
-
-const potIconFallback: React.CSSProperties = {
-  width: 34,
-  height: 34,
-  borderRadius: 10,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.12)",
-  color: "#9ca3af",
-  fontWeight: 900,
-  flexShrink: 0,
-};
-
-const potTotalIcon: React.CSSProperties = {
-  ...potIconFallback,
-  background: "rgba(168,85,247,0.18)",
-  border: "1px solid rgba(168,85,247,0.45)",
-  color: "#d8b4fe",
-};
-
-const rosterRow: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "11px 14px",
-  borderRadius: 10,
-  background: "rgba(255,255,255,0.03)",
-  border: "1px solid rgba(255,255,255,0.07)",
-  fontSize: 14,
-};
-
-const rosterRowSelf: React.CSSProperties = {
-  ...rosterRow,
-  background: "rgba(217,70,239,0.12)",
-  border: "1px solid rgba(217,70,239,0.4)",
-};
-
-const youTag: React.CSSProperties = {
-  marginLeft: 10,
-  padding: "2px 8px",
-  borderRadius: 999,
-  background: "rgba(217,70,239,0.25)",
-  border: "1px solid rgba(217,70,239,0.5)",
-  color: "#f5d0fe",
-  fontSize: 10,
-  fontWeight: 900,
-  letterSpacing: 1,
-};
-
-const hiddenCut: React.CSSProperties = {
-  color: "#6b7280",
-  fontWeight: 800,
-  fontSize: 13,
-};
-
-const lockNotice: React.CSSProperties = {
-  padding: "12px 14px",
-  borderRadius: 12,
-  background: "rgba(245,158,11,0.10)",
-  border: "1px solid rgba(245,158,11,0.35)",
-  color: "#fcd34d",
-  fontSize: 13,
-  lineHeight: 1.5,
-  marginBottom: 12,
 };
