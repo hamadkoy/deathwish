@@ -36,16 +36,29 @@ useEffect(() => {
 }, [muted]);
  const [activeTab, setActiveTab] = useState("This Week");
 const [history, setHistory] = useState<any[]>([]);
-const filteredCuts = useMemo(() => {
-  if (
-    activeTab === "Midnight Season 1 History" ||
-    activeTab === "All Seasons History"
-  ) {
-    return [];
-  }
+const [seasons, setSeasons] = useState<any[]>([]);
 
-  return cuts;
-}, [cuts, activeTab]);
+const filteredCuts = useMemo(
+  () => (activeTab === "This Week" ? cuts : []),
+  [cuts, activeTab]
+);
+
+// Only the seasons listed here get a tab. Add a lowercase sheet-tab name
+// to show another one; nothing appears automatically.
+const SHOWN_SEASONS = ["midnight season 2"];
+
+const seasonTabs = useMemo(
+  () =>
+    seasons.filter((s) =>
+      SHOWN_SEASONS.includes(s.name?.trim().toLowerCase())
+    ),
+  [seasons]
+);
+
+const activeSeason = useMemo(
+  () => seasonTabs.find((s) => `${s.name} History` === activeTab),
+  [seasonTabs, activeTab]
+);
 
 useEffect(() => {
   loadBalance();
@@ -76,23 +89,31 @@ const timeout = setTimeout(() => {
   controller.abort();
 }, 15000);
 
-const res = await fetch(`/api/bank?discordId=${discordId}`, {
-  signal: controller.signal,
-});
+const [res, seasonRes] = await Promise.all([
+  fetch(`/api/bank?discordId=${discordId}`, { signal: controller.signal }),
+  fetch(`/api/bank-history?discordId=${discordId}`, {
+    signal: controller.signal,
+  }),
+]);
 
 clearTimeout(timeout);
+
     const data = await res.json();
+    const seasonData = await seasonRes.json();
 
     console.log("BANK DATA:", data);
+    console.log("SEASON DATA:", seasonData);
 
     setBalance(data.balance || 0);
     setCuts(data.cuts || []);
     setHistory(data.history || []);
+    setSeasons(seasonData.seasons || []);
   } catch (err) {
     console.error(err);
     setBalance(0);
     setCuts([]);
     setHistory([]);
+    setSeasons([]);
   }
 }
 
@@ -281,6 +302,7 @@ function formatRunType(run: string) {
  {[
   "This Week",
   "Midnight Season 1 History",
+  ...seasonTabs.map((s) => `${s.name} History`),
   "All Seasons History",
 ].map((tabName) => (
     <button
@@ -323,7 +345,43 @@ function formatRunType(run: string) {
               <div>NOTES</div>
             </div>
 
-{activeTab === "Midnight Season 1 History" ? (
+{activeSeason ? (
+  <div
+    style={{
+      padding: 24,
+      display: "grid",
+      gap: 14,
+    }}
+  >
+    {activeSeason.rows.map((row: any, index: number) => (
+      <div key={index} style={tableRow}>
+        <div>{row.week || "-"}</div>
+
+        <div>
+          <span style={runBadge(formatRunType(row.type))}>
+            {formatRunType(row.type)}
+          </span>
+        </div>
+
+        <div style={charText}>{row.character || "Unknown"}</div>
+
+        <div style={goldText}>
+          {Number(row.cut || 0).toLocaleString()}g
+        </div>
+
+        <div>
+          <span style={row.status === "Paid" ? paidBadge : pendingBadge}>
+            {row.status}
+          </span>
+        </div>
+
+        <div>{row.source || "-"}</div>
+
+        <div>{row.notes || "-"}</div>
+      </div>
+    ))}
+  </div>
+) : activeTab === "Midnight Season 1 History" ? (
   <div
     style={{
       padding: 24,
@@ -407,7 +465,15 @@ function formatRunType(run: string) {
        ))
 )}
 
-            <div style={note}>Showing {filteredCuts.length} cuts from bot.</div>
+            <div style={note}>
+              Showing{" "}
+              {activeSeason
+                ? activeSeason.rows.length
+                : activeTab === "Midnight Season 1 History"
+                ? history.length
+                : filteredCuts.length}{" "}
+              cuts from bot.
+            </div>
           </div>
         </main>
 
@@ -747,6 +813,7 @@ const tabs: React.CSSProperties = {
   display: "flex",
   gap: 8,
   marginBottom: 14,
+  flexWrap: "wrap",
 };
 
 const tabActive: React.CSSProperties = {
