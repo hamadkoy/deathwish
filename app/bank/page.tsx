@@ -148,6 +148,18 @@ function formatRunType(run: string) {
 
   return run || "-";
 }
+
+// Community icons live in /public. Filenames are mapped explicitly
+// because they don't follow one naming pattern (Sylvanas1.png).
+function potIcon(name: string) {
+  const n = (name || "").toLowerCase();
+
+  if (n.includes("dawn")) return "/Dawn.png";
+  if (n.includes("oblivion")) return "/Oblivion.png";
+  if (n.includes("sylvanas")) return "/Sylvanas1.png";
+
+  return null;
+}
   const paid = useMemo(
     () =>
       cuts
@@ -262,17 +274,33 @@ function formatRunType(run: string) {
 
           {detailsFor.pots?.length ? (
             <div style={{ display: "grid", gap: 10 }}>
-              {detailsFor.pots.map((p, i) => (
-                <div key={i} style={potRow}>
-                  <span style={{ fontWeight: 900 }}>{p.name}</span>
-                  <span style={goldText}>
-                    {p.amount.toLocaleString()}g
-                  </span>
-                </div>
-              ))}
+              {detailsFor.pots.map((p, i) => {
+                const icon = potIcon(p.name);
+
+                return (
+                  <div key={i} style={potRow}>
+                    <span style={potNameWrap}>
+                      {icon ? (
+                        <img src={icon} alt="" style={potIconStyle} />
+                      ) : (
+                        <span style={potIconFallback}>?</span>
+                      )}
+                      <span style={{ fontWeight: 900 }}>{p.name}</span>
+                    </span>
+
+                    <span style={goldText}>
+                      {p.amount.toLocaleString()}g
+                    </span>
+                  </div>
+                );
+              })}
 
               <div style={potTotalRow}>
-                <span style={{ fontWeight: 900 }}>Collected total</span>
+                <span style={potNameWrap}>
+                  <span style={potTotalIcon}>Σ</span>
+                  <span style={{ fontWeight: 900 }}>Collected total</span>
+                </span>
+
                 <span style={goldText}>
                   {Number(detailsFor.potTotal || 0).toLocaleString()}g
                 </span>
@@ -1331,4 +1359,41 @@ const noteRow: React.CSSProperties = {
   border: "1px solid rgba(255,255,255,0.07)",
   color: "#d1d5db",
   fontSize: 14,
+};
+
+const potNameWrap: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+};
+
+const potIconStyle: React.CSSProperties = {
+  width: 34,
+  height: 34,
+  borderRadius: 10,
+  objectFit: "cover",
+  border: "1px solid rgba(255,255,255,0.14)",
+  boxShadow: "0 0 12px rgba(0,0,0,0.5)",
+  flexShrink: 0,
+};
+
+const potIconFallback: React.CSSProperties = {
+  width: 34,
+  height: 34,
+  borderRadius: 10,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  color: "#9ca3af",
+  fontWeight: 900,
+  flexShrink: 0,
+};
+
+const potTotalIcon: React.CSSProperties = {
+  ...potIconFallback,
+  background: "rgba(168,85,247,0.18)",
+  border: "1px solid rgba(168,85,247,0.45)",
+  color: "#d8b4fe",
 };
