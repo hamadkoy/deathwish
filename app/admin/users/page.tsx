@@ -44,14 +44,32 @@ type DeclinedUser = {
   application_note?: string;
   declined_at?: string;
 };
+
+type PaymentRequest = {
+  id: number;
+  user_id: string;
+  discord_name?: string;
+  discord_id?: string;
+  current_character?: string;
+  current_method?: string;
+  requested_character?: string;
+  requested_method?: string;
+  note?: string;
+  status: string;
+  created_at?: string;
+};
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [promotionRequests, setPromotionRequests] = useState<PromotionRequest[]>([]);
   const [declinedUsers, setDeclinedUsers] = useState<DeclinedUser[]>([]);
+  const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
 const [activeTab, setActiveTab] =
-  useState<"team" | "applicants" | "promotions" | "declined">("team");
+  useState<"team" | "applicants" | "promotions" | "declined" | "requests">(
+    "team"
+  );
 const [approvePopup, setApprovePopup] = useState<{
   user: Profile;
   role: SiteRole;
@@ -66,6 +84,7 @@ useEffect(() => {
   loadUsers();
   loadPromotionRequests();
   loadDeclinedUsers();
+  loadPaymentRequests();
 
     const profilesChannel = supabase
       .channel("realtime-profiles")
@@ -85,9 +104,19 @@ useEffect(() => {
       )
       .subscribe();
 
+    const paymentsChannel = supabase
+      .channel("realtime-payment-requests")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "payment_requests" },
+        () => loadPaymentRequests()
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(profilesChannel);
       supabase.removeChannel(promotionsChannel);
+      supabase.removeChannel(paymentsChannel);
     };
   }, []);
 
@@ -151,6 +180,45 @@ async function loadDeclinedUsers() {
   }
 
   setDeclinedUsers(data || []);
+}
+
+// Payment change requests sent from the Bank page.
+async function loadPaymentRequests() {
+  const { data, error } = await supabase
+    .from("payment_requests")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setPaymentRequests(data || []);
+}
+
+async function markRequest(req: PaymentRequest, status: string) {
+  if (!isAdmin) return;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase
+    .from("payment_requests")
+    .update({
+      status,
+      handled_at: new Date().toISOString(),
+      handled_by: user?.id || null,
+    })
+    .eq("id", req.id);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  await loadPaymentRequests();
 }
   async function updateUser(userId: string, updates: Partial<Profile>) {
     if (currentUserRole !== "Dreadlord") {
@@ -269,6 +337,10 @@ const roleOrder: Record<SiteRole, number> = {
     (u) => normalizeRole(u.site_role) === "Reaper"
   ).length;
 
+  const pendingPayments = paymentRequests.filter(
+    (r) => r.status === "pending"
+  ).length;
+
   const isAdmin = currentUserRole === "Dreadlord";
   const isOwnerUser = users.some(
   (u) =>
@@ -311,6 +383,15 @@ const roleOrder: Record<SiteRole, number> = {
                 Team
               </button>
 
+              {isAdmin && (
+                <button
+                  onClick={() => setActiveTab("requests")}
+                  style={activeTab === "requests" ? tabActive : tab}
+                >
+                  Requests ({pendingPayments})
+                </button>
+              )}
+
               {canSeeApplicants && (
                 <button
                   onClick={() => setActiveTab("applicants")}
@@ -338,18 +419,96 @@ const roleOrder: Record<SiteRole, number> = {
 )}
             </div>
 
-            {activeTab !== "promotions" && activeTab !== "declined" && (
-              <div style={topRow}>
-                <input
-                  placeholder="Search by Discord name..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  style={input}
-                />
-              </div>
-            )}
+            {activeTab !== "promotions" &&
+              activeTab !== "declined" &&
+              activeTab !== "requests" && (
+                <div style={topRow}>
+                  <input
+                    placeholder="Search by Discord name..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    style={input}
+                  />
+                </div>
+              )}
 
-        {activeTab === "promotions" ? (
+        {activeTab === "requests" ? (
+          <>
+            <div style={requestHead}>
+              <div>User</div>
+              <div>Current</div>
+              <div>Requested</div>
+              <div>Note</div>
+              <div>Status</div>
+              <div>Actions</div>
+            </div>
+
+            {paymentRequests.length === 0 ? (
+              <div style={empty}>No payment requests.</div>
+            ) : (
+              paymentRequests.map((req) => (
+                <div key={req.id} style={requestRow}>
+                  <div>
+                    <div style={userName}>{req.discord_name || "Unknown"}</div>
+                    <div style={userId}>
+                      {req.created_at
+                        ? new Date(req.created_at).toLocaleString()
+                        : "-"}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={muted}>{req.current_character || "-"}</div>
+                    <div style={muted}>{req.current_method || "-"}</div>
+                  </div>
+
+                  <div>
+                    <div style={{ color: "#f5d0fe", fontWeight: 900 }}>
+                      {req.requested_character || "-"}
+                    </div>
+                    <div style={{ color: "#fb923c", fontWeight: 700 }}>
+                      {req.requested_method || "-"}
+                    </div>
+                  </div>
+
+                  <div style={note}>{req.note || "-"}</div>
+
+                  <div>
+                    {req.status === "done" ? (
+                      <span style={approved}>✓ Done</span>
+                    ) : req.status === "rejected" ? (
+                      <span style={notApproved}>✕ Rejected</span>
+                    ) : (
+                      <span style={pendingText}>● Pending</span>
+                    )}
+                  </div>
+
+                  <div style={actions}>
+                    {req.status === "pending" ? (
+                      <>
+                        <button
+                          style={approveBtn}
+                          onClick={() => markRequest(req, "done")}
+                        >
+                          Mark Done
+                        </button>
+
+                        <button
+                          style={revokeBtn}
+                          onClick={() => markRequest(req, "rejected")}
+                        >
+                          Reject
+                        </button>
+                      </>
+                    ) : (
+                      <span style={muted}>Handled</span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </>
+        ) : activeTab === "promotions" ? (
               <div>
                 <div style={promotionHead}>
                   <div>User</div>
@@ -897,6 +1056,7 @@ const tabs: React.CSSProperties = {
   display: "flex",
   gap: 10,
   padding: "16px 16px 0",
+  flexWrap: "wrap",
 };
 
 const tab: React.CSSProperties = {
@@ -966,6 +1126,29 @@ const promotionRow: React.CSSProperties = {
   alignItems: "center",
   padding: "16px 20px",
   borderTop: "1px solid rgba(255,255,255,.06)",
+};
+
+const requestHead: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1.2fr 1fr 1fr 1.3fr .8fr 1.2fr",
+  padding: "16px 20px",
+  background: "rgba(168,85,247,.08)",
+  color: "#f0abfc",
+  fontWeight: 900,
+  marginTop: 16,
+};
+
+const requestRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1.2fr 1fr 1fr 1.3fr .8fr 1.2fr",
+  alignItems: "center",
+  padding: "16px 20px",
+  borderTop: "1px solid rgba(255,255,255,.06)",
+};
+
+const pendingText: React.CSSProperties = {
+  color: "#fbbf24",
+  fontWeight: 900,
 };
 
 const userCell: React.CSSProperties = {

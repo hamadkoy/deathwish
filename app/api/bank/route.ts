@@ -121,6 +121,41 @@ function getCommunityKey(row: any[]) {
   return null;
 }
 
+// The Pug row holds cuts for helpers from outside the guild who have no
+// Discord ID. Its value is the combined cut, so dividing by the standard
+// per-booster cut gives how many pugs were in the run.
+function isPugRow(row: any[]) {
+  if (isPlayerRow(row)) return false;
+
+  for (let i = 0; i < 4; i++) {
+    if (normalize(row?.[i]) === "pug") return true;
+  }
+
+  return false;
+}
+
+// The cut a single booster received in this column — the most common
+// non-zero amount, which is what nearly everyone gets.
+function standardCut(amounts: number[]) {
+  if (!amounts.length) return 0;
+
+  const counts = new Map<number, number>();
+
+  for (const a of amounts) counts.set(a, (counts.get(a) || 0) + 1);
+
+  let best = amounts[0];
+  let bestCount = 0;
+
+  for (const [value, count] of counts) {
+    if (count > bestCount || (count === bestCount && value > best)) {
+      best = value;
+      bestCount = count;
+    }
+  }
+
+  return best;
+}
+
 // Reads one season tab (Player / User ID / Total / Week N columns)
 // and pulls out this player's weekly amounts.
 function readSeasonTab(rows: any[][], discordId: string) {
@@ -292,6 +327,8 @@ export async function GET(req: Request) {
 
   const playerRows = dataRows.filter(isPlayerRow);
 
+  const pugRow = dataRows.find(isPugRow);
+
   const potRows = dataRows
     .map((row) => ({ key: getCommunityKey(row), row }))
     .filter((entry) => entry.key !== null) as {
@@ -343,12 +380,23 @@ export async function GET(req: Request) {
             (row) => parseNumber(row[index]) > 0
           );
 
-          const boosters = boosterRows.length;
+          const amounts = boosterRows.map((row) => parseNumber(row[index]));
 
-          const pot = boosterRows.reduce(
-            (sum, row) => sum + parseNumber(row[index]),
-            0
-          );
+          // Unregistered helpers, tracked as a single combined figure.
+          const pugAmount = pugRow ? parseNumber(pugRow[index]) : 0;
+          const perBooster = standardCut(amounts);
+
+          const pugCount =
+            pugAmount > 0
+              ? perBooster > 0
+                ? Math.max(1, Math.round(pugAmount / perBooster))
+                : 1
+              : 0;
+
+          const boosters = boosterRows.length + pugCount;
+
+          const pot =
+            amounts.reduce((sum, a) => sum + a, 0) + pugAmount;
 
           // Per-community pots for this run column.
           const pots = potRows
@@ -362,7 +410,14 @@ export async function GET(req: Request) {
 
           // Everyone in this run. Amounts are stripped unless the viewer
           // is Soulreaper or above.
-          const roster = boosterRows
+          const roster: {
+            name: string;
+            discordId: string;
+            isSelf: boolean;
+            isPug: boolean;
+            hidden: boolean;
+            cut: number | null;
+          }[] = boosterRows
             .map((row) => {
               const name =
                 (row[1] || "").toString().trim() ||
@@ -375,11 +430,24 @@ export async function GET(req: Request) {
                 name,
                 discordId: (row[0] || "").toString().trim(),
                 isSelf,
+                isPug: false,
                 hidden: !canSeeAllCuts && !isSelf,
                 cut: canSeeAllCuts || isSelf ? parseNumber(row[index]) : null,
               };
             })
             .sort((a, b) => (b.cut || 0) - (a.cut || 0));
+
+          // One card per pug, each showing an equal share of the row.
+          for (let i = 0; i < pugCount; i++) {
+            roster.push({
+              name: pugCount > 1 ? `Pug ${i + 1}` : "Pug",
+              discordId: "",
+              isSelf: false,
+              isPug: true,
+              hidden: !canSeeAllCuts,
+              cut: canSeeAllCuts ? Math.round(pugAmount / pugCount) : null,
+            });
+          }
 
           return {
             id: index,

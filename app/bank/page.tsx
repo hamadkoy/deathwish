@@ -14,6 +14,7 @@ type RosterEntry = {
   name: string;
   discordId?: string;
   isSelf: boolean;
+  isPug?: boolean;
   hidden: boolean;
   cut: number | null;
 };
@@ -39,6 +40,28 @@ type Cut = {
   potTotal: number;
   roster: RosterEntry[];
 };
+
+// Week 1 started on 19 Aug and each week runs 7 days from there,
+// matching the week system on the runs page.
+const WEEK_ANCHOR = new Date(2026, 7, 19); // month is 0-indexed: 7 = August
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function currentWeekRange(now: Date = new Date()) {
+  const weekIndex = Math.floor(
+    (now.getTime() - WEEK_ANCHOR.getTime()) / WEEK_MS
+  );
+
+  const start = new Date(WEEK_ANCHOR.getTime() + weekIndex * WEEK_MS);
+  const end = new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000);
+
+  const fmt = (d: Date) =>
+    d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+
+  return {
+    weekNumber: weekIndex + 1,
+    label: `${fmt(start)} – ${fmt(end)}`,
+  };
+}
 
 export default function BankPage() {
   const [balance, setBalance] = useState(0);
@@ -69,6 +92,9 @@ const [profiles, setProfiles] = useState<ProfileLite[]>([]);
 // Matches a roster entry to a Discord profile: by Discord ID when the
 // profiles table has one, otherwise by the name before the realm suffix.
 function findProfile(entry: RosterEntry): ProfileLite | undefined {
+  // Pugs aren't guild members, so there's no profile to match.
+  if (entry.isPug) return undefined;
+
   if (entry.discordId) {
     const byId = profiles.find(
       (p) => p.discord_id && p.discord_id === entry.discordId
@@ -215,6 +241,14 @@ function formatRunType(run: string) {
 
 // Community icons live in /public. Filenames are mapped explicitly
 // because they don't follow one naming pattern (Sylvanas1.png).
+// Discord's placeholder avatars (users who never set a picture) and
+// broken URLs both fall back to the guild logo.
+function avatarFor(url?: string) {
+  if (!url) return "/logo.png";
+  if (url.includes("/embed/avatars/")) return "/logo.png";
+  return url;
+}
+
 function potIcon(name: string) {
   const n = (name || "").toLowerCase();
 
@@ -398,11 +432,25 @@ function potIcon(name: string) {
                   const profile = findProfile(r);
 
                   return (
-                    <div key={i} style={r.isSelf ? rosterCardSelf : rosterCard}>
+                    <div
+                      key={i}
+                      style={
+                        r.isSelf
+                          ? rosterCardSelf
+                          : r.isPug
+                          ? rosterCardPug
+                          : rosterCard
+                      }
+                    >
                       <img
-                        src={profile?.avatar_url || "/logo.png"}
+                        src={avatarFor(profile?.avatar_url)}
                         alt=""
                         style={rosterAvatar}
+                        onError={(e) => {
+                          // Stale or dead avatar URL — swap in the logo.
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = "/logo.png";
+                        }}
                       />
 
                       <div style={rosterName} title={r.name}>
@@ -418,6 +466,7 @@ function potIcon(name: string) {
                       )}
 
                       {r.isSelf && <div style={youTag}>YOU</div>}
+                      {r.isPug && <div style={pugTag}>PUG</div>}
                     </div>
                   );
                 })}
@@ -776,11 +825,13 @@ function StatCard({
   value: number;
   color: string;
 }) {
+  const week = currentWeekRange();
+
   const subtitle =
     title === "Total Balance"
       ? "All time balance"
       : title === "This Week"
-      ? "From 19 May – 25 May"
+      ? `Week ${week.weekNumber} · ${week.label}`
       : title === "Pending Gold"
       ? "Waiting for payout"
       : "Successfully paid";
@@ -1562,4 +1613,21 @@ const lockNotice: React.CSSProperties = {
   fontSize: 13,
   lineHeight: 1.5,
   marginBottom: 12,
+};
+
+const rosterCardPug: React.CSSProperties = {
+  ...rosterCard,
+  background: "rgba(56,189,248,0.10)",
+  border: "1px dashed rgba(56,189,248,0.45)",
+};
+
+const pugTag: React.CSSProperties = {
+  padding: "2px 8px",
+  borderRadius: 999,
+  background: "rgba(56,189,248,0.22)",
+  border: "1px solid rgba(56,189,248,0.5)",
+  color: "#bae6fd",
+  fontSize: 9,
+  fontWeight: 900,
+  letterSpacing: 1,
 };
