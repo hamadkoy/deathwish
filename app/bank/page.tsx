@@ -672,7 +672,10 @@ function potIcon(name: string) {
         style={modalOverlay}
         onClick={() => setDetailsFor(null)}
       >
-        <div style={modalBox} onClick={(e) => e.stopPropagation()}>
+        <div
+          style={{ ...modalBox, maxWidth: 1180, padding: 36 }}
+          onClick={(e) => e.stopPropagation()}
+        >
           <div style={modalHeader}>
             <div>
               <div style={modalTitle}>{detailsFor.date}</div>
@@ -793,6 +796,8 @@ function potIcon(name: string) {
                       key={i}
                       onClick={() => {
                         if (!r.discordId) return;
+                        // Only leaders can open an empty card to write one.
+                        if (!isLeader && !notes[r.discordId]) return;
                         setNoteDraft(notes[r.discordId] || "");
                         setNoteFor(r);
                       }}
@@ -805,8 +810,12 @@ function potIcon(name: string) {
                             : ""
                           : ""
                       }
-                      style={
-                        r.isSelf
+                      style={{
+                        cursor:
+                          r.discordId && (isLeader || notes[r.discordId])
+                            ? "pointer"
+                            : "default",
+                        ...(r.isSelf
                           ? rosterCardSelf
                           : r.isPug
                           ? rosterCardPug
@@ -814,8 +823,8 @@ function potIcon(name: string) {
                           ? rosterCardHelper
                           : r.mark === "strike"
                           ? rosterCardStrike
-                          : rosterCard
-                      }
+                          : rosterCard),
+                      }}
                     >
                       {r.mark && (
                         <img
@@ -1901,7 +1910,7 @@ const potRow: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  padding: "14px 16px",
+  padding: "16px 18px",
   borderRadius: 12,
   background: "rgba(255,255,255,0.03)",
   border: "1px solid rgba(255,255,255,0.07)",
@@ -1925,12 +1934,14 @@ const potNameWrap: React.CSSProperties = {
 };
 
 const potIconStyle: React.CSSProperties = {
-  width: 34,
-  height: 34,
-  borderRadius: 10,
-  objectFit: "cover",
+  width: 46,
+  height: 46,
+  borderRadius: 12,
+  // contain, so logos with transparency aren't cropped
+  objectFit: "contain",
+  background: "rgba(0,0,0,0.35)",
+  padding: 3,
   border: "1px solid rgba(255,255,255,0.14)",
-  boxShadow: "0 0 12px rgba(0,0,0,0.5)",
   flexShrink: 0,
 };
 
@@ -1958,17 +1969,16 @@ const potTotalIcon: React.CSSProperties = {
 const rosterGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-  gap: 10,
+  gap: 14,
 };
 
 const rosterCard: React.CSSProperties = {
   position: "relative",
-  cursor: "pointer",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  gap: 6,
-  padding: "16px 8px 14px",
+  gap: 8,
+  padding: "20px 10px 16px",
   borderRadius: 12,
   background: "rgba(255,255,255,0.03)",
   border: "1px solid rgba(255,255,255,0.07)",
@@ -1982,8 +1992,8 @@ const rosterCardSelf: React.CSSProperties = {
 };
 
 const rosterAvatar: React.CSSProperties = {
-  width: 46,
-  height: 46,
+  width: 60,
+  height: 60,
   borderRadius: "50%",
   objectFit: "cover",
   border: "2px solid rgba(168,85,247,0.5)",
@@ -1991,7 +2001,7 @@ const rosterAvatar: React.CSSProperties = {
 
 const rosterName: React.CSSProperties = {
   fontWeight: 800,
-  fontSize: 12,
+  fontSize: 13,
   width: "100%",
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -2001,7 +2011,7 @@ const rosterName: React.CSSProperties = {
 const rosterCut: React.CSSProperties = {
   color: "#facc15",
   fontWeight: 900,
-  fontSize: 13,
+  fontSize: 15,
 };
 
 const youTag: React.CSSProperties = {
@@ -2192,10 +2202,10 @@ const clientText: React.CSSProperties = {
 
 const markBase: React.CSSProperties = {
   position: "absolute",
-  top: 6,
-  left: 6,
-  width: 46,
-  height: 46,
+  top: 4,
+  left: 4,
+  width: 52,
+  height: 52,
   objectFit: "contain",
   zIndex: 2,
   pointerEvents: "none",
