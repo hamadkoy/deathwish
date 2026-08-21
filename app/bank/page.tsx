@@ -88,6 +88,62 @@ const [detailsFor, setDetailsFor] = useState<Cut | null>(null);
 const [rank, setRank] = useState("Unknown");
 const [canSeeAllCuts, setCanSeeAllCuts] = useState(false);
 const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+const [payoutCharacter, setPayoutCharacter] = useState("Not set");
+const [payoutType, setPayoutType] = useState("Not set");
+const [showRequest, setShowRequest] = useState(false);
+const [reqCharacter, setReqCharacter] = useState("");
+const [reqMethod, setReqMethod] = useState("");
+const [reqNote, setReqNote] = useState("");
+const [sending, setSending] = useState(false);
+const [requestSent, setRequestSent] = useState(false);
+
+async function sendPaymentRequest() {
+  if (!reqCharacter.trim() && !reqMethod.trim()) {
+    alert("Enter a new character or payment method first.");
+    return;
+  }
+
+  setSending(true);
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      alert("You need to be signed in.");
+      return;
+    }
+
+    const meta: any = user.user_metadata || {};
+
+    const { error } = await supabase.from("payment_requests").insert({
+      user_id: user.id,
+      discord_name: meta.user_name || meta.full_name || meta.name || null,
+      discord_id: meta.provider_id || null,
+      current_character: payoutCharacter,
+      current_method: payoutType,
+      requested_character: reqCharacter.trim() || null,
+      requested_method: reqMethod.trim() || null,
+      note: reqNote.trim() || null,
+      status: "pending",
+    });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setRequestSent(true);
+    setReqCharacter("");
+    setReqMethod("");
+    setReqNote("");
+  } catch (err: any) {
+    alert(err?.message || "Could not send the request.");
+  } finally {
+    setSending(false);
+  }
+}
 
 // Matches a roster entry to a Discord profile: by Discord ID when the
 // profiles table has one, otherwise by the name before the realm suffix.
@@ -204,6 +260,8 @@ clearTimeout(timeout);
     setRank(data.rank || "Unknown");
     setCanSeeAllCuts(!!data.canSeeAllCuts);
     setBalance(data.balance || 0);
+    setPayoutCharacter(data.payoutCharacter || "Not set");
+    setPayoutType(data.payoutType || "Not set");
     setCuts(data.cuts || []);
     setHistory(data.history || []);
     setSeasons(data.seasons || []);
@@ -231,12 +289,19 @@ clearTimeout(timeout);
     [cuts]
   );
 function formatRunType(run: string) {
-  const text = (run || "").toUpperCase();
+  const text = (run || "").trim();
 
-  if (text.includes("HC")) return "HEROIC";
-  if (text.includes("M")) return "MYTHIC";
+  if (!text) return "-";
 
-  return run || "-";
+  const n = text.toLowerCase();
+
+  // Whole words only — "Normal" contains an m but isn't mythic.
+  if (n.includes("hc") || n.includes("heroic")) return "HEROIC";
+  if (n.includes("mythic")) return "MYTHIC";
+  if (n.includes("vip")) return "VIP";
+  if (n.includes("saved")) return "SAVED";
+
+  return text.toUpperCase();
 }
 
 // Community icons live in /public. Filenames are mapped explicitly
@@ -327,6 +392,98 @@ function potIcon(name: string) {
     {muted ? "🔇 Unmute Sound" : "🔊 Mute Sound"}
   </button>
 </div>
+    {showRequest && (
+      <div style={modalOverlay} onClick={() => setShowRequest(false)}>
+        <div
+          style={{ ...modalBox, maxWidth: 520 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={modalHeader}>
+            <div>
+              <div style={modalTitle}>Request Payment Change</div>
+              <div style={modalSubtitle}>
+                Sent to the officers for approval
+              </div>
+            </div>
+
+            <button
+              style={modalClose}
+              onClick={() => setShowRequest(false)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+
+          {requestSent ? (
+            <div style={{ display: "grid", gap: 18 }}>
+              <div style={sentBox}>
+                ✅ Request sent. An officer will review it shortly.
+              </div>
+
+              <button
+                style={sendBtn}
+                onClick={() => setShowRequest(false)}
+              >
+                Close
+              </button>
+            </div>
+          ) : (
+            <>
+              <div style={modalSectionTitle}>CURRENT</div>
+
+              <div style={{ display: "grid", gap: 10, marginBottom: 6 }}>
+                <div style={potRow}>
+                  <span style={{ fontWeight: 900 }}>Payout character</span>
+                  <span style={charText}>{payoutCharacter}</span>
+                </div>
+
+                <div style={potRow}>
+                  <span style={{ fontWeight: 900 }}>Payment method</span>
+                  <span style={{ color: "#fb923c", fontWeight: 900 }}>
+                    {payoutType}
+                  </span>
+                </div>
+              </div>
+
+              <div style={modalSectionTitle}>REQUEST</div>
+
+              <div style={{ display: "grid", gap: 12 }}>
+                <input
+                  value={reqCharacter}
+                  onChange={(e) => setReqCharacter(e.target.value)}
+                  placeholder="New payout character (e.g. Koyjin-Kazzak)"
+                  style={reqInput}
+                />
+
+                <input
+                  value={reqMethod}
+                  onChange={(e) => setReqMethod(e.target.value)}
+                  placeholder="New payment method (optional)"
+                  style={reqInput}
+                />
+
+                <textarea
+                  value={reqNote}
+                  onChange={(e) => setReqNote(e.target.value)}
+                  placeholder="Anything the officers should know (optional)"
+                  style={{ ...reqInput, height: 90, resize: "none" }}
+                />
+
+                <button
+                  style={{ ...sendBtn, opacity: sending ? 0.6 : 1 }}
+                  onClick={sendPaymentRequest}
+                  disabled={sending}
+                >
+                  {sending ? "Sending..." : "Send Request"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    )}
+
     {detailsFor && (
       <div
         style={modalOverlay}
@@ -538,7 +695,10 @@ function potIcon(name: string) {
             </div>
 
 <button
-  onClick={loadBalance}
+  onClick={() => {
+    setRequestSent(false);
+    setShowRequest(true);
+  }}
   style={syncBtn}
   onMouseEnter={(e) => {
     e.currentTarget.style.transform = "translateY(-3px) scale(1.04)";
@@ -557,10 +717,10 @@ function potIcon(name: string) {
       filter: "drop-shadow(0 0 6px rgba(255,255,255,0.6))",
     }}
   >
-    ⟳
+    ✉
   </span>
 
-  <span>Sync From Bot</span>
+  <span>Request Payment Change</span>
 </button>
           </div>
 
@@ -1327,7 +1487,15 @@ const historyEmpty: React.CSSProperties = {
   fontWeight: 900,
 };
 const runBadge = (type: string): React.CSSProperties => {
-  const isHeroic = type === "HEROIC";
+  const palette: Record<string, [string, string]> = {
+    HEROIC: ["#22d3ee", "34,211,238"],
+    MYTHIC: ["#d8b4fe", "168,85,247"],
+    VIP: ["#fbbf24", "245,158,11"],
+    SAVED: ["#f87171", "239,68,68"],
+    NORMAL: ["#a5b4fc", "129,140,248"],
+  };
+
+  const [color, rgb] = palette[type] || ["#cbd5e1", "148,163,184"];
 
   return {
     display: "inline-block",
@@ -1337,16 +1505,10 @@ const runBadge = (type: string): React.CSSProperties => {
     borderRadius: 999,
     fontSize: 15,
     fontWeight: 900,
-    color: isHeroic ? "#22d3ee" : "#d8b4fe",
-    background: isHeroic
-      ? "rgba(8,145,178,0.12)"
-      : "rgba(126,34,206,0.16)",
-    border: isHeroic
-      ? "1px solid rgba(34,211,238,0.8)"
-      : "1px solid rgba(216,180,254,0.75)",
-    boxShadow: isHeroic
-      ? "0 0 18px rgba(34,211,238,0.65)"
-      : "0 0 18px rgba(168,85,247,0.65)",
+    color,
+    background: `rgba(${rgb},0.12)`,
+    border: `1px solid rgba(${rgb},0.75)`,
+    boxShadow: `0 0 18px rgba(${rgb},0.55)`,
   };
 };
 const allSeasonsBox: React.CSSProperties = {
@@ -1630,4 +1792,40 @@ const pugTag: React.CSSProperties = {
   fontSize: 9,
   fontWeight: 900,
   letterSpacing: 1,
+};
+
+const reqInput: React.CSSProperties = {
+  width: "100%",
+  padding: "13px 15px",
+  borderRadius: 12,
+  border: "1px solid rgba(168,85,247,0.35)",
+  background: "rgba(0,0,0,0.45)",
+  color: "white",
+  fontSize: 14,
+  outline: "none",
+  boxSizing: "border-box",
+  fontFamily: "inherit",
+};
+
+const sendBtn: React.CSSProperties = {
+  width: "100%",
+  padding: "14px 20px",
+  borderRadius: 12,
+  border: "1px solid rgba(217,70,239,0.8)",
+  background: "linear-gradient(90deg,#6d28d9,#c026d3)",
+  color: "white",
+  fontWeight: 900,
+  fontSize: 15,
+  cursor: "pointer",
+  boxShadow: "0 0 18px rgba(217,70,239,0.45)",
+};
+
+const sentBox: React.CSSProperties = {
+  padding: "18px 16px",
+  borderRadius: 12,
+  background: "rgba(34,197,94,0.12)",
+  border: "1px solid rgba(34,197,94,0.4)",
+  color: "#4ade80",
+  fontWeight: 800,
+  textAlign: "center",
 };
