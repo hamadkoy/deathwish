@@ -95,6 +95,56 @@ async function batchGet(
   return toCache(key, out);
 }
 
+// Background colours for the same range. values.get only returns text,
+// so formatting needs a separate grid-data request (fields-filtered so
+// we only pay for the colours, not the whole grid).
+async function getColors(
+  sheets: any,
+  spreadsheetId: string,
+  range: string
+): Promise<any[][]> {
+  const key = `${spreadsheetId}::colors::${range}`;
+  const hit = fromCache(key);
+  if (hit) return hit;
+
+  try {
+    const res = await sheets.spreadsheets.get({
+      spreadsheetId,
+      ranges: [range],
+      includeGridData: true,
+      fields:
+        "sheets(data(rowData(values(effectiveFormat(backgroundColor)))))",
+    });
+
+    const rowData = res.data.sheets?.[0]?.data?.[0]?.rowData || [];
+
+    const grid = rowData.map((r: any) =>
+      (r.values || []).map(
+        (c: any) => c?.effectiveFormat?.backgroundColor || null
+      )
+    );
+
+    return toCache(key, grid);
+  } catch {
+    return toCache(key, []);
+  }
+}
+
+// Green cut = helper, red cut = strike. Thresholds are wide enough to
+// ignore the sheet's tan default fill, which is reddish but muted.
+function markFromColor(color: any): "helper" | "strike" | null {
+  if (!color) return null;
+
+  const r = color.red ?? 0;
+  const g = color.green ?? 0;
+  const b = color.blue ?? 0;
+
+  if (g > 0.55 && g - r > 0.2 && g - b > 0.2) return "helper";
+  if (r > 0.55 && r - g > 0.3 && r - b > 0.3) return "strike";
+
+  return null;
+}
+
 // A player row is any row whose first cell looks like a Discord ID.
 function isPlayerRow(row: any[]) {
   return /^\d{5,}$/.test((row?.[0] || "").toString().trim());
@@ -306,8 +356,9 @@ export async function GET(req: Request) {
 
   // Two network calls total: the weekly sheet, and one batch covering
   // both season tabs plus Total. Both run at the same time.
-  const [rows, seasonBatch, viewer] = await Promise.all([
+  const [rows, colors, seasonBatch, viewer] = await Promise.all([
     getValues(sheets, MAIN_SPREADSHEET_ID, MAIN_RANGE),
+    getColors(sheets, MAIN_SPREADSHEET_ID, MAIN_RANGE),
     batchGet(sheets, TOTAL_SPREADSHEET_ID, [
       SEASON_1_RANGE,
       SEASON_2_RANGE,
@@ -327,7 +378,12 @@ export async function GET(req: Request) {
   const headers = rows[2] || []; // Thursday 15:00, Payout Character, Balance
   const dataRows = rows.slice(3); // players + pot rows
 
-  const playerRows = dataRows.filter(isPlayerRow);
+  // Absolute index kept so the colour grid can be looked up per cell.
+  const playerEntries = dataRows
+    .map((row, i) => ({ row, r: i + 3 }))
+    .filter((e) => isPlayerRow(e.row));
+
+  const playerRows = playerEntries.map((e) => e.row);
 
   const pugRow = dataRows.find(isPugRow);
 
@@ -379,9 +435,11 @@ export async function GET(req: Request) {
           const dayText = headers[index]?.toString() || "";
 
           // Everyone with a cut in this column was in the run.
-          const boosterRows = playerRows.filter(
-            (row) => parseNumber(row[index]) > 0
+          const boosterEntries = playerEntries.filter(
+            (e) => parseNumber(e.row[index]) > 0
           );
+
+          const boosterRows = boosterEntries.map((e) => e.row);
 
           const amounts = boosterRows.map((row) => parseNumber(row[index]));
 
@@ -418,10 +476,11 @@ export async function GET(req: Request) {
             discordId: string;
             isSelf: boolean;
             isPug: boolean;
+            mark: "helper" | "strike" | null;
             hidden: boolean;
             cut: number | null;
-          }[] = boosterRows
-            .map((row) => {
+          }[] = boosterEntries
+            .map(({ row, r }) => {
               const name =
                 (row[1] || "").toString().trim() ||
                 (row[0] || "").toString().trim() ||
@@ -434,6 +493,7 @@ export async function GET(req: Request) {
                 discordId: (row[0] || "").toString().trim(),
                 isSelf,
                 isPug: false,
+                mark: markFromColor(colors?.[r]?.[index]),
                 hidden: !canSeeAllCuts && !isSelf,
                 cut: canSeeAllCuts || isSelf ? parseNumber(row[index]) : null,
               };
@@ -447,6 +507,7 @@ export async function GET(req: Request) {
               discordId: "",
               isSelf: false,
               isPug: true,
+              mark: null,
               hidden: !canSeeAllCuts,
               cut: canSeeAllCuts ? Math.round(pugAmount / pugCount) : null,
             });
@@ -467,6 +528,8 @@ export async function GET(req: Request) {
             note: "",
             boosters,
             clients,
+            helpers: roster.filter((x) => x.mark === "helper").length,
+            strikes: roster.filter((x) => x.mark === "strike").length,
             pot,
             pots,
             potTotal,

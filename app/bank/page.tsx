@@ -15,6 +15,7 @@ type RosterEntry = {
   discordId?: string;
   isSelf: boolean;
   isPug?: boolean;
+  mark?: "helper" | "strike" | null;
   hidden: boolean;
   cut: number | null;
 };
@@ -36,6 +37,8 @@ type Cut = {
   note: string;
   boosters: number;
   clients: number;
+  helpers: number;
+  strikes: number;
   pot: number;
   pots: PotEntry[];
   potTotal: number;
@@ -622,6 +625,18 @@ function potIcon(name: string) {
             <>
               <div style={modalSectionTitle}>
                 BOOSTERS IN THIS RUN ({detailsFor.roster.length})
+                {detailsFor.helpers > 0 && (
+                  <span style={countHelper}>
+                    {" "}· {detailsFor.helpers} helper
+                    {detailsFor.helpers > 1 ? "s" : ""}
+                  </span>
+                )}
+                {detailsFor.strikes > 0 && (
+                  <span style={countStrike}>
+                    {" "}· {detailsFor.strikes} strike
+                    {detailsFor.strikes > 1 ? "s" : ""}
+                  </span>
+                )}
               </div>
 
               {!canSeeAllCuts && (
@@ -643,19 +658,37 @@ function potIcon(name: string) {
                           ? rosterCardSelf
                           : r.isPug
                           ? rosterCardPug
+                          : r.mark === "helper"
+                          ? rosterCardHelper
+                          : r.mark === "strike"
+                          ? rosterCardStrike
                           : rosterCard
                       }
                     >
-                      <img
-                        src={avatarFor(profile?.avatar_url)}
-                        alt=""
-                        style={rosterAvatar}
-                        onError={(e) => {
-                          // Stale or dead avatar URL — swap in the logo.
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = "/logo.png";
-                        }}
-                      />
+                      <div style={avatarWrap}>
+                        {r.mark === "strike" && (
+                          <img src="/Strike.png" alt="Strike" style={markLeft} />
+                        )}
+
+                        <img
+                          src={avatarFor(profile?.avatar_url)}
+                          alt=""
+                          style={rosterAvatar}
+                          onError={(e) => {
+                            // Stale or dead avatar URL — swap in the logo.
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = "/logo.png";
+                          }}
+                        />
+
+                        {r.mark === "helper" && (
+                          <img
+                            src="/Helper.png"
+                            alt="Helper"
+                            style={markRight}
+                          />
+                        )}
+                      </div>
 
                       <div style={rosterName} title={r.name}>
                         {profile?.discord_name || r.name}
@@ -1986,4 +2019,51 @@ const reqTitle: React.CSSProperties = {
 const clientText: React.CSSProperties = {
   color: "#4ade80",
   fontWeight: 900,
+};
+
+const avatarWrap: React.CSSProperties = {
+  position: "relative",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const markLeft: React.CSSProperties = {
+  position: "absolute",
+  left: -18,
+  top: -10,
+  width: 28,
+  height: 28,
+  objectFit: "contain",
+  filter: "drop-shadow(0 0 6px rgba(239,68,68,0.8))",
+};
+
+const markRight: React.CSSProperties = {
+  position: "absolute",
+  right: -18,
+  top: -10,
+  width: 28,
+  height: 28,
+  objectFit: "contain",
+  filter: "drop-shadow(0 0 6px rgba(74,222,128,0.8))",
+};
+
+const rosterCardHelper: React.CSSProperties = {
+  ...rosterCard,
+  background: "rgba(74,222,128,0.09)",
+  border: "1px solid rgba(74,222,128,0.45)",
+};
+
+const rosterCardStrike: React.CSSProperties = {
+  ...rosterCard,
+  background: "rgba(239,68,68,0.09)",
+  border: "1px solid rgba(239,68,68,0.45)",
+};
+
+const countHelper: React.CSSProperties = {
+  color: "#4ade80",
+};
+
+const countStrike: React.CSSProperties = {
+  color: "#f87171",
 };
