@@ -35,6 +35,7 @@ type Cut = {
   source: string;
   note: string;
   boosters: number;
+  clients: number;
   pot: number;
   pots: PotEntry[];
   potTotal: number;
@@ -555,6 +556,11 @@ function potIcon(name: string) {
               color="#38bdf8"
             />
             <ModalStat
+              label="Clients"
+              value={`${detailsFor.clients || "-"}`}
+              color="#4ade80"
+            />
+            <ModalStat
               label="Total pot"
               value={`${Number(detailsFor.pot || 0).toLocaleString()}g`}
               color="#facc15"
@@ -815,6 +821,7 @@ function potIcon(name: string) {
               <div>CUT</div>
               <div>STATUS</div>
               <div>BOOSTERS</div>
+              <div>CLIENTS</div>
               <div>POT</div>
               <div>DETAILS</div>
             </div>
@@ -850,6 +857,8 @@ function potIcon(name: string) {
         </div>
 
         <div>{row.runs ? row.runs.toLocaleString() : "-"}</div>
+
+        <div style={dimText}>-</div>
 
         <div style={goldText}>
           {row.cut ? `${Number(row.cut).toLocaleString()}g` : "-"}
@@ -894,6 +903,8 @@ function potIcon(name: string) {
     {index === history.length - 1 ? "Pending" : "Paid"}
   </span>
 </div>
+    <div style={dimText}>-</div>
+
     <div style={dimText}>-</div>
 
     <div style={goldText}>
@@ -942,6 +953,7 @@ function potIcon(name: string) {
                   </span>
                 </div>
                 <div style={boosterText}>{cut.boosters || "-"}</div>
+                <div style={clientText}>{cut.clients || "-"}</div>
                 <div style={goldText}>
                   {Number(cut.pot || 0).toLocaleString()}g
                 </div>
@@ -1372,7 +1384,7 @@ const table: React.CSSProperties = {
 
 const tableHead: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1.4fr 1fr 1fr 1fr .8fr 1fr 1.1fr",
+  gridTemplateColumns: "1fr 1.2fr 1fr 1fr 1fr .8fr .8fr 1fr 1.1fr",
   padding: "14px 16px",
   fontSize: 12,
   color: "#d6bfff",
@@ -1382,7 +1394,7 @@ const tableHead: React.CSSProperties = {
 
 const tableRow: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1.4fr 1fr 1fr 1fr .8fr 1fr 1.1fr",
+  gridTemplateColumns: "1fr 1.2fr 1fr 1fr 1fr .8fr .8fr 1fr 1.1fr",
   padding: "18px 16px",
   alignItems: "center",
   borderBottom: "1px solid rgba(255,255,255,0.05)",
@@ -1653,7 +1665,7 @@ const modalClose: React.CSSProperties = {
 
 const modalStats: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, 1fr)",
+  gridTemplateColumns: "repeat(4, 1fr)",
   gap: 12,
   marginBottom: 26,
 };
@@ -1969,4 +1981,9 @@ const reqTitle: React.CSSProperties = {
   fontWeight: 900,
   color: "#38bdf8",
   textShadow: "0 0 18px rgba(56,189,248,0.45)",
+};
+
+const clientText: React.CSSProperties = {
+  color: "#4ade80",
+  fontWeight: 900,
 };

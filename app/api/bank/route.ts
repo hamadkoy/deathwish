@@ -11,7 +11,8 @@ const SEASON_2_RANGE = "'Midnight Season 2'!A1:AZ200";
 const TOTAL_RANGE = "'Total'!A1:D1000";
 
 const MAIN_SPREADSHEET_ID = "1B8xawLZIGElNneqfOpUW6MZAURIb_F9n36NSZJL5sz8";
-const MAIN_RANGE = "Sheet1!A3:AZ1000";
+// Starts at row 2 so the "No.Clients" row is included.
+const MAIN_RANGE = "Sheet1!A2:AZ1000";
 
 function normalize(text: any) {
   return (text || "").toString().trim().toLowerCase();
@@ -321,9 +322,10 @@ export async function GET(req: Request) {
 
   const canSeeAllCuts = viewer.canSeeAllCuts;
 
-  const typeHeaders = rows[0] || []; // 4/9M, 9/9HC
-  const headers = rows[1] || []; // Thursday 15:00, Payout Character, Balance
-  const dataRows = rows.slice(2); // players + pot rows
+  const clientHeaders = rows[0] || []; // No.Clients: 4, 3, 3 ...
+  const typeHeaders = rows[1] || []; // Type of Boost: Normal, HC ...
+  const headers = rows[2] || []; // Thursday 15:00, Payout Character, Balance
+  const dataRows = rows.slice(3); // players + pot rows
 
   const playerRows = dataRows.filter(isPlayerRow);
 
@@ -373,6 +375,7 @@ export async function GET(req: Request) {
           const amount = parseNumber(raw);
 
           const runText = typeHeaders[index]?.toString() || "";
+          const clients = parseNumber(clientHeaders[index]);
           const dayText = headers[index]?.toString() || "";
 
           // Everyone with a cut in this column was in the run.
@@ -463,6 +466,7 @@ export async function GET(req: Request) {
             source: "Bot (!cuts)",
             note: "",
             boosters,
+            clients,
             pot,
             pots,
             potTotal,
