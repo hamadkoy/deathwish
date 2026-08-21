@@ -92,6 +92,71 @@ const [detailsFor, setDetailsFor] = useState<Cut | null>(null);
 const [rank, setRank] = useState("Unknown");
 const [canSeeAllCuts, setCanSeeAllCuts] = useState(false);
 const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+const [notes, setNotes] = useState<Record<string, string>>({});
+const [noteFor, setNoteFor] = useState<RosterEntry | null>(null);
+const [noteDraft, setNoteDraft] = useState("");
+const [savingNote, setSavingNote] = useState(false);
+
+const isLeader = rank === "Dreadlord";
+
+async function loadNotes() {
+  try {
+    const { data } = await supabase.from("booster_notes").select("*");
+
+    const map: Record<string, string> = {};
+
+    (data || []).forEach((n: any) => {
+      if (n.discord_id && n.note) map[n.discord_id] = n.note;
+    });
+
+    setNotes(map);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function saveNote() {
+  if (!noteFor?.discordId) return;
+
+  setSavingNote(true);
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const meta: any = user?.user_metadata || {};
+
+    const { error } = await supabase.from("booster_notes").upsert(
+      {
+        discord_id: noteFor.discordId,
+        note: noteDraft.trim(),
+        updated_by: user?.id || null,
+        updated_by_name: meta.user_name || meta.full_name || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "discord_id" }
+    );
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setNotes((prev) => {
+      const next = { ...prev };
+
+      if (noteDraft.trim()) next[noteFor.discordId!] = noteDraft.trim();
+      else delete next[noteFor.discordId!];
+
+      return next;
+    });
+
+    setNoteFor(null);
+  } finally {
+    setSavingNote(false);
+  }
+}
 const [payoutCharacter, setPayoutCharacter] = useState("Not set");
 const [payoutType, setPayoutType] = useState("Not set");
 const [showRequest, setShowRequest] = useState(false);
@@ -210,6 +275,7 @@ const activeSeason = useMemo(
 
 useEffect(() => {
   loadProfiles();
+  loadNotes();
 }, []);
 
 async function loadProfiles() {
@@ -319,6 +385,25 @@ function formatRunType(run: string) {
   return text.toUpperCase();
 }
 
+// Colour by how full the run was. Green = full, red = short-handed.
+function boosterColor(n: number) {
+  if (!n) return "#6b7280";
+  if (n >= 16) return "#4ade80";
+  if (n >= 15) return "#38bdf8";
+  if (n >= 13) return "#facc15";
+  if (n >= 11) return "#fb923c";
+  return "#f87171";
+}
+
+// More clients per run is better.
+function clientColor(n: number) {
+  if (!n) return "#6b7280";
+  if (n >= 4) return "#4ade80";
+  if (n === 3) return "#facc15";
+  if (n === 2) return "#fb923c";
+  return "#f87171";
+}
+
 // Community icons live in /public. Filenames are mapped explicitly
 // because they don't follow one naming pattern (Sylvanas1.png).
 // Discord's placeholder avatars (users who never set a picture) and
@@ -407,6 +492,59 @@ function potIcon(name: string) {
     {muted ? "🔇 Unmute Sound" : "🔊 Mute Sound"}
   </button>
 </div>
+    {noteFor && (
+      <div
+        style={{ ...modalOverlay, zIndex: 10001 }}
+        onClick={() => setNoteFor(null)}
+      >
+        <div
+          style={{ ...modalBox, maxWidth: 480 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={modalHeader}>
+            <div>
+              <div style={modalTitle}>{noteFor.name}</div>
+              <div style={modalSubtitle}>Leader note</div>
+            </div>
+
+            <button
+              style={modalClose}
+              onClick={() => setNoteFor(null)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+
+          {isLeader ? (
+            <div style={{ display: "grid", gap: 14 }}>
+              <textarea
+                value={noteDraft}
+                onChange={(e) => setNoteDraft(e.target.value)}
+                style={{ ...reqInput, height: 150, resize: "none" }}
+              />
+
+              <button
+                style={{ ...sendBtn, opacity: savingNote ? 0.6 : 1 }}
+                onClick={saveNote}
+                disabled={savingNote}
+              >
+                {savingNote ? "Saving..." : "Save Note"}
+              </button>
+
+              <div style={noteHint}>
+                Leave it empty and save to remove the note.
+              </div>
+            </div>
+          ) : notes[noteFor.discordId || ""] ? (
+            <div style={noteReadBox}>{notes[noteFor.discordId || ""]}</div>
+          ) : (
+            <div style={modalEmpty}>No note for this player.</div>
+          )}
+        </div>
+      </div>
+    )}
+
     {showRequest && (
       <div style={modalOverlay} onClick={() => setShowRequest(false)}>
         <div
@@ -556,12 +694,12 @@ function potIcon(name: string) {
             <ModalStat
               label="Boosters in run"
               value={`${detailsFor.boosters}`}
-              color="#38bdf8"
+              color={boosterColor(detailsFor.boosters)}
             />
             <ModalStat
               label="Clients"
               value={`${detailsFor.clients || "-"}`}
-              color="#4ade80"
+              color={clientColor(detailsFor.clients)}
             />
             <ModalStat
               label="Total pot"
@@ -653,6 +791,20 @@ function potIcon(name: string) {
                   return (
                     <div
                       key={i}
+                      onClick={() => {
+                        if (!r.discordId) return;
+                        setNoteDraft(notes[r.discordId] || "");
+                        setNoteFor(r);
+                      }}
+                      title={
+                        r.discordId
+                          ? isLeader
+                            ? "Click to add or edit a leader note"
+                            : notes[r.discordId]
+                            ? "Click to read the leader note"
+                            : ""
+                          : ""
+                      }
                       style={
                         r.isSelf
                           ? rosterCardSelf
@@ -665,30 +817,31 @@ function potIcon(name: string) {
                           : rosterCard
                       }
                     >
-                      <div style={avatarWrap}>
-                        {r.mark === "strike" && (
-                          <img src="/Strike.png" alt="Strike" style={markLeft} />
-                        )}
-
+                      {r.mark && (
                         <img
-                          src={avatarFor(profile?.avatar_url)}
-                          alt=""
-                          style={rosterAvatar}
-                          onError={(e) => {
-                            // Stale or dead avatar URL — swap in the logo.
-                            e.currentTarget.onerror = null;
-                            e.currentTarget.src = "/logo.png";
-                          }}
+                          src={
+                            r.mark === "strike"
+                              ? "/Strike.png"
+                              : "/Helper.png"
+                          }
+                          alt={r.mark}
+                          title={r.mark === "strike" ? "Strike" : "Helper"}
+                          style={
+                            r.mark === "strike" ? markStrike : markHelper
+                          }
                         />
+                      )}
 
-                        {r.mark === "helper" && (
-                          <img
-                            src="/Helper.png"
-                            alt="Helper"
-                            style={markRight}
-                          />
-                        )}
-                      </div>
+                      <img
+                        src={avatarFor(profile?.avatar_url)}
+                        alt=""
+                        style={rosterAvatar}
+                        onError={(e) => {
+                          // Stale or dead avatar URL — swap in the logo.
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = "/logo.png";
+                        }}
+                      />
 
                       <div style={rosterName} title={r.name}>
                         {profile?.discord_name || r.name}
@@ -704,6 +857,10 @@ function potIcon(name: string) {
 
                       {r.isSelf && <div style={youTag}>YOU</div>}
                       {r.isPug && <div style={pugTag}>PUG</div>}
+
+                      {r.discordId && notes[r.discordId] && (
+                        <div style={noteTag}>📝 LEADER NOTE</div>
+                      )}
                     </div>
                   );
                 })}
@@ -851,12 +1008,12 @@ function potIcon(name: string) {
               <div>RUN Day</div>
               <div>TYPE OF RUN</div>
               <div>CHARACTER</div>
-              <div>CUT</div>
-              <div>STATUS</div>
-              <div>BOOSTERS</div>
-              <div>CLIENTS</div>
-              <div>POT</div>
-              <div>DETAILS</div>
+              <div style={rightCell}>CUT</div>
+              <div style={centerCell}>STATUS</div>
+              <div style={centerCell}>BOOSTERS</div>
+              <div style={centerCell}>CLIENTS</div>
+              <div style={rightCell}>POT</div>
+              <div style={centerCell}>DETAILS</div>
             </div>
 
 {activeSeason ? (
@@ -879,25 +1036,27 @@ function potIcon(name: string) {
 
         <div style={charText}>{row.character || "Unknown"}</div>
 
-        <div style={goldText}>
+        <div style={{ ...goldText, ...rightCell }}>
           {Number(row.cut || 0).toLocaleString()}g
         </div>
 
-        <div>
+        <div style={centerCell}>
           <span style={row.status === "Paid" ? paidBadge : pendingBadge}>
             {row.status}
           </span>
         </div>
 
-        <div>{row.runs ? row.runs.toLocaleString() : "-"}</div>
+        <div style={{ ...countCell, color: "#c4b5fd" }}>
+          {row.runs ? row.runs.toLocaleString() : "-"}
+        </div>
 
-        <div style={dimText}>-</div>
+        <div style={{ ...dimText, ...centerCell }}>-</div>
 
-        <div style={goldText}>
+        <div style={{ ...goldText, ...rightCell }}>
           {row.cut ? `${Number(row.cut).toLocaleString()}g` : "-"}
         </div>
 
-        <div style={dimText}>-</div>
+        <div style={{ ...dimText, ...centerCell }}>-</div>
       </div>
     ))}
   </div>
@@ -921,11 +1080,11 @@ function potIcon(name: string) {
 
     <div style={charText}>Koyjin-kazzak</div>
 
-    <div style={goldText}>
+    <div style={{ ...goldText, ...rightCell }}>
       {Number(week.amount || 0).toLocaleString()}g
     </div>
 
-<div>
+<div style={centerCell}>
   <span
     style={
       index === history.length - 1
@@ -936,15 +1095,15 @@ function potIcon(name: string) {
     {index === history.length - 1 ? "Pending" : "Paid"}
   </span>
 </div>
-    <div style={dimText}>-</div>
+    <div style={{ ...dimText, ...centerCell }}>-</div>
 
-    <div style={dimText}>-</div>
+    <div style={{ ...dimText, ...centerCell }}>-</div>
 
-    <div style={goldText}>
+    <div style={{ ...goldText, ...rightCell }}>
       {Number(week.amount || 0).toLocaleString()}g
     </div>
 
-    <div style={dimText}>-</div>
+    <div style={{ ...dimText, ...centerCell }}>-</div>
   </div>
 ))}
   </div>
@@ -979,18 +1138,26 @@ function potIcon(name: string) {
   </span>
 </div>
                 <div style={charText}>{cut.character}</div>
-                <div style={goldText}>{cut.cut.toLocaleString()}g</div>
-                <div>
+                <div style={{ ...goldText, ...rightCell }}>
+                  {cut.cut.toLocaleString()}g
+                </div>
+                <div style={centerCell}>
                   <span style={cut.status === "Paid" ? paidBadge : pendingBadge}>
                     {cut.status}
                   </span>
                 </div>
-                <div style={boosterText}>{cut.boosters || "-"}</div>
-                <div style={clientText}>{cut.clients || "-"}</div>
-                <div style={goldText}>
+                <div
+                  style={{ ...countCell, color: boosterColor(cut.boosters) }}
+                >
+                  {cut.boosters || "-"}
+                </div>
+                <div style={{ ...countCell, color: clientColor(cut.clients) }}>
+                  {cut.clients || "-"}
+                </div>
+                <div style={{ ...goldText, ...rightCell }}>
                   {Number(cut.pot || 0).toLocaleString()}g
                 </div>
-                <div>
+                <div style={centerCell}>
                   <button
                     style={detailsBtn}
                     onClick={() => setDetailsFor(cut)}
@@ -1795,11 +1962,13 @@ const rosterGrid: React.CSSProperties = {
 };
 
 const rosterCard: React.CSSProperties = {
+  position: "relative",
+  cursor: "pointer",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
   gap: 6,
-  padding: "14px 8px",
+  padding: "16px 8px 14px",
   borderRadius: 12,
   background: "rgba(255,255,255,0.03)",
   border: "1px solid rgba(255,255,255,0.07)",
@@ -2021,31 +2190,25 @@ const clientText: React.CSSProperties = {
   fontWeight: 900,
 };
 
-const avatarWrap: React.CSSProperties = {
-  position: "relative",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
+const markBase: React.CSSProperties = {
+  position: "absolute",
+  top: 6,
+  left: 6,
+  width: 46,
+  height: 46,
+  objectFit: "contain",
+  zIndex: 2,
+  pointerEvents: "none",
 };
 
-const markLeft: React.CSSProperties = {
-  position: "absolute",
-  left: -18,
-  top: -10,
-  width: 28,
-  height: 28,
-  objectFit: "contain",
-  filter: "drop-shadow(0 0 6px rgba(239,68,68,0.8))",
+const markStrike: React.CSSProperties = {
+  ...markBase,
+  filter: "drop-shadow(0 0 8px rgba(239,68,68,0.95))",
 };
 
-const markRight: React.CSSProperties = {
-  position: "absolute",
-  right: -18,
-  top: -10,
-  width: 28,
-  height: 28,
-  objectFit: "contain",
-  filter: "drop-shadow(0 0 6px rgba(74,222,128,0.8))",
+const markHelper: React.CSSProperties = {
+  ...markBase,
+  filter: "drop-shadow(0 0 8px rgba(74,222,128,0.95))",
 };
 
 const rosterCardHelper: React.CSSProperties = {
@@ -2066,4 +2229,48 @@ const countHelper: React.CSSProperties = {
 
 const countStrike: React.CSSProperties = {
   color: "#f87171",
+};
+
+const noteTag: React.CSSProperties = {
+  padding: "3px 9px",
+  borderRadius: 999,
+  background: "rgba(250,204,21,0.18)",
+  border: "1px solid rgba(250,204,21,0.5)",
+  color: "#fde68a",
+  fontSize: 9,
+  fontWeight: 900,
+  letterSpacing: 0.5,
+  whiteSpace: "nowrap",
+};
+
+const noteReadBox: React.CSSProperties = {
+  padding: "18px 20px",
+  borderRadius: 14,
+  background: "rgba(250,204,21,0.08)",
+  border: "1px solid rgba(250,204,21,0.35)",
+  color: "#fde68a",
+  fontSize: 15,
+  lineHeight: 1.6,
+  whiteSpace: "pre-wrap",
+};
+
+const noteHint: React.CSSProperties = {
+  color: "#9ca3af",
+  fontSize: 12,
+  textAlign: "center",
+};
+
+const centerCell: React.CSSProperties = {
+  textAlign: "center",
+};
+
+const rightCell: React.CSSProperties = {
+  textAlign: "right",
+  paddingRight: 24,
+};
+
+const countCell: React.CSSProperties = {
+  textAlign: "center",
+  fontWeight: 900,
+  fontSize: 16,
 };
