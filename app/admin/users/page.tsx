@@ -16,6 +16,7 @@ type Profile = {
   id?: number;
   user_id: string;
   discord_name?: string;
+  discord_id?: string;
   avatar_url?: string;
   site_role?: string;
   signup_approved?: boolean;
@@ -448,14 +449,21 @@ const roleOrder: Record<SiteRole, number> = {
             ) : (
               paymentRequests.map((req) => (
                 <div key={req.id} style={requestRow}>
-                  <div>
-                    <div style={userName}>{req.discord_name || "Unknown"}</div>
-                    <div style={userId}>
-                      {req.created_at
+                  <UserBadge
+                    name={req.discord_name}
+                    avatarUrl={
+                      users.find((u) => u.user_id === req.user_id)?.avatar_url
+                    }
+                    discordId={
+                      req.discord_id ||
+                      users.find((u) => u.user_id === req.user_id)?.discord_id
+                    }
+                    subtitle={
+                      req.created_at
                         ? new Date(req.created_at).toLocaleString()
-                        : "-"}
-                    </div>
-                  </div>
+                        : "-"
+                    }
+                  />
 
                   <div>
                     <div style={muted}>{req.current_character || "-"}</div>
@@ -522,10 +530,19 @@ const roleOrder: Record<SiteRole, number> = {
 ) : (
   promotionRequests.map((req) => (
                     <div key={req.id} style={promotionRow}>
-                      <div>
-                        <div style={userName}>{req.discord_name || "Unknown"}</div>
-                        <div style={userId}>{req.discord_id || req.user_id}</div>
-                      </div>
+                      <UserBadge
+                        name={req.discord_name}
+                        avatarUrl={
+                          users.find((u) => u.user_id === req.user_id)
+                            ?.avatar_url
+                        }
+                        discordId={
+                          req.discord_id ||
+                          users.find((u) => u.user_id === req.user_id)
+                            ?.discord_id
+                        }
+                        subtitle={req.discord_id || req.user_id}
+                      />
 
                       <div style={{ color: "#facc15", fontWeight: 900 }}>
                         {Number(req.current_balance || 0).toLocaleString()} gold
@@ -575,13 +592,14 @@ const roleOrder: Record<SiteRole, number> = {
     ) : (
       declinedUsers.map((user) => (
         <div key={user.id} style={tableRow}>
-          <div style={userCell}>
-            <img src={user.avatar_url || "/logo.png"} style={avatar} alt="" />
-            <div>
-              <div style={userName}>{user.discord_name || "Unknown"}</div>
-              <div style={userId}>{user.user_id}</div>
-            </div>
-          </div>
+          <UserBadge
+            name={user.discord_name}
+            avatarUrl={user.avatar_url}
+            discordId={
+              users.find((u) => u.user_id === user.user_id)?.discord_id
+            }
+            subtitle={user.user_id}
+          />
 
           <div style={note}>{user.application_note || "No note"}</div>
 
@@ -612,21 +630,13 @@ const roleOrder: Record<SiteRole, number> = {
                 ) : (
                   filteredUsers.map((user) => (
                     <div key={user.user_id} style={tableRow}>
-                      <div style={userCell}>
-                        <img
-                          src={user.avatar_url || "/logo.png"}
-                          style={avatar}
-                          alt=""
-                        />
-
-                        <div>
-                          <div style={userName}>
-                            {getRoleIcon(user.site_role)}{" "}
-                            {user.discord_name || "Unknown"}
-                          </div>
-                          <div style={userId}>{user.user_id}</div>
-                        </div>
-                      </div>
+                      <UserBadge
+                        name={user.discord_name}
+                        avatarUrl={user.avatar_url}
+                        discordId={user.discord_id}
+                        icon={getRoleIcon(user.site_role)}
+                        subtitle={user.user_id}
+                      />
 
                       <div style={mainInfo}>
                         <div style={mainChar}>
@@ -965,6 +975,79 @@ function getRoleIcon(role?: string | null) {
   if (fixedRole === "Wandering_soul") return "👻";
 
   return "👻";
+}
+
+// Opens the Discord desktop app on that user's DM, falling back to the
+// web client if the app doesn't take over within a moment.
+function openDiscordDM(discordId?: string) {
+  if (!discordId) return;
+
+  const web = `https://discord.com/users/${discordId}`;
+
+  let left = false;
+
+  const onBlur = () => {
+    left = true;
+  };
+
+  window.addEventListener("blur", onBlur, { once: true });
+
+  window.location.href = `discord://-/users/${discordId}`;
+
+  setTimeout(() => {
+    window.removeEventListener("blur", onBlur);
+    if (!left) window.open(web, "_blank", "noopener,noreferrer");
+  }, 1200);
+}
+
+function UserBadge({
+  name,
+  avatarUrl,
+  discordId,
+  subtitle,
+  icon,
+}: {
+  name?: string;
+  avatarUrl?: string;
+  discordId?: string;
+  subtitle?: string;
+  icon?: string;
+}) {
+  return (
+    <div style={userCell}>
+      <img
+        src={avatarUrl || "/logo.png"}
+        style={{
+          ...avatar,
+          cursor: discordId ? "pointer" : "default",
+        }}
+        alt=""
+        title={discordId ? "Open DM in Discord" : undefined}
+        onClick={() => openDiscordDM(discordId)}
+        onError={(e) => {
+          e.currentTarget.onerror = null;
+          e.currentTarget.src = "/logo.png";
+        }}
+      />
+
+      <div>
+        <div
+          style={{
+            ...userName,
+            cursor: discordId ? "pointer" : "default",
+            color: discordId ? "#e9d5ff" : "white",
+          }}
+          title={discordId ? "Open DM in Discord" : undefined}
+          onClick={() => openDiscordDM(discordId)}
+        >
+          {icon ? `${icon} ` : ""}
+          {name || "Unknown"}
+        </div>
+
+        <div style={userId}>{subtitle}</div>
+      </div>
+    </div>
+  );
 }
 
 function Stat({
