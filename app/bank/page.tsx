@@ -406,7 +406,7 @@ function potIcon(name: string) {
     {showRequest && (
       <div style={modalOverlay} onClick={() => setShowRequest(false)}>
         <div
-          style={{ ...modalBox, maxWidth: 540 }}
+          style={{ ...modalBox, maxWidth: 720, padding: 34 }}
           onClick={(e) => e.stopPropagation()}
         >
           <div style={reqHeader}>
@@ -421,7 +421,7 @@ function potIcon(name: string) {
               />
 
               <div>
-                <div style={modalTitle}>Request Payment Change</div>
+                <div style={reqTitle}>Request Payment Change</div>
                 <div style={modalSubtitle}>
                   Sent to the officers for approval
                 </div>
@@ -486,7 +486,6 @@ function potIcon(name: string) {
                     <input
                       value={reqCharacter}
                       onChange={(e) => setReqCharacter(e.target.value)}
-                      placeholder="e.g. Koyjin-Kazzak"
                       style={reqInput}
                     />
                   </div>
@@ -498,7 +497,6 @@ function potIcon(name: string) {
                     <input
                       value={reqMethod}
                       onChange={(e) => setReqMethod(e.target.value)}
-                      placeholder="e.g. in-game mail"
                       style={reqInput}
                     />
                   </div>
@@ -509,8 +507,7 @@ function potIcon(name: string) {
                   <textarea
                     value={reqNote}
                     onChange={(e) => setReqNote(e.target.value)}
-                    placeholder="Anything the officers should know"
-                    style={{ ...reqInput, height: 84, resize: "none" }}
+                    style={{ ...reqInput, height: 110, resize: "none" }}
                   />
                 </div>
 
@@ -1840,12 +1837,12 @@ const pugTag: React.CSSProperties = {
 
 const reqInput: React.CSSProperties = {
   width: "100%",
-  padding: "13px 15px",
+  padding: "16px 18px",
   borderRadius: 12,
   border: "1px solid rgba(168,85,247,0.35)",
   background: "rgba(0,0,0,0.45)",
   color: "white",
-  fontSize: 14,
+  fontSize: 16,
   outline: "none",
   boxSizing: "border-box",
   fontFamily: "inherit",
@@ -1853,13 +1850,13 @@ const reqInput: React.CSSProperties = {
 
 const sendBtn: React.CSSProperties = {
   width: "100%",
-  padding: "14px 20px",
+  padding: "18px 20px",
   borderRadius: 12,
   border: "1px solid rgba(217,70,239,0.8)",
   background: "linear-gradient(90deg,#6d28d9,#c026d3)",
   color: "white",
   fontWeight: 900,
-  fontSize: 15,
+  fontSize: 17,
   cursor: "pointer",
   boxShadow: "0 0 18px rgba(217,70,239,0.45)",
 };
@@ -1891,9 +1888,9 @@ const reqHeaderLeft: React.CSSProperties = {
 };
 
 const reqCrest: React.CSSProperties = {
-  width: 52,
-  height: 52,
-  borderRadius: 14,
+  width: 78,
+  height: 78,
+  borderRadius: 18,
   objectFit: "cover",
   border: "1px solid rgba(168,85,247,0.5)",
   boxShadow: "0 0 20px rgba(168,85,247,0.4)",
@@ -1907,7 +1904,7 @@ const currentGrid: React.CSSProperties = {
 };
 
 const currentCard: React.CSSProperties = {
-  padding: "14px 16px",
+  padding: "18px 20px",
   borderRadius: 14,
   background: "rgba(255,255,255,0.035)",
   border: "1px solid rgba(255,255,255,0.08)",
@@ -1915,7 +1912,7 @@ const currentCard: React.CSSProperties = {
 
 const currentLabel: React.CSSProperties = {
   color: "#9ca3af",
-  fontSize: 11,
+  fontSize: 12,
   fontWeight: 700,
   letterSpacing: 0.6,
   marginBottom: 8,
@@ -1925,13 +1922,13 @@ const currentLabel: React.CSSProperties = {
 const currentValueChar: React.CSSProperties = {
   color: "#d946ef",
   fontWeight: 900,
-  fontSize: 16,
+  fontSize: 20,
 };
 
 const currentValueMethod: React.CSSProperties = {
   color: "#fb923c",
   fontWeight: 900,
-  fontSize: 16,
+  fontSize: 20,
 };
 
 const choiceRow: React.CSSProperties = {
@@ -1941,13 +1938,13 @@ const choiceRow: React.CSSProperties = {
 };
 
 const choice: React.CSSProperties = {
-  padding: "12px 8px",
+  padding: "16px 10px",
   borderRadius: 12,
   border: "1px solid rgba(168,85,247,0.25)",
   background: "rgba(0,0,0,0.4)",
   color: "#c4b5fd",
   fontWeight: 900,
-  fontSize: 13,
+  fontSize: 15,
   cursor: "pointer",
   transition: "all 0.18s ease",
 };
@@ -1962,7 +1959,14 @@ const choiceActive: React.CSSProperties = {
 
 const fieldLabel: React.CSSProperties = {
   color: "#c4b5fd",
-  fontSize: 12,
+  fontSize: 13,
   fontWeight: 800,
   marginBottom: 7,
+};
+
+const reqTitle: React.CSSProperties = {
+  fontSize: 30,
+  fontWeight: 900,
+  color: "#38bdf8",
+  textShadow: "0 0 18px rgba(56,189,248,0.45)",
 };
