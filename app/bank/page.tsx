@@ -93,11 +93,18 @@ const [rank, setRank] = useState("Unknown");
 const [canSeeAllCuts, setCanSeeAllCuts] = useState(false);
 const [profiles, setProfiles] = useState<ProfileLite[]>([]);
 const [notes, setNotes] = useState<Record<string, string>>({});
-const [noteFor, setNoteFor] = useState<RosterEntry | null>(null);
+const [noteFor, setNoteFor] = useState<
+  { entry: RosterEntry; runKey: string; runLabel: string } | null
+>(null);
 const [noteDraft, setNoteDraft] = useState("");
 const [savingNote, setSavingNote] = useState(false);
 
 const isLeader = rank === "Dreadlord";
+
+// Notes are per person AND per run, so the key combines both.
+function noteKey(runKey: string, discordId?: string) {
+  return `${runKey}::${discordId || ""}`;
+}
 
 async function loadNotes() {
   try {
@@ -106,7 +113,9 @@ async function loadNotes() {
     const map: Record<string, string> = {};
 
     (data || []).forEach((n: any) => {
-      if (n.discord_id && n.note) map[n.discord_id] = n.note;
+      if (n.discord_id && n.run_key && n.note) {
+        map[noteKey(n.run_key, n.discord_id)] = n.note;
+      }
     });
 
     setNotes(map);
@@ -116,7 +125,9 @@ async function loadNotes() {
 }
 
 async function saveNote() {
-  if (!noteFor?.discordId) return;
+  if (!noteFor?.entry.discordId) return;
+
+  const { entry, runKey } = noteFor;
 
   setSavingNote(true);
 
@@ -129,13 +140,14 @@ async function saveNote() {
 
     const { error } = await supabase.from("booster_notes").upsert(
       {
-        discord_id: noteFor.discordId,
+        discord_id: entry.discordId,
+        run_key: runKey,
         note: noteDraft.trim(),
         updated_by: user?.id || null,
         updated_by_name: meta.user_name || meta.full_name || null,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "discord_id" }
+      { onConflict: "discord_id,run_key" }
     );
 
     if (error) {
@@ -145,9 +157,10 @@ async function saveNote() {
 
     setNotes((prev) => {
       const next = { ...prev };
+      const k = noteKey(runKey, entry.discordId);
 
-      if (noteDraft.trim()) next[noteFor.discordId!] = noteDraft.trim();
-      else delete next[noteFor.discordId!];
+      if (noteDraft.trim()) next[k] = noteDraft.trim();
+      else delete next[k];
 
       return next;
     });
@@ -503,8 +516,10 @@ function potIcon(name: string) {
         >
           <div style={modalHeader}>
             <div>
-              <div style={modalTitle}>{noteFor.name}</div>
-              <div style={modalSubtitle}>Leader note</div>
+              <div style={modalTitle}>{noteFor.entry.name}</div>
+              <div style={modalSubtitle}>
+                Leader note · {noteFor.runLabel}
+              </div>
             </div>
 
             <button
@@ -536,8 +551,10 @@ function potIcon(name: string) {
                 Leave it empty and save to remove the note.
               </div>
             </div>
-          ) : notes[noteFor.discordId || ""] ? (
-            <div style={noteReadBox}>{notes[noteFor.discordId || ""]}</div>
+          ) : notes[noteKey(noteFor.runKey, noteFor.entry.discordId)] ? (
+            <div style={noteReadBox}>
+              {notes[noteKey(noteFor.runKey, noteFor.entry.discordId)]}
+            </div>
           ) : (
             <div style={modalEmpty}>No note for this player.</div>
           )}
@@ -791,15 +808,26 @@ function potIcon(name: string) {
                 {detailsFor.roster.map((r, i) => {
                   const profile = findProfile(r);
 
+                  // Unique per week + run column, so each run has its own note.
+                  const runKey = `w${currentWeekRange().weekNumber}|${
+                    detailsFor.id
+                  }|${detailsFor.date}`;
+
+                  const hasNote = !!notes[noteKey(runKey, r.discordId)];
+
                   return (
                     <div
                       key={i}
                       onClick={() => {
                         if (!r.discordId) return;
                         // Only leaders can open an empty card to write one.
-                        if (!isLeader && !notes[r.discordId]) return;
-                        setNoteDraft(notes[r.discordId] || "");
-                        setNoteFor(r);
+                        if (!isLeader && !hasNote) return;
+                        setNoteDraft(notes[noteKey(runKey, r.discordId)] || "");
+                        setNoteFor({
+                          entry: r,
+                          runKey,
+                          runLabel: detailsFor.date,
+                        });
                       }}
                       title={
                         r.discordId
@@ -812,7 +840,7 @@ function potIcon(name: string) {
                       }
                       style={{
                         cursor:
-                          r.discordId && (isLeader || notes[r.discordId])
+                          r.discordId && (isLeader || hasNote)
                             ? "pointer"
                             : "default",
                         ...(r.isSelf
@@ -867,9 +895,7 @@ function potIcon(name: string) {
                       {r.isSelf && <div style={youTag}>YOU</div>}
                       {r.isPug && <div style={pugTag}>PUG</div>}
 
-                      {r.discordId && notes[r.discordId] && (
-                        <div style={noteTag}>📝 LEADER NOTE</div>
-                      )}
+                      {hasNote && <div style={noteTag}>📝 LEADER NOTE</div>}
                     </div>
                   );
                 })}
@@ -1978,7 +2004,8 @@ const rosterCard: React.CSSProperties = {
   flexDirection: "column",
   alignItems: "center",
   gap: 8,
-  padding: "20px 10px 16px",
+  padding: "24px 10px 16px",
+  overflow: "visible",
   borderRadius: 12,
   background: "rgba(255,255,255,0.03)",
   border: "1px solid rgba(255,255,255,0.07)",
@@ -2202,10 +2229,10 @@ const clientText: React.CSSProperties = {
 
 const markBase: React.CSSProperties = {
   position: "absolute",
-  top: 4,
-  left: 4,
-  width: 52,
-  height: 52,
+  top: -6,
+  left: -6,
+  width: 94,
+  height: 94,
   objectFit: "contain",
   zIndex: 2,
   pointerEvents: "none",
