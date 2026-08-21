@@ -999,7 +999,8 @@ function potIcon(name: string) {
           <div style={cards}>
             <StatCard title="Total Balance" value={balance} color="#facc15" />
             <StatCard title="This Week" value={totalCuts} color="#d946ef" />
-            <PayoutCharacterCard character={cuts[0]?.character || "No character"} />
+            <PayoutCharacterCard character={payoutCharacter} />
+            <PaymentMethodCard method={payoutType} />
             <PaymentStatusCard cuts={cuts} />
           </div>
 <div style={tabs}>
@@ -1373,6 +1374,39 @@ function PayoutCharacterCard({ character }: { character: string }) {
     </div>
   );
 }
+function PaymentMethodCard({ method }: { method: string }) {
+  return (
+    <div style={statCard}>
+      <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+        <div
+          style={{
+            width: 68,
+            height: 68,
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(56,189,248,0.12)",
+            border: "1px solid rgba(56,189,248,0.35)",
+            boxShadow: "0 0 22px rgba(56,189,248,0.28)",
+            fontSize: 30,
+          }}
+        >
+          💳
+        </div>
+
+        <div>
+          <div style={statTitle}>Payment Method</div>
+          <div style={{ ...statValue, color: "#38bdf8", fontSize: 22 }}>
+            {method}
+          </div>
+          <div style={statSubtitle}>How your gold is delivered</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PaymentStatusCard({ cuts }: { cuts: Cut[] }) {
   const hasPending = cuts.some((c) => c.status === "Pending");
 
@@ -1548,7 +1582,7 @@ const syncBtn: React.CSSProperties = {
 
 const cards: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(4, 1fr)",
+  gridTemplateColumns: "repeat(5, 1fr)",
   gap: 16,
   marginBottom: 24,
 };
@@ -1557,7 +1591,7 @@ const statCard: React.CSSProperties = {
   background: "rgba(7,10,20,0.88)",
   border: "1px solid rgba(255,255,255,0.09)",
   borderRadius: 16,
-  padding: 28,
+  padding: 22,
   minHeight: 150,
   boxSizing: "border-box",
 };
@@ -2231,8 +2265,8 @@ const markBase: React.CSSProperties = {
   position: "absolute",
   top: -6,
   left: -6,
-  width: 94,
-  height: 94,
+  width: 75,
+  height: 75,
   objectFit: "contain",
   zIndex: 2,
   pointerEvents: "none",
