@@ -91,6 +91,9 @@ const [profiles, setProfiles] = useState<ProfileLite[]>([]);
 const [payoutCharacter, setPayoutCharacter] = useState("Not set");
 const [payoutType, setPayoutType] = useState("Not set");
 const [showRequest, setShowRequest] = useState(false);
+const [reqKind, setReqKind] = useState<"character" | "method" | "both">(
+  "character"
+);
 const [reqCharacter, setReqCharacter] = useState("");
 const [reqMethod, setReqMethod] = useState("");
 const [reqNote, setReqNote] = useState("");
@@ -98,8 +101,16 @@ const [sending, setSending] = useState(false);
 const [requestSent, setRequestSent] = useState(false);
 
 async function sendPaymentRequest() {
-  if (!reqCharacter.trim() && !reqMethod.trim()) {
-    alert("Enter a new character or payment method first.");
+  const wantsCharacter = reqKind === "character" || reqKind === "both";
+  const wantsMethod = reqKind === "method" || reqKind === "both";
+
+  if (wantsCharacter && !reqCharacter.trim()) {
+    alert("Enter the new payout character.");
+    return;
+  }
+
+  if (wantsMethod && !reqMethod.trim()) {
+    alert("Enter the new payment method.");
     return;
   }
 
@@ -123,8 +134,8 @@ async function sendPaymentRequest() {
       discord_id: meta.provider_id || null,
       current_character: payoutCharacter,
       current_method: payoutType,
-      requested_character: reqCharacter.trim() || null,
-      requested_method: reqMethod.trim() || null,
+      requested_character: wantsCharacter ? reqCharacter.trim() : null,
+      requested_method: wantsMethod ? reqMethod.trim() : null,
       note: reqNote.trim() || null,
       status: "pending",
     });
@@ -395,14 +406,25 @@ function potIcon(name: string) {
     {showRequest && (
       <div style={modalOverlay} onClick={() => setShowRequest(false)}>
         <div
-          style={{ ...modalBox, maxWidth: 520 }}
+          style={{ ...modalBox, maxWidth: 540 }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div style={modalHeader}>
-            <div>
-              <div style={modalTitle}>Request Payment Change</div>
-              <div style={modalSubtitle}>
-                Sent to the officers for approval
+          <div style={reqHeader}>
+            <div style={reqHeaderLeft}>
+              <img
+                src="/DeathWish%20Icon.png"
+                alt=""
+                style={reqCrest}
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+
+              <div>
+                <div style={modalTitle}>Request Payment Change</div>
+                <div style={modalSubtitle}>
+                  Sent to the officers for approval
+                </div>
               </div>
             </div>
 
@@ -421,54 +443,76 @@ function potIcon(name: string) {
                 ✅ Request sent. An officer will review it shortly.
               </div>
 
-              <button
-                style={sendBtn}
-                onClick={() => setShowRequest(false)}
-              >
+              <button style={sendBtn} onClick={() => setShowRequest(false)}>
                 Close
               </button>
             </div>
           ) : (
             <>
-              <div style={modalSectionTitle}>CURRENT</div>
-
-              <div style={{ display: "grid", gap: 10, marginBottom: 6 }}>
-                <div style={potRow}>
-                  <span style={{ fontWeight: 900 }}>Payout character</span>
-                  <span style={charText}>{payoutCharacter}</span>
+              <div style={currentGrid}>
+                <div style={currentCard}>
+                  <div style={currentLabel}>Current Payout Character</div>
+                  <div style={currentValueChar}>{payoutCharacter}</div>
                 </div>
 
-                <div style={potRow}>
-                  <span style={{ fontWeight: 900 }}>Payment method</span>
-                  <span style={{ color: "#fb923c", fontWeight: 900 }}>
-                    {payoutType}
-                  </span>
+                <div style={currentCard}>
+                  <div style={currentLabel}>Current Payment Method</div>
+                  <div style={currentValueMethod}>{payoutType}</div>
                 </div>
               </div>
 
-              <div style={modalSectionTitle}>REQUEST</div>
+              <div style={modalSectionTitle}>WHAT DO YOU WANT TO CHANGE?</div>
 
-              <div style={{ display: "grid", gap: 12 }}>
-                <input
-                  value={reqCharacter}
-                  onChange={(e) => setReqCharacter(e.target.value)}
-                  placeholder="New payout character (e.g. Koyjin-Kazzak)"
-                  style={reqInput}
-                />
+              <div style={choiceRow}>
+                {[
+                  { key: "character", label: "Payout Character" },
+                  { key: "method", label: "Payment Method" },
+                  { key: "both", label: "Both" },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setReqKind(opt.key as any)}
+                    style={reqKind === opt.key ? choiceActive : choice}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
 
-                <input
-                  value={reqMethod}
-                  onChange={(e) => setReqMethod(e.target.value)}
-                  placeholder="New payment method (optional)"
-                  style={reqInput}
-                />
+              <div style={{ display: "grid", gap: 12, marginTop: 18 }}>
+                {(reqKind === "character" || reqKind === "both") && (
+                  <div>
+                    <div style={fieldLabel}>New payout character</div>
+                    <input
+                      value={reqCharacter}
+                      onChange={(e) => setReqCharacter(e.target.value)}
+                      placeholder="e.g. Koyjin-Kazzak"
+                      style={reqInput}
+                    />
+                  </div>
+                )}
 
-                <textarea
-                  value={reqNote}
-                  onChange={(e) => setReqNote(e.target.value)}
-                  placeholder="Anything the officers should know (optional)"
-                  style={{ ...reqInput, height: 90, resize: "none" }}
-                />
+                {(reqKind === "method" || reqKind === "both") && (
+                  <div>
+                    <div style={fieldLabel}>New payment method</div>
+                    <input
+                      value={reqMethod}
+                      onChange={(e) => setReqMethod(e.target.value)}
+                      placeholder="e.g. in-game mail"
+                      style={reqInput}
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <div style={fieldLabel}>Note (optional)</div>
+                  <textarea
+                    value={reqNote}
+                    onChange={(e) => setReqNote(e.target.value)}
+                    placeholder="Anything the officers should know"
+                    style={{ ...reqInput, height: 84, resize: "none" }}
+                  />
+                </div>
 
                 <button
                   style={{ ...sendBtn, opacity: sending ? 0.6 : 1 }}
@@ -1828,4 +1872,97 @@ const sentBox: React.CSSProperties = {
   color: "#4ade80",
   fontWeight: 800,
   textAlign: "center",
+};
+
+const reqHeader: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 14,
+  paddingBottom: 20,
+  marginBottom: 22,
+  borderBottom: "1px solid rgba(168,85,247,0.25)",
+};
+
+const reqHeaderLeft: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 14,
+};
+
+const reqCrest: React.CSSProperties = {
+  width: 52,
+  height: 52,
+  borderRadius: 14,
+  objectFit: "cover",
+  border: "1px solid rgba(168,85,247,0.5)",
+  boxShadow: "0 0 20px rgba(168,85,247,0.4)",
+  flexShrink: 0,
+};
+
+const currentGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 12,
+};
+
+const currentCard: React.CSSProperties = {
+  padding: "14px 16px",
+  borderRadius: 14,
+  background: "rgba(255,255,255,0.035)",
+  border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const currentLabel: React.CSSProperties = {
+  color: "#9ca3af",
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: 0.6,
+  marginBottom: 8,
+  textTransform: "uppercase",
+};
+
+const currentValueChar: React.CSSProperties = {
+  color: "#d946ef",
+  fontWeight: 900,
+  fontSize: 16,
+};
+
+const currentValueMethod: React.CSSProperties = {
+  color: "#fb923c",
+  fontWeight: 900,
+  fontSize: 16,
+};
+
+const choiceRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: 8,
+};
+
+const choice: React.CSSProperties = {
+  padding: "12px 8px",
+  borderRadius: 12,
+  border: "1px solid rgba(168,85,247,0.25)",
+  background: "rgba(0,0,0,0.4)",
+  color: "#c4b5fd",
+  fontWeight: 900,
+  fontSize: 13,
+  cursor: "pointer",
+  transition: "all 0.18s ease",
+};
+
+const choiceActive: React.CSSProperties = {
+  ...choice,
+  background: "linear-gradient(90deg,#6d28d9,#c026d3)",
+  border: "1px solid rgba(217,70,239,0.85)",
+  color: "white",
+  boxShadow: "0 0 16px rgba(217,70,239,0.5)",
+};
+
+const fieldLabel: React.CSSProperties = {
+  color: "#c4b5fd",
+  fontSize: 12,
+  fontWeight: 800,
+  marginBottom: 7,
 };
