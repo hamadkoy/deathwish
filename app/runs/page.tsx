@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import SideNav from "../components/SideNav";
 import { supabase } from "@/lib/supabase";
+import { queueRunCancellation } from "@/lib/queueRunCancellation";
 import {
   DndContext,
   DragEndEvent,
@@ -851,6 +852,8 @@ async function deleteRun(runId: number) {
     confirmText: "DELETE",
     cancelText: "CANCEL",
     onConfirm: async () => {
+      await queueRunCancellation(runs.find((r) => r.id === runId), profile?.discord_name);
+
       const { error: signupError } = await supabase
         .from("signups")
         .delete()
