@@ -12,12 +12,16 @@ export async function queueRunCancellation(
   cancelledBy?: string
 ) {
   try {
+    console.log("QUEUE START", run?.id);
+
     if (!run?.id) return;
 
-    const { data: runSignups } = await supabase
+    const { data: runSignups, error: signupError } = await supabase
       .from("signups")
       .select("discord_id, player, role")
       .eq("run_id", run.id);
+
+    console.log("QUEUE SIGNUPS", runSignups, signupError);
 
     // Loot Body signups are alts, so skip them to avoid double DMs.
     const notify = (runSignups || []).filter(
@@ -27,6 +31,8 @@ export async function queueRunCancellation(
     const discordIds = Array.from(
       new Set(notify.map((s: any) => s.discord_id as string))
     );
+
+    console.log("QUEUE IDS", discordIds);
 
     if (discordIds.length === 0) return;
 
@@ -41,6 +47,8 @@ export async function queueRunCancellation(
       player_names: notify.map((s: any) => s.player),
       cancelled_by: cancelledBy || "An officer",
     });
+
+    console.log("QUEUE INSERT DONE", error);
 
     if (error) {
       console.error("queueRunCancellation failed:", error.message);
