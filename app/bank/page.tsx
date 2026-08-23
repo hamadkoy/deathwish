@@ -13,7 +13,7 @@ type PotEntry = {
 type Mark = "helper" | "strike" | "reward";
 
 type Bonus = {
-  type: Mark;
+  type: Mark | "base";
   amount: number;
   label: string;
 };
@@ -1129,7 +1129,7 @@ function potIcon(name: string) {
           {Number(row.cut || 0).toLocaleString()}g
         </div>
 
-        <div style={{ ...dimText, ...centerCell }}>-</div>
+        <div style={{ ...dimText, ...centerCell }}>—</div>
 
         <div style={centerCell}>
           <span style={row.status === "Paid" ? paidBadge : pendingBadge}>
@@ -1175,7 +1175,7 @@ function potIcon(name: string) {
       {Number(week.amount || 0).toLocaleString()}g
     </div>
 
-    <div style={{ ...dimText, ...centerCell }}>-</div>
+    <div style={{ ...dimText, ...centerCell }}>—</div>
 
 <div style={centerCell}>
   <span
@@ -1244,11 +1244,6 @@ function potIcon(name: string) {
                           : "No base cut recorded for this run"
                       }
                     >
-                      <img
-                        src={markIcon(cut.bonus.type)}
-                        alt=""
-                        style={bonusIconStyle}
-                      />
                       {cut.bonus.label}
                     </span>
                   ) : (
@@ -1317,18 +1312,18 @@ function potIcon(name: string) {
           <InfoCard title="BONUS LEGEND">
             <Legend
               color="#7dd3fc"
-              title="Reward"
+              title="+ Reward"
               text="Paid above the run's base cut."
             />
             <Legend
               color="#fca5a5"
-              title="Strike"
+              title="- Strike"
               text="Paid below the run's base cut."
             />
             <Legend
-              color="#86efac"
-              title="Helper"
-              text="Flat helper payment for the run."
+              color="#fcd34d"
+              title="Base Cut"
+              text="Paid exactly the run's base cut."
             />
           </InfoCard>
 
@@ -1605,7 +1600,8 @@ function Summary({ label, value, color }: { label: string; value: number; color?
   );
 }
 
-// Badge art in /public. Blue cut on the sheet = Reward.
+// Badge art in /public, used on the roster cards only.
+// Blue cut on the sheet = Reward.
 function markIcon(mark: string) {
   if (mark === "strike") return "/Strike.png";
   if (mark === "reward") return "/Reward.png";
@@ -1615,6 +1611,7 @@ function markIcon(mark: string) {
 function bonusColor(type: string) {
   if (type === "strike") return "#fca5a5";
   if (type === "reward") return "#7dd3fc";
+  if (type === "base") return "#fcd34d";
   return "#86efac";
 }
 
@@ -1760,8 +1757,9 @@ const table: React.CSSProperties = {
   overflow: "hidden",
 };
 
-// Ten columns now — BONUS sits between CUT and STATUS.
-const GRID_COLUMNS = "1fr 1.2fr 1fr 1fr 1.4fr 1fr .8fr .8fr 1fr 1.1fr";
+// Ten columns — BONUS sits between CUT and STATUS. CUT and POT are given
+// the same width so their right-aligned digits line up with each other.
+const GRID_COLUMNS = "1.1fr 1.1fr 1.1fr 1fr 1.2fr 1fr .7fr .7fr 1fr 1.1fr";
 
 const tableHead: React.CSSProperties = {
   display: "grid",
@@ -1809,32 +1807,29 @@ const pendingBadge: React.CSSProperties = {
   fontWeight: 900,
 };
 
-const bonusIconStyle: React.CSSProperties = {
-  width: 20,
-  height: 20,
-  objectFit: "contain",
-  flexShrink: 0,
-};
-
+// Text only — blue for reward, red for strike, yellow when the cut
+// landed exactly on the base.
 const bonusBadge = (type: string): React.CSSProperties => {
   const palette: Record<string, [string, string]> = {
     reward: ["#7dd3fc", "56,189,248"],
     strike: ["#fca5a5", "239,68,68"],
     helper: ["#86efac", "74,222,128"],
+    base: ["#fcd34d", "250,204,21"],
   };
 
   const [color, rgb] = palette[type] || ["#cbd5e1", "148,163,184"];
 
   return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 7,
-    padding: "6px 14px 6px 8px",
+    display: "inline-block",
+    minWidth: 118,
+    textAlign: "center",
+    padding: "7px 16px",
     borderRadius: 999,
     fontSize: 13,
     fontWeight: 900,
     color,
     whiteSpace: "nowrap",
+    fontVariantNumeric: "tabular-nums",
     background: `rgba(${rgb},0.12)`,
     border: `1px solid rgba(${rgb},0.6)`,
     boxShadow: `0 0 14px rgba(${rgb},0.35)`,
@@ -2234,6 +2229,7 @@ const rosterBonus: React.CSSProperties = {
   fontSize: 11,
   letterSpacing: 0.3,
   whiteSpace: "nowrap",
+  fontVariantNumeric: "tabular-nums",
 };
 
 const youTag: React.CSSProperties = {
@@ -2511,9 +2507,12 @@ const centerCell: React.CSSProperties = {
   textAlign: "center",
 };
 
+// Right-aligned money columns. tabular-nums gives every digit the same
+// width, so "1g" and "800,000g" line up on the same right edge.
 const rightCell: React.CSSProperties = {
   textAlign: "right",
-  paddingRight: 24,
+  paddingRight: 28,
+  fontVariantNumeric: "tabular-nums",
 };
 
 const countCell: React.CSSProperties = {

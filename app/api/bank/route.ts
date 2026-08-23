@@ -134,7 +134,10 @@ async function getColors(
   }
 }
 
+// Cell colours that carry meaning. "base" is never a colour — it's only
+// a bonus type, used when a cut lands exactly on the run's base cut.
 type Mark = "helper" | "strike" | "reward" | null;
+type BonusType = "helper" | "strike" | "reward" | "base";
 
 // Green cut = helper, red cut = strike, blue cut = reward.
 // Thresholds are wide enough to ignore the sheet's tan default fill,
@@ -153,13 +156,13 @@ function markFromColor(color: any): Mark {
   return null;
 }
 
-function capitalize(text: string) {
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
 // Bonus = how far this cut sits from the run's base cut.
-// Helpers are paid a flat amount, so they show that instead of a delta.
-function buildBonus(amount: number, baseCut: number, mark: Mark) {
+// Exactly on base = "Base Cut". Helpers are paid a flat amount instead.
+function buildBonus(
+  amount: number,
+  baseCut: number,
+  mark: Mark
+): { type: BonusType; amount: number; label: string } | null {
   if (!amount) return null;
 
   if (mark === "helper") {
@@ -170,26 +173,20 @@ function buildBonus(amount: number, baseCut: number, mark: Mark) {
     };
   }
 
-  // No Base Cut cell for this run — show the flag without a number
-  // rather than inventing a delta.
-  if (!baseCut) {
-    return mark ? { type: mark, amount: 0, label: capitalize(mark) } : null;
-  }
+  // No Base Cut cell for this run — nothing to measure against.
+  if (!baseCut) return null;
 
   const delta = amount - baseCut;
 
-  const type: Mark = mark || (delta > 0 ? "reward" : delta < 0 ? "strike" : null);
+  if (delta === 0) {
+    return { type: "base", amount: 0, label: "Base Cut" };
+  }
 
-  if (!type) return null;
-
-  const label =
-    delta === 0
-      ? capitalize(type)
-      : `${capitalize(type)} ${delta > 0 ? "+" : "-"}${Math.abs(
-          delta
-        ).toLocaleString()}g`;
-
-  return { type, amount: delta, label };
+  return {
+    type: delta > 0 ? "reward" : "strike",
+    amount: delta,
+    label: `${delta > 0 ? "+" : "-"}${Math.abs(delta).toLocaleString()}g`,
+  };
 }
 
 // A player row is any row whose first cell looks like a Discord ID.
