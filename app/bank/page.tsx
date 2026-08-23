@@ -10,12 +10,21 @@ type PotEntry = {
   amount: number;
 };
 
+type Mark = "helper" | "strike" | "reward";
+
+type Bonus = {
+  type: Mark;
+  amount: number;
+  label: string;
+};
+
 type RosterEntry = {
   name: string;
   discordId?: string;
   isSelf: boolean;
   isPug?: boolean;
-  mark?: "helper" | "strike" | null;
+  mark?: Mark | null;
+  bonus?: Bonus | null;
   hidden: boolean;
   cut: number | null;
 };
@@ -32,6 +41,8 @@ type Cut = {
   run: string;
   character: string;
   cut: number;
+  baseCut: number;
+  bonus: Bonus | null;
   status: "Paid" | "Pending";
   source: string;
   note: string;
@@ -39,6 +50,7 @@ type Cut = {
   clients: number;
   helpers: number;
   strikes: number;
+  rewards: number;
   pot: number;
   pots: PotEntry[];
   potTotal: number;
@@ -733,6 +745,21 @@ function potIcon(name: string) {
             />
           </div>
 
+          {detailsFor.baseCut > 0 && (
+            <div style={baseCutNotice}>
+              Base cut for this run:{" "}
+              <b>{Number(detailsFor.baseCut).toLocaleString()}g</b>
+              {detailsFor.bonus && (
+                <>
+                  {" "}· your bonus:{" "}
+                  <b style={{ color: bonusColor(detailsFor.bonus.type) }}>
+                    {detailsFor.bonus.label}
+                  </b>
+                </>
+              )}
+            </div>
+          )}
+
           <div style={modalSectionTitle}>GOLD BY COMMUNITY</div>
 
           {detailsFor.pots?.length ? (
@@ -795,6 +822,12 @@ function potIcon(name: string) {
                     {detailsFor.strikes > 1 ? "s" : ""}
                   </span>
                 )}
+                {detailsFor.rewards > 0 && (
+                  <span style={countReward}>
+                    {" "}· {detailsFor.rewards} reward
+                    {detailsFor.rewards > 1 ? "s" : ""}
+                  </span>
+                )}
               </div>
 
               {!canSeeAllCuts && (
@@ -851,20 +884,28 @@ function potIcon(name: string) {
                           ? rosterCardHelper
                           : r.mark === "strike"
                           ? rosterCardStrike
+                          : r.mark === "reward"
+                          ? rosterCardReward
                           : rosterCard),
                       }}
                     >
                       {r.mark && (
                         <img
-                          src={
-                            r.mark === "strike"
-                              ? "/Strike.png"
-                              : "/Helper.png"
-                          }
+                          src={markIcon(r.mark)}
                           alt={r.mark}
-                          title={r.mark === "strike" ? "Strike" : "Helper"}
+                          title={
+                            r.mark === "strike"
+                              ? "Strike"
+                              : r.mark === "reward"
+                              ? "Reward"
+                              : "Helper"
+                          }
                           style={
-                            r.mark === "strike" ? markStrike : markHelper
+                            r.mark === "strike"
+                              ? markStrike
+                              : r.mark === "reward"
+                              ? markReward
+                              : markHelper
                           }
                         />
                       )}
@@ -889,6 +930,17 @@ function potIcon(name: string) {
                       ) : (
                         <div style={rosterCut}>
                           {Number(r.cut || 0).toLocaleString()}g
+                        </div>
+                      )}
+
+                      {!r.hidden && r.bonus && (
+                        <div
+                          style={{
+                            ...rosterBonus,
+                            color: bonusColor(r.bonus.type),
+                          }}
+                        >
+                          {r.bonus.label}
                         </div>
                       )}
 
@@ -1045,6 +1097,7 @@ function potIcon(name: string) {
               <div>TYPE OF RUN</div>
               <div>CHARACTER</div>
               <div style={rightCell}>CUT</div>
+              <div style={centerCell}>BONUS</div>
               <div style={centerCell}>STATUS</div>
               <div style={centerCell}>BOOSTERS</div>
               <div style={centerCell}>CLIENTS</div>
@@ -1075,6 +1128,8 @@ function potIcon(name: string) {
         <div style={{ ...goldText, ...rightCell }}>
           {Number(row.cut || 0).toLocaleString()}g
         </div>
+
+        <div style={{ ...dimText, ...centerCell }}>-</div>
 
         <div style={centerCell}>
           <span style={row.status === "Paid" ? paidBadge : pendingBadge}>
@@ -1119,6 +1174,8 @@ function potIcon(name: string) {
     <div style={{ ...goldText, ...rightCell }}>
       {Number(week.amount || 0).toLocaleString()}g
     </div>
+
+    <div style={{ ...dimText, ...centerCell }}>-</div>
 
 <div style={centerCell}>
   <span
@@ -1178,6 +1235,27 @@ function potIcon(name: string) {
                   {cut.cut.toLocaleString()}g
                 </div>
                 <div style={centerCell}>
+                  {cut.bonus ? (
+                    <span
+                      style={bonusBadge(cut.bonus.type)}
+                      title={
+                        cut.baseCut
+                          ? `Base cut ${cut.baseCut.toLocaleString()}g`
+                          : "No base cut recorded for this run"
+                      }
+                    >
+                      <img
+                        src={markIcon(cut.bonus.type)}
+                        alt=""
+                        style={bonusIconStyle}
+                      />
+                      {cut.bonus.label}
+                    </span>
+                  ) : (
+                    <span style={dimText}>—</span>
+                  )}
+                </div>
+                <div style={centerCell}>
                   <span style={cut.status === "Paid" ? paidBadge : pendingBadge}>
                     {cut.status}
                   </span>
@@ -1234,6 +1312,24 @@ function potIcon(name: string) {
             <Legend color="#22c55e" title="Paid" text="Gold already paid out." />
             <Legend color="#f59e0b" title="Pending" text="Gold waiting for payout." />
             <Legend color="#38bdf8" title="Source" text="Imported from your Discord bot." />
+          </InfoCard>
+
+          <InfoCard title="BONUS LEGEND">
+            <Legend
+              color="#7dd3fc"
+              title="Reward"
+              text="Paid above the run's base cut."
+            />
+            <Legend
+              color="#fca5a5"
+              title="Strike"
+              text="Paid below the run's base cut."
+            />
+            <Legend
+              color="#86efac"
+              title="Helper"
+              text="Flat helper payment for the run."
+            />
           </InfoCard>
 
           <InfoCard title="THIS WEEK SUMMARY">
@@ -1509,6 +1605,19 @@ function Summary({ label, value, color }: { label: string; value: number; color?
   );
 }
 
+// Badge art in /public. Blue cut on the sheet = Reward.
+function markIcon(mark: string) {
+  if (mark === "strike") return "/Strike.png";
+  if (mark === "reward") return "/Reward.png";
+  return "/Helper.png";
+}
+
+function bonusColor(type: string) {
+  if (type === "strike") return "#fca5a5";
+  if (type === "reward") return "#7dd3fc";
+  return "#86efac";
+}
+
 const page: React.CSSProperties = {
   minHeight: "100vh",
   color: "white",
@@ -1651,9 +1760,12 @@ const table: React.CSSProperties = {
   overflow: "hidden",
 };
 
+// Ten columns now — BONUS sits between CUT and STATUS.
+const GRID_COLUMNS = "1fr 1.2fr 1fr 1fr 1.4fr 1fr .8fr .8fr 1fr 1.1fr";
+
 const tableHead: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1.2fr 1fr 1fr 1fr .8fr .8fr 1fr 1.1fr",
+  gridTemplateColumns: GRID_COLUMNS,
   padding: "14px 16px",
   fontSize: 12,
   color: "#d6bfff",
@@ -1663,7 +1775,7 @@ const tableHead: React.CSSProperties = {
 
 const tableRow: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1.2fr 1fr 1fr 1fr .8fr .8fr 1fr 1.1fr",
+  gridTemplateColumns: GRID_COLUMNS,
   padding: "18px 16px",
   alignItems: "center",
   borderBottom: "1px solid rgba(255,255,255,0.05)",
@@ -1695,6 +1807,48 @@ const pendingBadge: React.CSSProperties = {
   padding: "7px 14px",
   borderRadius: 999,
   fontWeight: 900,
+};
+
+const bonusIconStyle: React.CSSProperties = {
+  width: 20,
+  height: 20,
+  objectFit: "contain",
+  flexShrink: 0,
+};
+
+const bonusBadge = (type: string): React.CSSProperties => {
+  const palette: Record<string, [string, string]> = {
+    reward: ["#7dd3fc", "56,189,248"],
+    strike: ["#fca5a5", "239,68,68"],
+    helper: ["#86efac", "74,222,128"],
+  };
+
+  const [color, rgb] = palette[type] || ["#cbd5e1", "148,163,184"];
+
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 7,
+    padding: "6px 14px 6px 8px",
+    borderRadius: 999,
+    fontSize: 13,
+    fontWeight: 900,
+    color,
+    whiteSpace: "nowrap",
+    background: `rgba(${rgb},0.12)`,
+    border: `1px solid rgba(${rgb},0.6)`,
+    boxShadow: `0 0 14px rgba(${rgb},0.35)`,
+  };
+};
+
+const baseCutNotice: React.CSSProperties = {
+  padding: "12px 16px",
+  borderRadius: 12,
+  background: "rgba(148,163,184,0.08)",
+  border: "1px solid rgba(148,163,184,0.25)",
+  color: "#cbd5e1",
+  fontSize: 13,
+  marginBottom: 4,
 };
 
 const note: React.CSSProperties = {
@@ -2075,6 +2229,13 @@ const rosterCut: React.CSSProperties = {
   fontSize: 15,
 };
 
+const rosterBonus: React.CSSProperties = {
+  fontWeight: 900,
+  fontSize: 11,
+  letterSpacing: 0.3,
+  whiteSpace: "nowrap",
+};
+
 const youTag: React.CSSProperties = {
   padding: "2px 8px",
   borderRadius: 999,
@@ -2282,6 +2443,11 @@ const markHelper: React.CSSProperties = {
   filter: "drop-shadow(0 0 8px rgba(74,222,128,0.95))",
 };
 
+const markReward: React.CSSProperties = {
+  ...markBase,
+  filter: "drop-shadow(0 0 8px rgba(56,189,248,0.95))",
+};
+
 const rosterCardHelper: React.CSSProperties = {
   ...rosterCard,
   background: "rgba(74,222,128,0.09)",
@@ -2294,12 +2460,22 @@ const rosterCardStrike: React.CSSProperties = {
   border: "1px solid rgba(239,68,68,0.45)",
 };
 
+const rosterCardReward: React.CSSProperties = {
+  ...rosterCard,
+  background: "rgba(56,189,248,0.10)",
+  border: "1px solid rgba(56,189,248,0.5)",
+};
+
 const countHelper: React.CSSProperties = {
   color: "#4ade80",
 };
 
 const countStrike: React.CSSProperties = {
   color: "#f87171",
+};
+
+const countReward: React.CSSProperties = {
+  color: "#38bdf8",
 };
 
 const noteTag: React.CSSProperties = {

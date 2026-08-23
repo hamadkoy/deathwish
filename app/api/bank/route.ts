@@ -20,6 +20,8 @@ function normalize(text: any) {
 
 // Handles plain numbers, comma separators, and k / m suffixes.
 // "800,000" -> 800000   "3000k" -> 3000000   "1.5m" -> 1500000
+// Repeated suffixes are tolerated so a typo like "255kk" still reads
+// as 255,000 instead of silently returning 0.
 function parseNumber(value: any) {
   if (!value) return 0;
 
@@ -32,7 +34,7 @@ function parseNumber(value: any) {
 
   if (!cleaned) return 0;
 
-  const match = cleaned.match(/^(-?\d*\.?\d+)\s*([km])?$/);
+  const match = cleaned.match(/^(-?\d*\.?\d+)\s*(k+|m+)?$/);
 
   if (!match) return 0;
 
@@ -40,8 +42,10 @@ function parseNumber(value: any) {
 
   if (Number.isNaN(base)) return 0;
 
-  if (match[2] === "k") return base * 1_000;
-  if (match[2] === "m") return base * 1_000_000;
+  const suffix = match[2]?.[0];
+
+  if (suffix === "k") return base * 1_000;
+  if (suffix === "m") return base * 1_000_000;
 
   return base;
 }
@@ -130,19 +134,62 @@ async function getColors(
   }
 }
 
-// Green cut = helper, red cut = strike. Thresholds are wide enough to
-// ignore the sheet's tan default fill, which is reddish but muted.
-function markFromColor(color: any): "helper" | "strike" | null {
+type Mark = "helper" | "strike" | "reward" | null;
+
+// Green cut = helper, red cut = strike, blue cut = reward.
+// Thresholds are wide enough to ignore the sheet's tan default fill,
+// which is reddish but muted.
+function markFromColor(color: any): Mark {
   if (!color) return null;
 
   const r = color.red ?? 0;
   const g = color.green ?? 0;
   const b = color.blue ?? 0;
 
+  if (b > 0.45 && b - r > 0.2 && b - g > 0.15) return "reward";
   if (g > 0.55 && g - r > 0.2 && g - b > 0.2) return "helper";
   if (r > 0.55 && r - g > 0.3 && r - b > 0.3) return "strike";
 
   return null;
+}
+
+function capitalize(text: string) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+// Bonus = how far this cut sits from the run's base cut.
+// Helpers are paid a flat amount, so they show that instead of a delta.
+function buildBonus(amount: number, baseCut: number, mark: Mark) {
+  if (!amount) return null;
+
+  if (mark === "helper") {
+    return {
+      type: "helper",
+      amount,
+      label: `Helper ${amount.toLocaleString()}g`,
+    };
+  }
+
+  // No Base Cut cell for this run — show the flag without a number
+  // rather than inventing a delta.
+  if (!baseCut) {
+    return mark ? { type: mark, amount: 0, label: capitalize(mark) } : null;
+  }
+
+  const delta = amount - baseCut;
+
+  const type: Mark = mark || (delta > 0 ? "reward" : delta < 0 ? "strike" : null);
+
+  if (!type) return null;
+
+  const label =
+    delta === 0
+      ? capitalize(type)
+      : `${capitalize(type)} ${delta > 0 ? "+" : "-"}${Math.abs(
+          delta
+        ).toLocaleString()}g`;
+
+  return { type, amount: delta, label };
 }
 
 // A player row is any row whose first cell looks like a Discord ID.
@@ -180,6 +227,18 @@ function isPugRow(row: any[]) {
 
   for (let i = 0; i < 4; i++) {
     if (normalize(row?.[i]) === "pug") return true;
+  }
+
+  return false;
+}
+
+// The "Base Cut" row holds the baseline every cut is measured against,
+// column-aligned with the run columns just like the player rows.
+function isBaseCutRow(row: any[]) {
+  if (isPlayerRow(row)) return false;
+
+  for (let i = 0; i < 4; i++) {
+    if (normalize(row?.[i]) === "base cut") return true;
   }
 
   return false;
@@ -387,6 +446,10 @@ export async function GET(req: Request) {
 
   const pugRow = dataRows.find(isPugRow);
 
+  // Baseline per run column. Everything in the Bonus column is measured
+  // against this row.
+  const baseCutRow = dataRows.find(isBaseCutRow);
+
   const potRows = dataRows
     .map((row) => ({ key: getCommunityKey(row), row }))
     .filter((entry) => entry.key !== null) as {
@@ -434,6 +497,9 @@ export async function GET(req: Request) {
           const clients = parseNumber(clientHeaders[index]);
           const dayText = headers[index]?.toString() || "";
 
+          // The Base Cut cell sitting in this same run column.
+          const baseCut = baseCutRow ? parseNumber(baseCutRow[index]) : 0;
+
           // Everyone with a cut in this column was in the run.
           const boosterEntries = playerEntries.filter(
             (e) => parseNumber(e.row[index]) > 0
@@ -476,7 +542,8 @@ export async function GET(req: Request) {
             discordId: string;
             isSelf: boolean;
             isPug: boolean;
-            mark: "helper" | "strike" | null;
+            mark: Mark;
+            bonus: ReturnType<typeof buildBonus>;
             hidden: boolean;
             cut: number | null;
           }[] = boosterEntries
@@ -488,14 +555,20 @@ export async function GET(req: Request) {
 
               const isSelf = row[0]?.toString().trim() === discordId;
 
+              const mark = markFromColor(colors?.[r]?.[index]);
+              const rowCut = parseNumber(row[index]);
+
+              const visible = canSeeAllCuts || isSelf;
+
               return {
                 name,
                 discordId: (row[0] || "").toString().trim(),
                 isSelf,
                 isPug: false,
-                mark: markFromColor(colors?.[r]?.[index]),
-                hidden: !canSeeAllCuts && !isSelf,
-                cut: canSeeAllCuts || isSelf ? parseNumber(row[index]) : null,
+                mark,
+                bonus: visible ? buildBonus(rowCut, baseCut, mark) : null,
+                hidden: !visible,
+                cut: visible ? rowCut : null,
               };
             })
             .sort((a, b) => (b.cut || 0) - (a.cut || 0));
@@ -508,10 +581,13 @@ export async function GET(req: Request) {
               isSelf: false,
               isPug: true,
               mark: null,
+              bonus: null,
               hidden: !canSeeAllCuts,
               cut: canSeeAllCuts ? Math.round(pugAmount / pugCount) : null,
             });
           }
+
+          const selfMark = roster.find((x) => x.isSelf)?.mark ?? null;
 
           return {
             id: index,
@@ -519,6 +595,8 @@ export async function GET(req: Request) {
             run: runText,
             character: player?.[payoutCharacterIndex] || "Not set",
             cut: amount,
+            baseCut,
+            bonus: buildBonus(amount, baseCut, selfMark),
             status:
               normalize(player?.[statusIndex]).includes("mailed") ||
               normalize(player?.[statusIndex]).includes("paid")
@@ -530,6 +608,7 @@ export async function GET(req: Request) {
             clients,
             helpers: roster.filter((x) => x.mark === "helper").length,
             strikes: roster.filter((x) => x.mark === "strike").length,
+            rewards: roster.filter((x) => x.mark === "reward").length,
             pot,
             pots,
             potTotal,
