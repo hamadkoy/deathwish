@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import SideNav from "../components/SideNav";
+import CreateRunModal from "../components/CreateRunModal";
 import { supabase } from "@/lib/supabase";
 import { queueRunCancellation } from "@/lib/queueRunCancellation";
 import {
@@ -2584,102 +2585,14 @@ style={{
     </button>
   </div>
 )}
-{showCreateRun && (
-  <div style={modalOverlay}>
-    <div style={createRunPanel}>
-      <div style={createRunTitle}>Create Run</div>
-
-      <input
-        placeholder="Run title"
-        value={newRunTitle}
-        onChange={(e) => setNewRunTitle(e.target.value)}
-        style={createInput}
-      />
-
-      <input
-        placeholder="Required ilvl"
-        value={newRunIlvl}
-        onChange={(e) => setNewRunIlvl(e.target.value)}
-        style={createInput}
-      />
-<input
-  placeholder="Healer spots"
-  value={newRunHealers}
-  onChange={(e) => setNewRunHealers(e.target.value)}
-  style={createInput}
+<CreateRunModal
+  open={showCreateRun}
+  onClose={() => setShowCreateRun(false)}
+  onCreated={async () => {
+    await loadRuns(selectedWeekRef.current);
+    await loadSignups();
+  }}
 />
-
-<input
-  placeholder="DPS spots"
-  value={newRunDps}
-  onChange={(e) => setNewRunDps(e.target.value)}
-  style={createInput}
-/>
-      <input
-        placeholder="Day"
-        value={newRunDay}
-        onChange={(e) => setNewRunDay(e.target.value)}
-        style={createInput}
-      />
-
-<input
-  placeholder="Time"
-  value={newRunTime}
-  onChange={(e) => setNewRunTime(e.target.value)}
-  style={createInput}
-/>
-
-<input
-  type="datetime-local"
-  value={newRunSignupOpenAt}
-  onChange={(e) => setNewRunSignupOpenAt(e.target.value)}
-  style={createInput}
-/>
-
-<select
-  value={newRunBackground}
-  onChange={(e) => setNewRunBackground(e.target.value)}
-  style={createInput}
->
-  <option value="mythic-red">Mythic Red</option>
-  <option value="mythic-purple">Mythic Purple</option>
-  <option value="hc-gold">HC Gold</option>
-  <option value="void">Void</option>
-</select>
-
-<input
-  placeholder="Notes"
-  value={newRunNotes}
-  onChange={(e) => setNewRunNotes(e.target.value)}
-  style={createInput}
-/>
-<select
-  value={newRunBackground}
-  onChange={(e) => setNewRunBackground(e.target.value)}
-  style={createInput}
->
-  <option value="mythic-red">Mythic Red</option>
-  <option value="mythic-purple">Mythic Purple</option>
-  <option value="hc-gold">HC Gold</option>
-  <option value="void">Void</option>
-</select>
-
-      <button
-        onClick={createRun}
-        style={createRunConfirm}
-      >
-        Create Run
-      </button>
-
-      <button
-        onClick={() => setShowCreateRun(false)}
-        style={cancelEditButton}
-      >
-        Cancel
-      </button>
-    </div>
-  </div>
-)}
 
     {editingRun && (
   <div style={modalOverlay}>
