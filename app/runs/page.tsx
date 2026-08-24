@@ -2577,19 +2577,15 @@ style={{
   </div>
 )}
 
-{isAdmin && (
-  <div style={createArea}>
-    <button
-      onClick={() => setShowCreateRun(true)}
-      style={createRunButton}
-    >
-      + Create Run
-    </button>
-  </div>
-)}
+<div style={createArea}>
+  <button onClick={() => setShowCreateRun(true)} style={createRunButton}>
+    {isAdmin ? "+ Create Run" : "View Run Planner"}
+  </button>
+</div>
 <CreateRunModal
   open={showCreateRun}
   onClose={() => setShowCreateRun(false)}
+  canCreate={isAdmin}
   onCreated={async () => {
     await loadRuns(selectedWeekRef.current);
     await loadSignups();

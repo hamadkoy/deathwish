@@ -11,12 +11,13 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 /* ==============================
    Options — edit these lists freely
+   Keep raid names SHORT so run cards stay on one line.
 ============================== */
 const RAIDS = [
   "Venomous Abyss",
   "Venomous & Tidebound",
   "Manaforge Omega",
-  "Liberation of Undermine",
+  "Undermine",
   "Nerub-ar Palace",
 ];
 
@@ -26,12 +27,12 @@ const BOSS_COUNTS = ["1/9", "2/9", "3/9", "4/9", "5/9", "6/9", "7/9", "8/9", "9/
 
 const THEMES = [
   { key: "mythic-red", label: "Mythic Red", dot: "#ef4444" },
-  { key: "mythic-purple", label: "Mythic Purple", dot: "#a855f7" },
+  { key: "mythic-purple", label: "Purple", dot: "#a855f7" },
   { key: "hc-gold", label: "HC Blue", dot: "#3b82f6" },
   { key: "void", label: "Void", dot: "#60a5fa" },
 ];
 
-// Signup countdown: measured from the moment you press Create.
+// Countdown is measured from the moment you press Create.
 // Every run in the batch unlocks at the same time.
 const COUNTDOWNS = [
   { label: "Open immediately", hours: 0 },
@@ -117,10 +118,12 @@ export default function CreateRunModal({
   open,
   onClose,
   onCreated,
+  canCreate = true,
 }: {
   open: boolean;
   onClose: () => void;
   onCreated?: () => void | Promise<void>;
+  canCreate?: boolean;
 }) {
   /* ---------- run details ---------- */
   const [raid, setRaid] = useState(RAIDS[0]);
@@ -168,7 +171,6 @@ export default function CreateRunModal({
     return `${name} ${bossCount}${diffTag} ${lootType}`.trim();
   };
 
-  // "" stays null in the DB — no experience gate at all
   const expValue = expRequired ? `${expRequired}${diffTag}` : null;
 
   function toggle(list: string[], value: string) {
@@ -185,9 +187,10 @@ export default function CreateRunModal({
 
   /* ==============================
      Build one draft per date × time
-     (signup_open_at is stamped later, in createAll)
   ============================== */
   function addToSummary() {
+    if (!canCreate) return;
+
     setError("");
 
     if (dates.length === 0 || times.length === 0) {
@@ -236,12 +239,11 @@ export default function CreateRunModal({
   }
 
   async function createAll() {
-    if (drafts.length === 0) return;
+    if (drafts.length === 0 || !canCreate) return;
 
     setSaving(true);
     setError("");
 
-    // One shared timestamp, counted from now — every run unlocks together.
     const openAt =
       countdownHours > 0
         ? new Date(Date.now() + countdownHours * 60 * 60 * 1000).toISOString()
@@ -277,7 +279,9 @@ export default function CreateRunModal({
         {/* header */}
         <div style={header}>
           <div>
-            <div style={headerTitle}>Create runs</div>
+            <div style={headerTitle}>
+              {canCreate ? "Create runs" : "Run planner (view only)"}
+            </div>
             <div style={headerSub}>{runTitle()}</div>
           </div>
 
@@ -289,6 +293,7 @@ export default function CreateRunModal({
         <div style={body}>
           {/* ---------- top: 4 columns ---------- */}
           <div style={topGrid}>
+            {/* col 1 */}
             <div>
               <div style={sectionLabel}>Run details</div>
 
@@ -327,6 +332,7 @@ export default function CreateRunModal({
               </select>
             </div>
 
+            {/* col 2 */}
             <div>
               <div style={sectionLabel}>Difficulty &amp; loot</div>
 
@@ -355,10 +361,19 @@ export default function CreateRunModal({
                   </button>
                 ))}
               </div>
+
+              <div style={fieldLabel}>Required ilvl</div>
+              <input
+                placeholder="e.g. 700 — empty for none"
+                value={ilvl}
+                onChange={(e) => setIlvl(e.target.value)}
+                style={input}
+              />
             </div>
 
+            {/* col 3 */}
             <div>
-              <div style={sectionLabel}>Requirements</div>
+              <div style={sectionLabel}>Requirements &amp; spots</div>
 
               <div style={fieldLabel}>Boss experience needed</div>
               <select
@@ -375,24 +390,17 @@ export default function CreateRunModal({
                 ))}
               </select>
 
-              <div style={hint}>
-                Separate from boss count — sell a 9/9M run with no experience
-                gate early in the season.
+              <div style={twoUp}>
+                <div>
+                  <div style={fieldLabel}>Healers</div>
+                  <Stepper value={healers} onChange={setHealers} />
+                </div>
+
+                <div>
+                  <div style={fieldLabel}>DPS</div>
+                  <Stepper value={dps} onChange={setDps} />
+                </div>
               </div>
-
-              <div style={fieldLabel}>Required ilvl</div>
-              <input
-                placeholder="e.g. 700 — leave empty for none"
-                value={ilvl}
-                onChange={(e) => setIlvl(e.target.value)}
-                style={input}
-              />
-
-              <div style={fieldLabel}>Healers</div>
-              <Stepper value={healers} onChange={setHealers} />
-
-              <div style={fieldLabel}>DPS</div>
-              <Stepper value={dps} onChange={setDps} />
 
               <div style={fieldLabel}>Signup countdown</div>
               <select
@@ -408,11 +416,12 @@ export default function CreateRunModal({
               </select>
             </div>
 
+            {/* col 4 */}
             <div>
               <div style={sectionLabel}>Theme &amp; note</div>
 
               <div style={fieldLabel}>Card background</div>
-              <div style={{ display: "grid", gap: 10 }}>
+              <div style={themeGrid}>
                 {THEMES.map((t) => (
                   <button
                     key={t.key}
@@ -420,15 +429,16 @@ export default function CreateRunModal({
                     style={{
                       ...chip(theme === t.key),
                       justifyContent: "flex-start",
-                      gap: 12,
+                      gap: 8,
                       display: "flex",
                       alignItems: "center",
                     }}
                   >
                     <span
                       style={{
-                        width: 14,
-                        height: 14,
+                        width: 11,
+                        height: 11,
+                        flexShrink: 0,
                         borderRadius: "50%",
                         background: t.dot,
                         boxShadow: `0 0 10px ${t.dot}`,
@@ -446,8 +456,8 @@ export default function CreateRunModal({
                 onChange={(e) => setNotes(e.target.value)}
                 style={{
                   ...input,
-                  height: 108,
-                  paddingTop: 12,
+                  height: 66,
+                  paddingTop: 9,
                   resize: "vertical",
                 }}
               />
@@ -455,8 +465,6 @@ export default function CreateRunModal({
           </div>
 
           {/* ---------- schedule ---------- */}
-          <div style={sectionLabel}>Schedule</div>
-
           <div style={scheduleGrid}>
             {/* calendar */}
             <div style={card}>
@@ -466,28 +474,28 @@ export default function CreateRunModal({
                   <b style={{ color: ACCENT }}>({dates.length} selected)</b>
                 </span>
 
-                {dates.length > 0 && (
-                  <button onClick={() => setDates([])} style={clearBtn}>
-                    Clear
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <button onClick={() => shiftMonth(-1)} style={navBtn}>
+                    ‹
                   </button>
-                )}
-              </div>
 
-              <div style={monthRow}>
-                <button onClick={() => shiftMonth(-1)} style={navBtn}>
-                  ‹
-                </button>
+                  <b style={{ minWidth: 128, textAlign: "center" }}>
+                    {new Date(viewYear, viewMonth, 1).toLocaleDateString(
+                      "en-GB",
+                      { month: "long", year: "numeric" }
+                    )}
+                  </b>
 
-                <b>
-                  {new Date(viewYear, viewMonth, 1).toLocaleDateString("en-GB", {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </b>
+                  <button onClick={() => shiftMonth(1)} style={navBtn}>
+                    ›
+                  </button>
 
-                <button onClick={() => shiftMonth(1)} style={navBtn}>
-                  ›
-                </button>
+                  {dates.length > 0 && (
+                    <button onClick={() => setDates([])} style={clearBtn}>
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div style={dayHeadRow}>
@@ -567,7 +575,14 @@ export default function CreateRunModal({
                 </div>
               </div>
 
-              <div style={timeGrid}>
+              <div
+                style={{
+                  ...timeGrid,
+                  // 5m / 15m make far too many slots to show at once
+                  maxHeight: step >= 30 ? "none" : 258,
+                  overflowY: step >= 30 ? "visible" : "auto",
+                }}
+              >
                 {slots.map((t) => {
                   const active = times.includes(t);
                   return (
@@ -592,20 +607,17 @@ export default function CreateRunModal({
                   );
                 })}
               </div>
-
-              <div style={timezoneNote}>
-                Times are server time (EU / CET-CEST) and saved as “HH:MM ST”.
-              </div>
             </div>
           </div>
 
           <button
             onClick={addToSummary}
-            disabled={pendingCount === 0}
+            disabled={pendingCount === 0 || !canCreate}
             style={{
               ...primaryBtn,
-              opacity: pendingCount === 0 ? 0.45 : 1,
-              cursor: pendingCount === 0 ? "not-allowed" : "pointer",
+              opacity: pendingCount === 0 || !canCreate ? 0.45 : 1,
+              cursor:
+                pendingCount === 0 || !canCreate ? "not-allowed" : "pointer",
             }}
           >
             + Add run{pendingCount === 1 ? "" : "s"} to summary
@@ -617,8 +629,11 @@ export default function CreateRunModal({
           {/* ---------- summary ---------- */}
           {drafts.length > 0 && (
             <>
-              <div style={{ ...sectionLabel, marginTop: 30 }}>
+              <div style={{ ...sectionLabel, marginTop: 16 }}>
                 Summary — {drafts.length} run{drafts.length === 1 ? "" : "s"}
+                {countdownHours > 0
+                  ? ` • unlock ${countdownHours}h after Create`
+                  : " • unlock immediately"}
               </div>
 
               <div style={summaryBox}>
@@ -646,12 +661,6 @@ export default function CreateRunModal({
                   </div>
                 ))}
               </div>
-
-              <div style={openNote}>
-                {countdownHours > 0
-                  ? `All ${drafts.length} runs will unlock ${countdownHours}h after you press Create.`
-                  : "Signups open the moment you press Create."}
-              </div>
             </>
           )}
 
@@ -660,18 +669,27 @@ export default function CreateRunModal({
 
         {/* footer */}
         <div style={footer}>
+          {!canCreate && (
+            <div style={viewOnlyNote}>
+              View only — ask an officer to create runs.
+            </div>
+          )}
+
           <button onClick={onClose} style={ghostBtn}>
             Cancel
           </button>
 
           <button
             onClick={createAll}
-            disabled={drafts.length === 0 || saving}
+            disabled={drafts.length === 0 || saving || !canCreate}
             style={{
               ...confirmBtn,
-              opacity: drafts.length === 0 || saving ? 0.45 : 1,
+              opacity:
+                drafts.length === 0 || saving || !canCreate ? 0.45 : 1,
               cursor:
-                drafts.length === 0 || saving ? "not-allowed" : "pointer",
+                drafts.length === 0 || saving || !canCreate
+                  ? "not-allowed"
+                  : "pointer",
             }}
           >
             {saving
@@ -695,9 +713,7 @@ function Stepper({
   onChange: (v: number) => void;
 }) {
   return (
-    <div
-      style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 4 }}
-    >
+    <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
       <button
         onClick={() => onChange(Math.max(0, value - 1))}
         style={stepBtn}
@@ -709,7 +725,7 @@ function Stepper({
       <input
         value={value}
         onChange={(e) => onChange(Number(e.target.value.replace(/\D/g, "")) || 0)}
-        style={{ ...input, marginBottom: 0, textAlign: "center", width: 90 }}
+        style={{ ...input, textAlign: "center", flex: 1, minWidth: 0 }}
       />
 
       <button
@@ -736,16 +752,16 @@ const overlay: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: 16,
+  padding: 10,
   zIndex: 999999,
 };
 
 const panel: React.CSSProperties = {
-  width: "min(2100px, 96vw)",
-  maxHeight: "95vh",
+  width: "min(2100px, 97vw)",
+  maxHeight: "96vh",
   display: "flex",
   flexDirection: "column",
-  borderRadius: 26,
+  borderRadius: 20,
   border: "1px solid rgba(168,85,247,.45)",
   background: "linear-gradient(180deg, rgba(12,6,24,.99), rgba(4,0,12,.99))",
   boxShadow: "0 0 60px rgba(168,85,247,.35)",
@@ -756,12 +772,12 @@ const header: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  padding: "26px 34px",
+  padding: "12px 22px",
   borderBottom: "1px solid rgba(168,85,247,.22)",
 };
 
 const headerTitle: React.CSSProperties = {
-  fontSize: 36,
+  fontSize: 24,
   fontWeight: 900,
   color: "#fff",
   fontFamily: "Georgia, serif",
@@ -769,26 +785,26 @@ const headerTitle: React.CSSProperties = {
 };
 
 const headerSub: React.CSSProperties = {
-  marginTop: 6,
+  marginTop: 2,
   color: ACCENT,
-  fontSize: 18,
+  fontSize: 14,
   fontWeight: 800,
 };
 
 const closeBtn: React.CSSProperties = {
-  width: 48,
-  height: 48,
-  borderRadius: 14,
+  width: 36,
+  height: 36,
+  borderRadius: 11,
   border: "1px solid rgba(239,68,68,.45)",
   background: "linear-gradient(180deg,#7f1d1d,#450a0a)",
   color: "#fff",
-  fontSize: 18,
+  fontSize: 15,
   fontWeight: 900,
   cursor: "pointer",
 };
 
 const body: React.CSSProperties = {
-  padding: 32,
+  padding: "14px 22px",
   overflowY: "auto",
   flex: 1,
 };
@@ -796,78 +812,82 @@ const body: React.CSSProperties = {
 const topGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(4, 1fr)",
-  gap: 36,
-  marginBottom: 34,
+  gap: 26,
+  marginBottom: 14,
+};
+
+const twoUp: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 10,
+};
+
+const themeGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 7,
 };
 
 const scheduleGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 28,
-  marginBottom: 24,
+  gap: 16,
+  marginBottom: 12,
 };
 
 const sectionLabel: React.CSSProperties = {
   color: ACCENT,
-  fontSize: 17,
+  fontSize: 13,
   fontWeight: 900,
-  letterSpacing: 2,
+  letterSpacing: 1.5,
   textTransform: "uppercase",
-  marginBottom: 16,
+  marginBottom: 6,
 };
 
 const fieldLabel: React.CSSProperties = {
   color: "#9d8ec2",
-  fontSize: 14,
+  fontSize: 11,
   fontWeight: 800,
   letterSpacing: 1,
   textTransform: "uppercase",
-  margin: "16px 0 8px",
-};
-
-const hint: React.CSSProperties = {
-  marginTop: 8,
-  color: "#7c6d9e",
-  fontSize: 13,
-  lineHeight: 1.5,
+  margin: "9px 0 4px",
 };
 
 const input: React.CSSProperties = {
   width: "100%",
-  marginBottom: 4,
-  padding: "13px 16px",
-  borderRadius: 12,
+  padding: "8px 11px",
+  borderRadius: 9,
   border: "1px solid rgba(168,85,247,.3)",
   background: "rgba(15,4,32,.9)",
   color: "#fff",
   fontWeight: 700,
-  fontSize: 17,
+  fontSize: 14,
   outline: "none",
 };
 
 const chipRow: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: 10,
+  gap: 6,
 };
 
 const chip = (active: boolean): React.CSSProperties => ({
-  padding: "12px 18px",
-  borderRadius: 12,
+  padding: "7px 12px",
+  borderRadius: 9,
   border: active ? "1px solid #d8b4fe" : "1px solid rgba(168,85,247,.28)",
   background: active
     ? "linear-gradient(180deg,#9333ea,#6b21a8)"
     : "rgba(255,255,255,.05)",
   color: "#fff",
   fontWeight: 800,
-  fontSize: 16,
+  fontSize: 13,
   cursor: "pointer",
   boxShadow: active ? "0 0 16px rgba(168,85,247,.5)" : "none",
 });
 
 const card: React.CSSProperties = {
-  padding: 22,
-  borderRadius: 18,
+  padding: 13,
+  borderRadius: 14,
   border: "1px solid rgba(168,85,247,.25)",
   background: "rgba(255,255,255,.03)",
 };
@@ -876,136 +896,119 @@ const cardHead: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
+  gap: 10,
   color: "#cbbde6",
-  fontSize: 15,
+  fontSize: 12,
   fontWeight: 800,
   letterSpacing: 1,
   textTransform: "uppercase",
-  marginBottom: 16,
+  marginBottom: 10,
 };
 
 const clearBtn: React.CSSProperties = {
-  padding: "6px 13px",
-  borderRadius: 9,
+  padding: "4px 9px",
+  borderRadius: 7,
   border: "1px solid rgba(168,85,247,.35)",
   background: "transparent",
   color: "#c4b5fd",
-  fontSize: 14,
+  fontSize: 11,
   fontWeight: 800,
   cursor: "pointer",
 };
 
-const monthRow: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  color: "#fff",
-  fontSize: 21,
-  marginBottom: 14,
-};
-
 const navBtn: React.CSSProperties = {
-  width: 42,
-  height: 42,
-  borderRadius: 12,
+  width: 28,
+  height: 28,
+  borderRadius: 8,
   border: "1px solid rgba(168,85,247,.3)",
   background: "rgba(255,255,255,.05)",
   color: "#fff",
-  fontSize: 22,
+  fontSize: 16,
   cursor: "pointer",
 };
 
 const dayHeadRow: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(7, 1fr)",
-  marginBottom: 6,
+  marginBottom: 3,
 };
 
 const dayHead: React.CSSProperties = {
   textAlign: "center",
   color: "#8b7bb0",
-  fontSize: 14,
+  fontSize: 11,
   fontWeight: 800,
-  padding: "6px 0",
+  padding: "3px 0",
 };
 
 const calGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(7, 1fr)",
-  gap: 6,
+  gap: 4,
 };
 
 const dayCell: React.CSSProperties = {
-  height: 54,
-  borderRadius: 12,
-  fontSize: 18,
+  height: 34,
+  borderRadius: 9,
+  fontSize: 14,
   fontWeight: 700,
   cursor: "pointer",
 };
 
 const timeGrid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(86px, 1fr))",
-  gap: 8,
-  maxHeight: 420,
-  overflowY: "auto",
-  paddingRight: 6,
+  gridTemplateColumns: "repeat(auto-fill, minmax(68px, 1fr))",
+  gap: 5,
+  paddingRight: 2,
 };
 
 const timeCell: React.CSSProperties = {
-  padding: "12px 0",
-  borderRadius: 10,
+  padding: "7px 0",
+  borderRadius: 8,
   color: "#fff",
-  fontSize: 15,
+  fontSize: 13,
   fontWeight: 800,
   cursor: "pointer",
 };
 
-const timezoneNote: React.CSSProperties = {
-  marginTop: 16,
-  color: "#8b7bb0",
-  fontSize: 15,
-};
-
 const primaryBtn: React.CSSProperties = {
   width: "100%",
-  padding: "20px",
-  borderRadius: 16,
+  padding: "12px",
+  borderRadius: 12,
   border: "1px solid rgba(216,180,254,.5)",
   background: "linear-gradient(90deg,#9333ea,#d946ef)",
   color: "#fff",
   fontWeight: 900,
-  fontSize: 21,
+  fontSize: 17,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 14,
+  gap: 10,
   boxShadow: "0 0 24px rgba(217,70,239,.45)",
 };
 
 const countPill: React.CSSProperties = {
-  padding: "5px 16px",
+  padding: "3px 12px",
   borderRadius: 999,
   background: "rgba(0,0,0,.35)",
-  fontSize: 17,
+  fontSize: 14,
 };
 
 const summaryBox: React.CSSProperties = {
   display: "grid",
-  gap: 10,
-  maxHeight: 340,
+  gap: 6,
+  maxHeight: 150,
   overflowY: "auto",
-  paddingRight: 6,
+  paddingRight: 4,
 };
 
 const summaryRow: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 16,
-  padding: "13px 18px",
-  borderRadius: 14,
+  gap: 12,
+  padding: "8px 12px",
+  borderRadius: 10,
   background: "rgba(255,255,255,.04)",
   border: "1px solid rgba(168,85,247,.2)",
 };
@@ -1013,23 +1016,23 @@ const summaryRow: React.CSSProperties = {
 const summaryTitle: React.CSSProperties = {
   color: "#fff",
   fontWeight: 800,
-  fontSize: 18,
+  fontSize: 14,
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
 };
 
 const summaryMeta: React.CSSProperties = {
-  marginTop: 4,
+  marginTop: 2,
   color: "#a99cc6",
-  fontSize: 15,
+  fontSize: 12,
 };
 
 const rowRemove: React.CSSProperties = {
-  width: 36,
-  height: 36,
+  width: 28,
+  height: 28,
   flexShrink: 0,
-  borderRadius: 10,
+  borderRadius: 8,
   border: "1px solid rgba(239,68,68,.4)",
   background: "rgba(70,0,0,.5)",
   color: "#fecaca",
@@ -1037,63 +1040,65 @@ const rowRemove: React.CSSProperties = {
   fontWeight: 900,
 };
 
-const openNote: React.CSSProperties = {
-  marginTop: 16,
-  color: "#a99cc6",
-  fontSize: 15,
-  fontWeight: 700,
-};
-
 const errorBox: React.CSSProperties = {
-  marginTop: 18,
-  padding: "13px 18px",
-  borderRadius: 12,
+  marginTop: 10,
+  padding: "9px 14px",
+  borderRadius: 10,
   border: "1px solid rgba(239,68,68,.45)",
   background: "rgba(70,0,0,.35)",
   color: "#fecaca",
   fontWeight: 700,
-  fontSize: 17,
+  fontSize: 14,
 };
 
 const footer: React.CSSProperties = {
   display: "flex",
-  gap: 16,
+  gap: 12,
+  alignItems: "center",
   justifyContent: "flex-end",
-  padding: "20px 34px",
+  padding: "11px 22px",
   borderTop: "1px solid rgba(168,85,247,.22)",
   background: "rgba(0,0,0,.35)",
 };
 
+const viewOnlyNote: React.CSSProperties = {
+  marginRight: "auto",
+  color: "#fca5a5",
+  fontSize: 13,
+  fontWeight: 800,
+};
+
 const ghostBtn: React.CSSProperties = {
-  padding: "16px 32px",
-  borderRadius: 14,
+  padding: "11px 24px",
+  borderRadius: 11,
   border: "1px solid rgba(255,255,255,.2)",
   background: "rgba(255,255,255,.06)",
   color: "#fff",
-  fontSize: 17,
+  fontSize: 14,
   fontWeight: 900,
   cursor: "pointer",
 };
 
 const confirmBtn: React.CSSProperties = {
-  padding: "16px 40px",
-  borderRadius: 14,
+  padding: "11px 30px",
+  borderRadius: 11,
   border: "none",
   background: "linear-gradient(90deg,#facc15,#a66a1f)",
   color: "#160b02",
   fontWeight: 900,
-  fontSize: 20,
+  fontSize: 16,
   boxShadow: "0 0 22px rgba(250,204,21,.45)",
 };
 
 const stepBtn: React.CSSProperties = {
-  width: 50,
-  height: 50,
-  borderRadius: 12,
+  width: 32,
+  height: 34,
+  flexShrink: 0,
+  borderRadius: 9,
   border: "1px solid rgba(168,85,247,.3)",
   background: "rgba(255,255,255,.05)",
   color: "#fff",
-  fontSize: 22,
+  fontSize: 16,
   fontWeight: 900,
   cursor: "pointer",
 };
