@@ -37,6 +37,7 @@ type Run = {
   signup_open_at?: string;
   healer_limit?: number;
   background_key?: string;
+  exp_required?: string;
 dps_limit?: number;
 };
 
@@ -583,14 +584,15 @@ useEffect(() => {
     return `${selectedCharacter.name} - ${selectedCharacter.spec} ${selectedCharacter.class}`;
   }
 
-function getRequiredBossExp(title: string) {
-  const match = title.match(/(\d+)\s*\/\s*9\s*(m|mythic|hc|heroic)/i);
+function getRequiredBossExp(run: Run) {
+  if (!run.exp_required) return null;
 
+  const match = run.exp_required.match(/(\d+)\s*\/\s*9\s*(m|hc|nm)?/i);
   if (!match) return null;
 
   return {
     bosses: Number(match[1]),
-    difficulty: match[2].toLowerCase().includes("h") ? "HC" : "M",
+    difficulty: match[2]?.toLowerCase().includes("h") ? "HC" : "M",
   };
 }
 
@@ -659,7 +661,7 @@ if (
 }
 
 if (role !== "Loot Body" && run) {
-  const requiredExp = getRequiredBossExp(run.title);
+  const requiredExp = getRequiredBossExp(run);
   const characterExp =
   characters
     .map((char) => getCharacterBossExp(char.progress))
@@ -2585,102 +2587,14 @@ style={{
     </button>
   </div>
 )}
-{showCreateRun && (
-  <div style={modalOverlay}>
-    <div style={createRunPanel}>
-      <div style={createRunTitle}>Create Run</div>
-
-      <input
-        placeholder="Run title"
-        value={newRunTitle}
-        onChange={(e) => setNewRunTitle(e.target.value)}
-        style={createInput}
-      />
-
-      <input
-        placeholder="Required ilvl"
-        value={newRunIlvl}
-        onChange={(e) => setNewRunIlvl(e.target.value)}
-        style={createInput}
-      />
-<input
-  placeholder="Healer spots"
-  value={newRunHealers}
-  onChange={(e) => setNewRunHealers(e.target.value)}
-  style={createInput}
+<CreateRunModal
+  open={showCreateRun}
+  onClose={() => setShowCreateRun(false)}
+  onCreated={async () => {
+    await loadRuns(selectedWeekRef.current);
+    await loadSignups();
+  }}
 />
-
-<input
-  placeholder="DPS spots"
-  value={newRunDps}
-  onChange={(e) => setNewRunDps(e.target.value)}
-  style={createInput}
-/>
-      <input
-        placeholder="Day"
-        value={newRunDay}
-        onChange={(e) => setNewRunDay(e.target.value)}
-        style={createInput}
-      />
-
-<input
-  placeholder="Time"
-  value={newRunTime}
-  onChange={(e) => setNewRunTime(e.target.value)}
-  style={createInput}
-/>
-
-<input
-  type="datetime-local"
-  value={newRunSignupOpenAt}
-  onChange={(e) => setNewRunSignupOpenAt(e.target.value)}
-  style={createInput}
-/>
-
-<select
-  value={newRunBackground}
-  onChange={(e) => setNewRunBackground(e.target.value)}
-  style={createInput}
->
-  <option value="mythic-red">Mythic Red</option>
-  <option value="mythic-purple">Mythic Purple</option>
-  <option value="hc-gold">HC Gold</option>
-  <option value="void">Void</option>
-</select>
-
-<input
-  placeholder="Notes"
-  value={newRunNotes}
-  onChange={(e) => setNewRunNotes(e.target.value)}
-  style={createInput}
-/>
-<select
-  value={newRunBackground}
-  onChange={(e) => setNewRunBackground(e.target.value)}
-  style={createInput}
->
-  <option value="mythic-red">Mythic Red</option>
-  <option value="mythic-purple">Mythic Purple</option>
-  <option value="hc-gold">HC Gold</option>
-  <option value="void">Void</option>
-</select>
-
-      <button
-        onClick={createRun}
-        style={createRunConfirm}
-      >
-        Create Run
-      </button>
-
-      <button
-        onClick={() => setShowCreateRun(false)}
-        style={cancelEditButton}
-      >
-        Cancel
-      </button>
-    </div>
-  </div>
-)}
 
     {editingRun && (
   <div style={modalOverlay}>
@@ -2960,7 +2874,15 @@ overflow: "visible",
                   }}
                 >
                   <div style={{ paddingLeft: 28 }}>
-                    <h2 style={{ ...runTitle, color: theme.title }}>
+                    <h2
+                      style={{
+                        ...runTitle,
+                        color: theme.title,
+                        fontSize: getTitleFontSize(run.title),
+                        maxWidth: "72%",
+                        lineHeight: 1.12,
+                      }}
+                    >
                       {run.title}
                     </h2>
                     <div
@@ -4383,7 +4305,7 @@ function getRunTheme(run: Run, index: number) {
       bg: "/nightfall.png",
       glow: "rgba(59,130,246,.95)",
       title: "#bfdbfe",
-      emblem: "/hc-emblem1.png",
+      emblem: "/mythic-emblem.png",
     };
   }
 
@@ -4422,6 +4344,12 @@ function getIlvlColor(ilvl?: number) {
   if (ilvl >= 270) return "#22c55e";
 
   return "#9ca3af";
+}
+function getTitleFontSize(title: string) {
+  if (title.length > 48) return 24;
+  if (title.length > 38) return 28;
+  if (title.length > 30) return 33;
+  return 40;
 }
 
 function getRoleIcon(role: string) {
