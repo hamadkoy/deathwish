@@ -4305,7 +4305,7 @@ function getRunTheme(run: Run, index: number) {
       bg: "/nightfall.png",
       glow: "rgba(59,130,246,.95)",
       title: "#bfdbfe",
-      emblem: "/mythic-emblem.png",
+      emblem: "/hc-emblem1.png",
     };
   }
 
