@@ -133,7 +133,7 @@ export default function CreateRunModal({
   const [lootType, setLootType] =
     useState<(typeof LOOT_TYPES)[number]>("VIP");
   const [bossCount, setBossCount] = useState("8/9");
-  const [expRequired, setExpRequired] = useState(""); // "" = no requirement
+  const [expRequired, setExpRequired] = useState("");
   const [ilvl, setIlvl] = useState("");
   const [healers, setHealers] = useState(3);
   const [dps, setDps] = useState(10);
@@ -429,15 +429,15 @@ export default function CreateRunModal({
                     style={{
                       ...chip(theme === t.key),
                       justifyContent: "flex-start",
-                      gap: 8,
+                      gap: 9,
                       display: "flex",
                       alignItems: "center",
                     }}
                   >
                     <span
                       style={{
-                        width: 11,
-                        height: 11,
+                        width: 13,
+                        height: 13,
                         flexShrink: 0,
                         borderRadius: "50%",
                         background: t.dot,
@@ -456,8 +456,8 @@ export default function CreateRunModal({
                 onChange={(e) => setNotes(e.target.value)}
                 style={{
                   ...input,
-                  height: 66,
-                  paddingTop: 9,
+                  height: 84,
+                  paddingTop: 11,
                   resize: "vertical",
                 }}
               />
@@ -474,12 +474,12 @@ export default function CreateRunModal({
                   <b style={{ color: ACCENT }}>({dates.length} selected)</b>
                 </span>
 
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <button onClick={() => shiftMonth(-1)} style={navBtn}>
                     ‹
                   </button>
 
-                  <b style={{ minWidth: 128, textAlign: "center" }}>
+                  <b style={{ minWidth: 160, textAlign: "center" }}>
                     {new Date(viewYear, viewMonth, 1).toLocaleDateString(
                       "en-GB",
                       { month: "long", year: "numeric" }
@@ -548,7 +548,7 @@ export default function CreateRunModal({
                   <b style={{ color: ACCENT }}>({times.length} selected)</b>
                 </span>
 
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
                   {[5, 15, 30, 60].map((s) => (
                     <button
                       key={s}
@@ -579,7 +579,7 @@ export default function CreateRunModal({
                 style={{
                   ...timeGrid,
                   // 5m / 15m make far too many slots to show at once
-                  maxHeight: step >= 30 ? "none" : 258,
+                  maxHeight: step >= 30 ? "none" : 330,
                   overflowY: step >= 30 ? "visible" : "auto",
                 }}
               >
@@ -713,7 +713,7 @@ function Stepper({
   onChange: (v: number) => void;
 }) {
   return (
-    <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
       <button
         onClick={() => onChange(Math.max(0, value - 1))}
         style={stepBtn}
@@ -757,11 +757,11 @@ const overlay: React.CSSProperties = {
 };
 
 const panel: React.CSSProperties = {
-  width: "min(2100px, 97vw)",
-  maxHeight: "96vh",
+  width: "min(2400px, 98vw)",
+  maxHeight: "97vh",
   display: "flex",
   flexDirection: "column",
-  borderRadius: 20,
+  borderRadius: 22,
   border: "1px solid rgba(168,85,247,.45)",
   background: "linear-gradient(180deg, rgba(12,6,24,.99), rgba(4,0,12,.99))",
   boxShadow: "0 0 60px rgba(168,85,247,.35)",
@@ -772,12 +772,12 @@ const header: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  padding: "12px 22px",
+  padding: "16px 28px",
   borderBottom: "1px solid rgba(168,85,247,.22)",
 };
 
 const headerTitle: React.CSSProperties = {
-  fontSize: 24,
+  fontSize: 34,
   fontWeight: 900,
   color: "#fff",
   fontFamily: "Georgia, serif",
@@ -785,26 +785,26 @@ const headerTitle: React.CSSProperties = {
 };
 
 const headerSub: React.CSSProperties = {
-  marginTop: 2,
+  marginTop: 3,
   color: ACCENT,
-  fontSize: 14,
+  fontSize: 18,
   fontWeight: 800,
 };
 
 const closeBtn: React.CSSProperties = {
-  width: 36,
-  height: 36,
-  borderRadius: 11,
+  width: 44,
+  height: 44,
+  borderRadius: 13,
   border: "1px solid rgba(239,68,68,.45)",
   background: "linear-gradient(180deg,#7f1d1d,#450a0a)",
   color: "#fff",
-  fontSize: 15,
+  fontSize: 18,
   fontWeight: 900,
   cursor: "pointer",
 };
 
 const body: React.CSSProperties = {
-  padding: "14px 22px",
+  padding: "18px 28px",
   overflowY: "auto",
   flex: 1,
 };
@@ -812,82 +812,82 @@ const body: React.CSSProperties = {
 const topGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(4, 1fr)",
-  gap: 26,
-  marginBottom: 14,
+  gap: 32,
+  marginBottom: 18,
 };
 
 const twoUp: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 10,
+  gap: 12,
 };
 
 const themeGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 7,
+  gap: 9,
 };
 
 const scheduleGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 16,
-  marginBottom: 12,
+  gap: 20,
+  marginBottom: 16,
 };
 
 const sectionLabel: React.CSSProperties = {
   color: ACCENT,
-  fontSize: 13,
+  fontSize: 17,
   fontWeight: 900,
   letterSpacing: 1.5,
   textTransform: "uppercase",
-  marginBottom: 6,
+  marginBottom: 8,
 };
 
 const fieldLabel: React.CSSProperties = {
   color: "#9d8ec2",
-  fontSize: 11,
+  fontSize: 14,
   fontWeight: 800,
   letterSpacing: 1,
   textTransform: "uppercase",
-  margin: "9px 0 4px",
+  margin: "12px 0 6px",
 };
 
 const input: React.CSSProperties = {
   width: "100%",
-  padding: "8px 11px",
-  borderRadius: 9,
+  padding: "11px 14px",
+  borderRadius: 10,
   border: "1px solid rgba(168,85,247,.3)",
   background: "rgba(15,4,32,.9)",
   color: "#fff",
   fontWeight: 700,
-  fontSize: 14,
+  fontSize: 18,
   outline: "none",
 };
 
 const chipRow: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: 6,
+  gap: 8,
 };
 
 const chip = (active: boolean): React.CSSProperties => ({
-  padding: "7px 12px",
-  borderRadius: 9,
+  padding: "10px 16px",
+  borderRadius: 10,
   border: active ? "1px solid #d8b4fe" : "1px solid rgba(168,85,247,.28)",
   background: active
     ? "linear-gradient(180deg,#9333ea,#6b21a8)"
     : "rgba(255,255,255,.05)",
   color: "#fff",
   fontWeight: 800,
-  fontSize: 13,
+  fontSize: 17,
   cursor: "pointer",
   boxShadow: active ? "0 0 16px rgba(168,85,247,.5)" : "none",
 });
 
 const card: React.CSSProperties = {
-  padding: 13,
-  borderRadius: 14,
+  padding: 18,
+  borderRadius: 16,
   border: "1px solid rgba(168,85,247,.25)",
   background: "rgba(255,255,255,.03)",
 };
@@ -896,108 +896,108 @@ const cardHead: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 10,
+  gap: 12,
   color: "#cbbde6",
-  fontSize: 12,
+  fontSize: 16,
   fontWeight: 800,
   letterSpacing: 1,
   textTransform: "uppercase",
-  marginBottom: 10,
+  marginBottom: 14,
 };
 
 const clearBtn: React.CSSProperties = {
-  padding: "4px 9px",
-  borderRadius: 7,
+  padding: "6px 12px",
+  borderRadius: 8,
   border: "1px solid rgba(168,85,247,.35)",
   background: "transparent",
   color: "#c4b5fd",
-  fontSize: 11,
+  fontSize: 14,
   fontWeight: 800,
   cursor: "pointer",
 };
 
 const navBtn: React.CSSProperties = {
-  width: 28,
-  height: 28,
-  borderRadius: 8,
+  width: 34,
+  height: 34,
+  borderRadius: 9,
   border: "1px solid rgba(168,85,247,.3)",
   background: "rgba(255,255,255,.05)",
   color: "#fff",
-  fontSize: 16,
+  fontSize: 20,
   cursor: "pointer",
 };
 
 const dayHeadRow: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(7, 1fr)",
-  marginBottom: 3,
+  marginBottom: 5,
 };
 
 const dayHead: React.CSSProperties = {
   textAlign: "center",
   color: "#8b7bb0",
-  fontSize: 11,
+  fontSize: 15,
   fontWeight: 800,
-  padding: "3px 0",
+  padding: "4px 0",
 };
 
 const calGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(7, 1fr)",
-  gap: 4,
+  gap: 6,
 };
 
 const dayCell: React.CSSProperties = {
-  height: 34,
-  borderRadius: 9,
-  fontSize: 14,
+  height: 54,
+  borderRadius: 11,
+  fontSize: 21,
   fontWeight: 700,
   cursor: "pointer",
 };
 
 const timeGrid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(68px, 1fr))",
-  gap: 5,
+  gridTemplateColumns: "repeat(auto-fill, minmax(112px, 1fr))",
+  gap: 8,
   paddingRight: 2,
 };
 
 const timeCell: React.CSSProperties = {
-  padding: "7px 0",
-  borderRadius: 8,
+  padding: "14px 0",
+  borderRadius: 10,
   color: "#fff",
-  fontSize: 13,
+  fontSize: 20,
   fontWeight: 800,
   cursor: "pointer",
 };
 
 const primaryBtn: React.CSSProperties = {
   width: "100%",
-  padding: "12px",
-  borderRadius: 12,
+  padding: "16px",
+  borderRadius: 14,
   border: "1px solid rgba(216,180,254,.5)",
   background: "linear-gradient(90deg,#9333ea,#d946ef)",
   color: "#fff",
   fontWeight: 900,
-  fontSize: 17,
+  fontSize: 22,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 10,
+  gap: 12,
   boxShadow: "0 0 24px rgba(217,70,239,.45)",
 };
 
 const countPill: React.CSSProperties = {
-  padding: "3px 12px",
+  padding: "4px 15px",
   borderRadius: 999,
   background: "rgba(0,0,0,.35)",
-  fontSize: 14,
+  fontSize: 18,
 };
 
 const summaryBox: React.CSSProperties = {
   display: "grid",
-  gap: 6,
-  maxHeight: 150,
+  gap: 8,
+  maxHeight: 190,
   overflowY: "auto",
   paddingRight: 4,
 };
@@ -1006,9 +1006,9 @@ const summaryRow: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
-  padding: "8px 12px",
-  borderRadius: 10,
+  gap: 14,
+  padding: "10px 15px",
+  borderRadius: 11,
   background: "rgba(255,255,255,.04)",
   border: "1px solid rgba(168,85,247,.2)",
 };
@@ -1016,23 +1016,23 @@ const summaryRow: React.CSSProperties = {
 const summaryTitle: React.CSSProperties = {
   color: "#fff",
   fontWeight: 800,
-  fontSize: 14,
+  fontSize: 17,
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
 };
 
 const summaryMeta: React.CSSProperties = {
-  marginTop: 2,
+  marginTop: 3,
   color: "#a99cc6",
-  fontSize: 12,
+  fontSize: 15,
 };
 
 const rowRemove: React.CSSProperties = {
-  width: 28,
-  height: 28,
+  width: 32,
+  height: 32,
   flexShrink: 0,
-  borderRadius: 8,
+  borderRadius: 9,
   border: "1px solid rgba(239,68,68,.4)",
   background: "rgba(70,0,0,.5)",
   color: "#fecaca",
@@ -1041,22 +1041,22 @@ const rowRemove: React.CSSProperties = {
 };
 
 const errorBox: React.CSSProperties = {
-  marginTop: 10,
-  padding: "9px 14px",
+  marginTop: 12,
+  padding: "11px 16px",
   borderRadius: 10,
   border: "1px solid rgba(239,68,68,.45)",
   background: "rgba(70,0,0,.35)",
   color: "#fecaca",
   fontWeight: 700,
-  fontSize: 14,
+  fontSize: 17,
 };
 
 const footer: React.CSSProperties = {
   display: "flex",
-  gap: 12,
+  gap: 14,
   alignItems: "center",
   justifyContent: "flex-end",
-  padding: "11px 22px",
+  padding: "14px 28px",
   borderTop: "1px solid rgba(168,85,247,.22)",
   background: "rgba(0,0,0,.35)",
 };
@@ -1064,41 +1064,41 @@ const footer: React.CSSProperties = {
 const viewOnlyNote: React.CSSProperties = {
   marginRight: "auto",
   color: "#fca5a5",
-  fontSize: 13,
+  fontSize: 16,
   fontWeight: 800,
 };
 
 const ghostBtn: React.CSSProperties = {
-  padding: "11px 24px",
-  borderRadius: 11,
+  padding: "13px 30px",
+  borderRadius: 12,
   border: "1px solid rgba(255,255,255,.2)",
   background: "rgba(255,255,255,.06)",
   color: "#fff",
-  fontSize: 14,
+  fontSize: 17,
   fontWeight: 900,
   cursor: "pointer",
 };
 
 const confirmBtn: React.CSSProperties = {
-  padding: "11px 30px",
-  borderRadius: 11,
+  padding: "13px 38px",
+  borderRadius: 12,
   border: "none",
   background: "linear-gradient(90deg,#facc15,#a66a1f)",
   color: "#160b02",
   fontWeight: 900,
-  fontSize: 16,
+  fontSize: 20,
   boxShadow: "0 0 22px rgba(250,204,21,.45)",
 };
 
 const stepBtn: React.CSSProperties = {
-  width: 32,
-  height: 34,
+  width: 38,
+  height: 42,
   flexShrink: 0,
-  borderRadius: 9,
+  borderRadius: 10,
   border: "1px solid rgba(168,85,247,.3)",
   background: "rgba(255,255,255,.05)",
   color: "#fff",
-  fontSize: 16,
+  fontSize: 19,
   fontWeight: 900,
   cursor: "pointer",
 };
