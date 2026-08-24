@@ -94,7 +94,7 @@ function getShortWeekRange(week: number) {
   );
 
   const weekEnd = new Date(
-    weekStart.getTime() + WEEK_MS
+    weekStart.getTime() + WEEK_MS - 24 * 60 * 60 * 1000
   );
 
   return `${weekStart.getMonth() + 1}/${weekStart.getDate()} → ${
