@@ -31,14 +31,15 @@ const THEMES = [
   { key: "void", label: "Void", dot: "#60a5fa" },
 ];
 
-// Signup countdown: how long before the run signups unlock
+// Signup countdown: measured from the moment you press Create.
+// Every run in the batch unlocks at the same time.
 const COUNTDOWNS = [
-  { label: "No countdown", hours: 0 },
-  { label: "1 hour before", hours: 1 },
-  { label: "6 hours before", hours: 6 },
-  { label: "12 hours before", hours: 12 },
-  { label: "24 hours before", hours: 24 },
-  { label: "48 hours before", hours: 48 },
+  { label: "Open immediately", hours: 0 },
+  { label: "Open 1 hour after creating", hours: 1 },
+  { label: "Open 6 hours after creating", hours: 6 },
+  { label: "Open 12 hours after creating", hours: 12 },
+  { label: "Open 24 hours after creating", hours: 24 },
+  { label: "Open 48 hours after creating", hours: 48 },
 ];
 
 const WEEKDAYS = [
@@ -178,6 +179,7 @@ export default function CreateRunModal({
 
   /* ==============================
      Build one draft per date × time
+     (signup_open_at is stamped later, in createAll)
   ============================== */
   function addToSummary() {
     setError("");
@@ -199,10 +201,6 @@ export default function CreateRunModal({
           .sort()
           .forEach((time) => {
             const dateObj = fromKey(dateKey);
-            const [h, m] = time.split(":").map(Number);
-
-            const runMoment = new Date(dateObj);
-            runMoment.setHours(h, m, 0, 0);
 
             next.push({
               key: `${dateKey}-${time}`,
@@ -216,12 +214,7 @@ export default function CreateRunModal({
               ilvl_required: Number(ilvl) || null,
               healer_limit: Number(healers) || 3,
               dps_limit: Number(dps) || 10,
-              signup_open_at:
-                countdownHours > 0
-                  ? new Date(
-                      runMoment.getTime() - countdownHours * 60 * 60 * 1000
-                    ).toISOString()
-                  : null,
+              signup_open_at: null,
             });
           });
       });
@@ -241,7 +234,16 @@ export default function CreateRunModal({
     setSaving(true);
     setError("");
 
-    const rows = drafts.map(({ key, ...row }) => row);
+    // One shared timestamp, counted from now — every run unlocks together.
+    const openAt =
+      countdownHours > 0
+        ? new Date(Date.now() + countdownHours * 60 * 60 * 1000).toISOString()
+        : null;
+
+    const rows = drafts.map(({ key, ...row }) => ({
+      ...row,
+      signup_open_at: openAt,
+    }));
 
     const { error: insertError } = await supabase.from("runs").insert(rows);
 
@@ -610,6 +612,12 @@ export default function CreateRunModal({
                     </button>
                   </div>
                 ))}
+              </div>
+
+              <div style={openNote}>
+                {countdownHours > 0
+                  ? `All ${drafts.length} runs will unlock ${countdownHours}h after you press Create.`
+                  : "Signups open the moment you press Create."}
               </div>
             </>
           )}
@@ -984,6 +992,13 @@ const rowRemove: React.CSSProperties = {
   color: "#fecaca",
   cursor: "pointer",
   fontWeight: 900,
+};
+
+const openNote: React.CSSProperties = {
+  marginTop: 12,
+  color: "#a99cc6",
+  fontSize: 12,
+  fontWeight: 700,
 };
 
 const errorBox: React.CSSProperties = {
