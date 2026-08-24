@@ -107,6 +107,7 @@ type Draft = {
   notes: string;
   background_key: string;
   ilvl_required: number | null;
+  exp_required: string | null;
   healer_limit: number;
   dps_limit: number;
   signup_open_at: string | null;
@@ -129,6 +130,7 @@ export default function CreateRunModal({
   const [lootType, setLootType] =
     useState<(typeof LOOT_TYPES)[number]>("VIP");
   const [bossCount, setBossCount] = useState("8/9");
+  const [expRequired, setExpRequired] = useState(""); // "" = no requirement
   const [ilvl, setIlvl] = useState("");
   const [healers, setHealers] = useState(3);
   const [dps, setDps] = useState(10);
@@ -158,12 +160,16 @@ export default function CreateRunModal({
 
   const pendingCount = dates.length * times.length;
 
+  const diffTag =
+    difficulty === "Mythic" ? "M" : difficulty === "Heroic" ? "HC" : "NM";
+
   const runTitle = () => {
     const name = customRaid.trim() || raid;
-    const diffTag =
-      difficulty === "Mythic" ? "M" : difficulty === "Heroic" ? "HC" : "NM";
     return `${name} ${bossCount}${diffTag} ${lootType}`.trim();
   };
+
+  // "" stays null in the DB — no experience gate at all
+  const expValue = expRequired ? `${expRequired}${diffTag}` : null;
 
   function toggle(list: string[], value: string) {
     return list.includes(value)
@@ -212,6 +218,7 @@ export default function CreateRunModal({
               notes,
               background_key: theme,
               ilvl_required: Number(ilvl) || null,
+              exp_required: expValue,
               healer_limit: Number(healers) || 3,
               dps_limit: Number(dps) || 10,
               signup_open_at: null,
@@ -306,7 +313,7 @@ export default function CreateRunModal({
                 style={input}
               />
 
-              <div style={fieldLabel}>Boss count</div>
+              <div style={fieldLabel}>Boss count (what you sell)</div>
               <select
                 value={bossCount}
                 onChange={(e) => setBossCount(e.target.value)}
@@ -348,18 +355,38 @@ export default function CreateRunModal({
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div>
+              <div style={sectionLabel}>Requirements</div>
+
+              <div style={fieldLabel}>Boss experience needed</div>
+              <select
+                value={expRequired}
+                onChange={(e) => setExpRequired(e.target.value)}
+                style={input}
+              >
+                <option value="">No experience needed</option>
+                {BOSS_COUNTS.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                    {diffTag} or better
+                  </option>
+                ))}
+              </select>
+
+              <div style={hint}>
+                Separate from boss count — sell a 9/9M run with no experience
+                gate early in the season.
+              </div>
 
               <div style={fieldLabel}>Required ilvl</div>
               <input
-                placeholder="e.g. 700"
+                placeholder="e.g. 700 — leave empty for none"
                 value={ilvl}
                 onChange={(e) => setIlvl(e.target.value)}
                 style={input}
               />
-            </div>
-
-            <div>
-              <div style={sectionLabel}>Spots</div>
 
               <div style={fieldLabel}>Healers</div>
               <Stepper value={healers} onChange={setHealers} />
@@ -385,7 +412,7 @@ export default function CreateRunModal({
               <div style={sectionLabel}>Theme &amp; note</div>
 
               <div style={fieldLabel}>Card background</div>
-              <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ display: "grid", gap: 10 }}>
                 {THEMES.map((t) => (
                   <button
                     key={t.key}
@@ -393,15 +420,15 @@ export default function CreateRunModal({
                     style={{
                       ...chip(theme === t.key),
                       justifyContent: "flex-start",
-                      gap: 10,
+                      gap: 12,
                       display: "flex",
                       alignItems: "center",
                     }}
                   >
                     <span
                       style={{
-                        width: 12,
-                        height: 12,
+                        width: 14,
+                        height: 14,
                         borderRadius: "50%",
                         background: t.dot,
                         boxShadow: `0 0 10px ${t.dot}`,
@@ -417,7 +444,12 @@ export default function CreateRunModal({
                 placeholder="Shown on every run in this batch"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                style={{ ...input, height: 84, paddingTop: 10, resize: "vertical" }}
+                style={{
+                  ...input,
+                  height: 108,
+                  paddingTop: 12,
+                  resize: "vertical",
+                }}
               />
             </div>
           </div>
@@ -585,7 +617,7 @@ export default function CreateRunModal({
           {/* ---------- summary ---------- */}
           {drafts.length > 0 && (
             <>
-              <div style={{ ...sectionLabel, marginTop: 26 }}>
+              <div style={{ ...sectionLabel, marginTop: 30 }}>
                 Summary — {drafts.length} run{drafts.length === 1 ? "" : "s"}
               </div>
 
@@ -598,6 +630,7 @@ export default function CreateRunModal({
                         Week {d.week} • {d.day} •{" "}
                         {fromKey(d.run_date).toLocaleDateString("en-GB")} •{" "}
                         {d.time}
+                        {d.exp_required ? ` • needs ${d.exp_required}` : ""}
                       </div>
                     </div>
 
@@ -662,7 +695,9 @@ function Stepper({
   onChange: (v: number) => void;
 }) {
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+    <div
+      style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 4 }}
+    >
       <button
         onClick={() => onChange(Math.max(0, value - 1))}
         style={stepBtn}
@@ -674,7 +709,7 @@ function Stepper({
       <input
         value={value}
         onChange={(e) => onChange(Number(e.target.value.replace(/\D/g, "")) || 0)}
-        style={{ ...input, marginBottom: 0, textAlign: "center", width: 70 }}
+        style={{ ...input, marginBottom: 0, textAlign: "center", width: 90 }}
       />
 
       <button
@@ -701,16 +736,16 @@ const overlay: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: 24,
+  padding: 16,
   zIndex: 999999,
 };
 
 const panel: React.CSSProperties = {
-  width: "min(1360px, 100%)",
-  maxHeight: "92vh",
+  width: "min(2100px, 96vw)",
+  maxHeight: "95vh",
   display: "flex",
   flexDirection: "column",
-  borderRadius: 22,
+  borderRadius: 26,
   border: "1px solid rgba(168,85,247,.45)",
   background: "linear-gradient(180deg, rgba(12,6,24,.99), rgba(4,0,12,.99))",
   boxShadow: "0 0 60px rgba(168,85,247,.35)",
@@ -721,12 +756,12 @@ const header: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  padding: "20px 26px",
+  padding: "26px 34px",
   borderBottom: "1px solid rgba(168,85,247,.22)",
 };
 
 const headerTitle: React.CSSProperties = {
-  fontSize: 28,
+  fontSize: 36,
   fontWeight: 900,
   color: "#fff",
   fontFamily: "Georgia, serif",
@@ -734,97 +769,105 @@ const headerTitle: React.CSSProperties = {
 };
 
 const headerSub: React.CSSProperties = {
-  marginTop: 4,
+  marginTop: 6,
   color: ACCENT,
-  fontSize: 14,
+  fontSize: 18,
   fontWeight: 800,
 };
 
 const closeBtn: React.CSSProperties = {
-  width: 38,
-  height: 38,
-  borderRadius: 12,
+  width: 48,
+  height: 48,
+  borderRadius: 14,
   border: "1px solid rgba(239,68,68,.45)",
   background: "linear-gradient(180deg,#7f1d1d,#450a0a)",
   color: "#fff",
+  fontSize: 18,
   fontWeight: 900,
   cursor: "pointer",
 };
 
 const body: React.CSSProperties = {
-  padding: 24,
+  padding: 32,
   overflowY: "auto",
   flex: 1,
 };
 
 const topGrid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-  gap: 24,
-  marginBottom: 26,
+  gridTemplateColumns: "repeat(4, 1fr)",
+  gap: 36,
+  marginBottom: 34,
 };
 
 const scheduleGrid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
-  gap: 18,
-  marginBottom: 18,
+  gridTemplateColumns: "1fr 1fr",
+  gap: 28,
+  marginBottom: 24,
 };
 
 const sectionLabel: React.CSSProperties = {
   color: ACCENT,
-  fontSize: 13,
+  fontSize: 17,
   fontWeight: 900,
   letterSpacing: 2,
   textTransform: "uppercase",
-  marginBottom: 12,
+  marginBottom: 16,
 };
 
 const fieldLabel: React.CSSProperties = {
   color: "#9d8ec2",
-  fontSize: 11,
+  fontSize: 14,
   fontWeight: 800,
   letterSpacing: 1,
   textTransform: "uppercase",
-  margin: "12px 0 6px",
+  margin: "16px 0 8px",
+};
+
+const hint: React.CSSProperties = {
+  marginTop: 8,
+  color: "#7c6d9e",
+  fontSize: 13,
+  lineHeight: 1.5,
 };
 
 const input: React.CSSProperties = {
   width: "100%",
   marginBottom: 4,
-  padding: "10px 12px",
-  borderRadius: 10,
+  padding: "13px 16px",
+  borderRadius: 12,
   border: "1px solid rgba(168,85,247,.3)",
   background: "rgba(15,4,32,.9)",
   color: "#fff",
   fontWeight: 700,
-  fontSize: 14,
+  fontSize: 17,
   outline: "none",
 };
 
 const chipRow: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: 8,
+  gap: 10,
 };
 
 const chip = (active: boolean): React.CSSProperties => ({
-  padding: "9px 14px",
-  borderRadius: 10,
+  padding: "12px 18px",
+  borderRadius: 12,
   border: active ? "1px solid #d8b4fe" : "1px solid rgba(168,85,247,.28)",
   background: active
     ? "linear-gradient(180deg,#9333ea,#6b21a8)"
     : "rgba(255,255,255,.05)",
   color: "#fff",
   fontWeight: 800,
-  fontSize: 13,
+  fontSize: 16,
   cursor: "pointer",
   boxShadow: active ? "0 0 16px rgba(168,85,247,.5)" : "none",
 });
 
 const card: React.CSSProperties = {
-  padding: 16,
-  borderRadius: 16,
+  padding: 22,
+  borderRadius: 18,
   border: "1px solid rgba(168,85,247,.25)",
   background: "rgba(255,255,255,.03)",
 };
@@ -833,22 +876,22 @@ const cardHead: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 10,
+  gap: 12,
   color: "#cbbde6",
-  fontSize: 12,
+  fontSize: 15,
   fontWeight: 800,
   letterSpacing: 1,
   textTransform: "uppercase",
-  marginBottom: 12,
+  marginBottom: 16,
 };
 
 const clearBtn: React.CSSProperties = {
-  padding: "4px 10px",
-  borderRadius: 8,
+  padding: "6px 13px",
+  borderRadius: 9,
   border: "1px solid rgba(168,85,247,.35)",
   background: "transparent",
   color: "#c4b5fd",
-  fontSize: 11,
+  fontSize: 14,
   fontWeight: 800,
   cursor: "pointer",
 };
@@ -858,111 +901,111 @@ const monthRow: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   color: "#fff",
-  fontSize: 16,
-  marginBottom: 10,
+  fontSize: 21,
+  marginBottom: 14,
 };
 
 const navBtn: React.CSSProperties = {
-  width: 32,
-  height: 32,
-  borderRadius: 10,
+  width: 42,
+  height: 42,
+  borderRadius: 12,
   border: "1px solid rgba(168,85,247,.3)",
   background: "rgba(255,255,255,.05)",
   color: "#fff",
-  fontSize: 18,
+  fontSize: 22,
   cursor: "pointer",
 };
 
 const dayHeadRow: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(7, 1fr)",
-  marginBottom: 4,
+  marginBottom: 6,
 };
 
 const dayHead: React.CSSProperties = {
   textAlign: "center",
   color: "#8b7bb0",
-  fontSize: 11,
+  fontSize: 14,
   fontWeight: 800,
-  padding: "4px 0",
+  padding: "6px 0",
 };
 
 const calGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(7, 1fr)",
-  gap: 4,
+  gap: 6,
 };
 
 const dayCell: React.CSSProperties = {
-  height: 38,
-  borderRadius: 10,
-  fontSize: 14,
+  height: 54,
+  borderRadius: 12,
+  fontSize: 18,
   fontWeight: 700,
   cursor: "pointer",
 };
 
 const timeGrid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(62px, 1fr))",
-  gap: 6,
-  maxHeight: 300,
+  gridTemplateColumns: "repeat(auto-fill, minmax(86px, 1fr))",
+  gap: 8,
+  maxHeight: 420,
   overflowY: "auto",
-  paddingRight: 4,
+  paddingRight: 6,
 };
 
 const timeCell: React.CSSProperties = {
-  padding: "8px 0",
-  borderRadius: 8,
+  padding: "12px 0",
+  borderRadius: 10,
   color: "#fff",
-  fontSize: 12,
+  fontSize: 15,
   fontWeight: 800,
   cursor: "pointer",
 };
 
 const timezoneNote: React.CSSProperties = {
-  marginTop: 12,
+  marginTop: 16,
   color: "#8b7bb0",
-  fontSize: 12,
+  fontSize: 15,
 };
 
 const primaryBtn: React.CSSProperties = {
   width: "100%",
-  padding: "15px",
-  borderRadius: 14,
+  padding: "20px",
+  borderRadius: 16,
   border: "1px solid rgba(216,180,254,.5)",
   background: "linear-gradient(90deg,#9333ea,#d946ef)",
   color: "#fff",
   fontWeight: 900,
-  fontSize: 16,
+  fontSize: 21,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 12,
+  gap: 14,
   boxShadow: "0 0 24px rgba(217,70,239,.45)",
 };
 
 const countPill: React.CSSProperties = {
-  padding: "4px 12px",
+  padding: "5px 16px",
   borderRadius: 999,
   background: "rgba(0,0,0,.35)",
-  fontSize: 13,
+  fontSize: 17,
 };
 
 const summaryBox: React.CSSProperties = {
   display: "grid",
-  gap: 8,
-  maxHeight: 260,
+  gap: 10,
+  maxHeight: 340,
   overflowY: "auto",
-  paddingRight: 4,
+  paddingRight: 6,
 };
 
 const summaryRow: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
-  padding: "10px 14px",
-  borderRadius: 12,
+  gap: 16,
+  padding: "13px 18px",
+  borderRadius: 14,
   background: "rgba(255,255,255,.04)",
   border: "1px solid rgba(168,85,247,.2)",
 };
@@ -970,23 +1013,23 @@ const summaryRow: React.CSSProperties = {
 const summaryTitle: React.CSSProperties = {
   color: "#fff",
   fontWeight: 800,
-  fontSize: 14,
+  fontSize: 18,
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
 };
 
 const summaryMeta: React.CSSProperties = {
-  marginTop: 3,
+  marginTop: 4,
   color: "#a99cc6",
-  fontSize: 12,
+  fontSize: 15,
 };
 
 const rowRemove: React.CSSProperties = {
-  width: 28,
-  height: 28,
+  width: 36,
+  height: 36,
   flexShrink: 0,
-  borderRadius: 8,
+  borderRadius: 10,
   border: "1px solid rgba(239,68,68,.4)",
   background: "rgba(70,0,0,.5)",
   color: "#fecaca",
@@ -995,61 +1038,62 @@ const rowRemove: React.CSSProperties = {
 };
 
 const openNote: React.CSSProperties = {
-  marginTop: 12,
+  marginTop: 16,
   color: "#a99cc6",
-  fontSize: 12,
+  fontSize: 15,
   fontWeight: 700,
 };
 
 const errorBox: React.CSSProperties = {
-  marginTop: 14,
-  padding: "10px 14px",
-  borderRadius: 10,
+  marginTop: 18,
+  padding: "13px 18px",
+  borderRadius: 12,
   border: "1px solid rgba(239,68,68,.45)",
   background: "rgba(70,0,0,.35)",
   color: "#fecaca",
   fontWeight: 700,
-  fontSize: 14,
+  fontSize: 17,
 };
 
 const footer: React.CSSProperties = {
   display: "flex",
-  gap: 12,
+  gap: 16,
   justifyContent: "flex-end",
-  padding: "16px 26px",
+  padding: "20px 34px",
   borderTop: "1px solid rgba(168,85,247,.22)",
   background: "rgba(0,0,0,.35)",
 };
 
 const ghostBtn: React.CSSProperties = {
-  padding: "12px 24px",
-  borderRadius: 12,
+  padding: "16px 32px",
+  borderRadius: 14,
   border: "1px solid rgba(255,255,255,.2)",
   background: "rgba(255,255,255,.06)",
   color: "#fff",
+  fontSize: 17,
   fontWeight: 900,
   cursor: "pointer",
 };
 
 const confirmBtn: React.CSSProperties = {
-  padding: "12px 30px",
-  borderRadius: 12,
+  padding: "16px 40px",
+  borderRadius: 14,
   border: "none",
   background: "linear-gradient(90deg,#facc15,#a66a1f)",
   color: "#160b02",
   fontWeight: 900,
-  fontSize: 15,
+  fontSize: 20,
   boxShadow: "0 0 22px rgba(250,204,21,.45)",
 };
 
 const stepBtn: React.CSSProperties = {
-  width: 38,
-  height: 38,
-  borderRadius: 10,
+  width: 50,
+  height: 50,
+  borderRadius: 12,
   border: "1px solid rgba(168,85,247,.3)",
   background: "rgba(255,255,255,.05)",
   color: "#fff",
-  fontSize: 18,
+  fontSize: 22,
   fontWeight: 900,
   cursor: "pointer",
 };
