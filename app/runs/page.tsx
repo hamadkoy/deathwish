@@ -37,6 +37,7 @@ type Run = {
   signup_open_at?: string;
   healer_limit?: number;
   background_key?: string;
+  exp_required?: string;
 dps_limit?: number;
 };
 
@@ -583,14 +584,15 @@ useEffect(() => {
     return `${selectedCharacter.name} - ${selectedCharacter.spec} ${selectedCharacter.class}`;
   }
 
-function getRequiredBossExp(title: string) {
-  const match = title.match(/(\d+)\s*\/\s*9\s*(m|mythic|hc|heroic)/i);
+function getRequiredBossExp(run: Run) {
+  if (!run.exp_required) return null;
 
+  const match = run.exp_required.match(/(\d+)\s*\/\s*9\s*(m|hc|nm)?/i);
   if (!match) return null;
 
   return {
     bosses: Number(match[1]),
-    difficulty: match[2].toLowerCase().includes("h") ? "HC" : "M",
+    difficulty: match[2]?.toLowerCase().includes("h") ? "HC" : "M",
   };
 }
 
@@ -659,7 +661,7 @@ if (
 }
 
 if (role !== "Loot Body" && run) {
-  const requiredExp = getRequiredBossExp(run.title);
+  const requiredExp = getRequiredBossExp(run);
   const characterExp =
   characters
     .map((char) => getCharacterBossExp(char.progress))
@@ -2872,14 +2874,22 @@ overflow: "visible",
                   }}
                 >
                   <div style={{ paddingLeft: 28 }}>
-                    <h2 style={{ ...runTitle, color: theme.title }}>
+                    <h2
+                      style={{
+                        ...runTitle,
+                        color: theme.title,
+                        fontSize: getTitleFontSize(run.title),
+                        maxWidth: "72%",
+                        lineHeight: 1.12,
+                      }}
+                    >
                       {run.title}
                     </h2>
                     <div
   style={{
     position: "absolute",
     top: 26,
-    right: 110,
+    right: 104,
     display: "flex",
     alignItems: "center",
     gap: 8,
@@ -4295,7 +4305,7 @@ function getRunTheme(run: Run, index: number) {
       bg: "/nightfall.png",
       glow: "rgba(59,130,246,.95)",
       title: "#bfdbfe",
-      emblem: "/mythic-emblem.png",
+      emblem: "/hc-emblem1.png",
     };
   }
 
@@ -4334,6 +4344,12 @@ function getIlvlColor(ilvl?: number) {
   if (ilvl >= 270) return "#22c55e";
 
   return "#9ca3af";
+}
+function getTitleFontSize(title: string) {
+  if (title.length > 48) return 24;
+  if (title.length > 38) return 28;
+  if (title.length > 30) return 33;
+  return 40;
 }
 
 function getRoleIcon(role: string) {
@@ -4548,7 +4564,7 @@ const runBanner: React.CSSProperties = {
 const cornerFlag: React.CSSProperties = {
   position: "absolute",
   top: -14,
-  right: 45,
+  right: 12,
   width: 80,
   height: 120,
   objectFit: "contain",
