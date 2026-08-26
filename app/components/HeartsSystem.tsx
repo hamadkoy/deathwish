@@ -348,7 +348,7 @@ export function HeartsBar({
           {new Date().toLocaleDateString("en-GB", { month: "long" })} hearts
         </div>
 
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {Array.from({ length: MAX_HEARTS }, (_, i) => (
             <Heart key={i} filled={i < hearts} />
           ))}
@@ -1018,13 +1018,14 @@ const hb: Record<string, React.CSSProperties> = {
   },
   bar: {
     display: "flex",
+    flexDirection: "column",
     alignItems: "center",
-    gap: 12,
-    padding: "10px 18px",
-    borderRadius: 999,
-    border: "1px solid rgba(255,59,107,.45)",
-    background: "linear-gradient(180deg, rgba(40,4,24,.92), rgba(10,0,20,.97))",
-    boxShadow: "0 0 26px rgba(255,59,107,.28), inset 0 0 22px rgba(255,59,107,.10)",
+    gap: 14,
+    padding: "18px 20px",
+    borderRadius: 28,
+    border: "1px solid rgba(255,59,107,.55)",
+    background: "linear-gradient(180deg, rgba(30,2,18,.94), rgba(8,0,16,.97))",
+    boxShadow: "0 0 30px rgba(255,59,107,.35), inset 0 0 24px rgba(255,59,107,.10)",
     backdropFilter: "blur(10px)",
   },
   barBanned: {
@@ -1033,27 +1034,38 @@ const hb: Record<string, React.CSSProperties> = {
   },
   label: {
     color: "#ff8fb0",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 900,
     letterSpacing: 2,
     textTransform: "uppercase",
+    textAlign: "center",
+    lineHeight: 1.3,
+    maxWidth: 110,
+    textShadow: "0 0 14px rgba(255,59,107,.5)",
   },
-  count: { fontSize: 16, fontWeight: 900, letterSpacing: 1 },
+  count: {
+    fontSize: 20,
+    fontWeight: 900,
+    letterSpacing: 2,
+    textAlign: "center",
+  },
   divider: { width: 1, height: 22, background: "rgba(255,255,255,.15)" },
   locked: { color: "#fca5a5", fontSize: 12, fontWeight: 800 },
   toggle: {
-    padding: "7px 14px",
+    padding: "9px 14px",
     borderRadius: 999,
-    border: "1px solid rgba(168,85,247,.5)",
-    background: "rgba(20,10,35,.9)",
-    color: "#e9d5ff",
+    border: "1px solid rgba(255,59,107,.6)",
+    background: "linear-gradient(180deg, rgba(70,4,28,.95), rgba(20,0,12,.95))",
+    color: "#ffd9e4",
     fontWeight: 900,
     fontSize: 12,
     cursor: "pointer",
+    whiteSpace: "nowrap",
+    boxShadow: "0 0 18px rgba(255,59,107,.45)",
   },
   rosterBox: {
-    width: "min(560px, 92vw)",
-    maxHeight: 260,
+    width: "min(400px, 88vw)",
+    maxHeight: 300,
     overflowY: "auto",
     padding: 12,
     borderRadius: 16,
