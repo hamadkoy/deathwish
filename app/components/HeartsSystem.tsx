@@ -24,6 +24,23 @@ export const FREE_ROLES = ["Bench", "Loot Body"]; // unsigning these costs nothi
 export const RESTORE_HEART_ON_RESIGN = true;      // signing back returns the heart
 export const LIFT_BAN_WHEN_HEART_RESTORED = true; // X on a card can unlock a player
 
+// Keep this in sync with runs/page.tsx.
+export const SEASON_START = new Date("2026-08-19T07:00:00");
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Has this week actually begun?
+ * Unsigning from a future week is free — no heart, no card on the run.
+ * The moment the week starts, leaving costs a heart like normal.
+ */
+export function hasWeekStarted(week?: number | null) {
+  if (week === null || week === undefined) return true;
+
+  const startsAt = SEASON_START.getTime() + (Number(week) - 1) * WEEK_MS;
+
+  return Date.now() >= startsAt;
+}
+
 /* ============================================================
    2. Small helpers
 ============================================================ */
@@ -346,17 +363,16 @@ export function HeartsBar({
           {hearts} / {MAX_HEARTS}
         </div>
 
-        <div style={hb.divider} />
+        {banned && (
+          <>
+            <div style={hb.divider} />
 
-        <div style={hb.hint}>
-          {banned
-            ? `Signups locked until ${formatDate(ban!.banned_until)} — ${daysUntil(
-                ban!.banned_until
-              )} days left`
-            : hearts === MAX_HEARTS
-            ? "Leave a run and you lose one. Hearts reset on the 1st."
-            : `Lose all ${MAX_HEARTS} and signups lock for ${BAN_DAYS} days.`}
-        </div>
+            <div style={hb.locked}>
+              Locked until {formatDate(ban!.banned_until)} •{" "}
+              {daysUntil(ban!.banned_until)}d
+            </div>
+          </>
+        )}
 
         {isAdmin && (
           <button onClick={() => setOpen((v) => !v)} style={hb.toggle}>
@@ -989,28 +1005,27 @@ function ActionButton({
    8. Styles
 ============================================================ */
 const hb: Record<string, React.CSSProperties> = {
+  // Floats above the chat button so it stays visible while scrolling.
   wrap: {
-    position: "relative",
-    zIndex: 3,
+    position: "fixed",
+    right: 24,
+    bottom: 180,
+    zIndex: 999,
     display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
+    flexDirection: "column-reverse",
+    alignItems: "flex-end",
     gap: 10,
-    marginTop: -8,
-    marginBottom: 22,
   },
   bar: {
     display: "flex",
     alignItems: "center",
-    gap: 16,
-    padding: "12px 24px",
+    gap: 12,
+    padding: "10px 18px",
     borderRadius: 999,
     border: "1px solid rgba(255,59,107,.45)",
-    background: "linear-gradient(180deg, rgba(40,4,24,.85), rgba(10,0,20,.95))",
+    background: "linear-gradient(180deg, rgba(40,4,24,.92), rgba(10,0,20,.97))",
     boxShadow: "0 0 26px rgba(255,59,107,.28), inset 0 0 22px rgba(255,59,107,.10)",
     backdropFilter: "blur(10px)",
-    flexWrap: "wrap",
-    justifyContent: "center",
   },
   barBanned: {
     border: "1px solid rgba(239,68,68,.85)",
@@ -1025,7 +1040,7 @@ const hb: Record<string, React.CSSProperties> = {
   },
   count: { fontSize: 16, fontWeight: 900, letterSpacing: 1 },
   divider: { width: 1, height: 22, background: "rgba(255,255,255,.15)" },
-  hint: { color: "#d8b4fe", fontSize: 13, fontWeight: 700 },
+  locked: { color: "#fca5a5", fontSize: 12, fontWeight: 800 },
   toggle: {
     padding: "7px 14px",
     borderRadius: 999,

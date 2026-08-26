@@ -11,6 +11,7 @@ import {
   BannedPopup,
   PlayerPopup,
   FREE_ROLES,
+  hasWeekStarted,
 } from "../components/HeartsSystem";
 import { supabase } from "@/lib/supabase";
 import { queueRunCancellation } from "@/lib/queueRunCancellation";
@@ -1054,11 +1055,11 @@ async function removeSignup(signupId: number) {
 
   if (!signup) return;
 
-  if (FREE_ROLES.includes(signup.role)) {
+  // Free to leave if the role is exempt, or the week hasn't started yet.
+  if (FREE_ROLES.includes(signup.role) || !hasWeekStarted(run?.week)) {
     await deleteSignupRow(signupId);
     return;
   }
-
   setPendingUnsign(signup);
 }
 
