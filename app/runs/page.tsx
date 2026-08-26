@@ -86,15 +86,20 @@ type Character = {
 };
 
 function getCurrentWeek() {
+  const seasonDay = new Date(
+    SEASON_START.getFullYear(),
+    SEASON_START.getMonth(),
+    SEASON_START.getDate()
+  );
+
   const now = new Date();
-  const diffMs = now.getTime() - SEASON_START.getTime();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  // Before the season begins
-  if (diffMs < 0) {
-    return 1;
-  }
+  const days = Math.round((today.getTime() - seasonDay.getTime()) / 86400000);
 
-  return Math.floor(diffMs / WEEK_MS) + 1;
+  if (days < 0) return 1;
+
+  return Math.floor(days / 7) + 1;
 }
 
 function getShortWeekRange(week: number) {

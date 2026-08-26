@@ -68,9 +68,20 @@ function fromKey(key: string) {
 }
 
 function getWeekForDate(d: Date) {
-  const diff = d.getTime() - SEASON_START.getTime();
-  if (diff < 0) return 1;
-  return Math.floor(diff / WEEK_MS) + 1;
+  // Compare dates only — the 07:00 on SEASON_START pushed Wednesdays a week early.
+  const seasonDay = new Date(
+    SEASON_START.getFullYear(),
+    SEASON_START.getMonth(),
+    SEASON_START.getDate()
+  );
+
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const days = Math.round((day.getTime() - seasonDay.getTime()) / 86400000);
+
+  if (days < 0) return 1;
+
+  return Math.floor(days / 7) + 1;
 }
 
 function buildMonthGrid(year: number, month: number) {
