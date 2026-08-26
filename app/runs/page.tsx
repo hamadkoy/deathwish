@@ -3,6 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import SideNav from "../components/SideNav";
 import CreateRunModal from "../components/CreateRunModal";
+import {
+  useHearts,
+  HeartsBar,
+  UnsignedPanel,
+  UnsignWarningPopup,
+  BannedPopup,
+  PlayerPopup,
+  FREE_ROLES,
+} from "../components/HeartsSystem";
 import { supabase } from "@/lib/supabase";
 import { queueRunCancellation } from "@/lib/queueRunCancellation";
 import {
@@ -242,6 +251,7 @@ const isMobile =
   const isPhone =
   typeof navigator !== "undefined" &&
   /iPhone|Android|Mobile/i.test(navigator.userAgent);
+
 useEffect(() => {
   selectedWeekRef.current = selectedWeek;
 }, [selectedWeek]);
@@ -315,7 +325,10 @@ const [adminAddSpec, setAdminAddSpec] = useState("Guardian");
 
   const discordId =
     user?.user_metadata?.provider_id || user?.user_metadata?.sub;
+  const hearts = useHearts(discordId);
 
+  const [pendingUnsign, setPendingUnsign] = useState<Signup | null>(null);
+  const [bannedUntil, setBannedUntil] = useState<string | null>(null);
 const fixedRole = normalizeRole(profile?.site_role);
 
 const isAdmin =
@@ -740,19 +753,12 @@ if (alreadySigned) {
     return;
   }
 
-await supabase
-  .from("banish_logs")
-  .delete()
-  .eq("run_id", runId)
-  .or(
-    `discord_id.eq.${discordId},player.ilike.${selectedCharacter.name}%`
-  )
-  .gte(
-    "unsigned_at",
-    new Date(Date.now() - 10 * 60 * 1000).toISOString()
-  );
+await hearts.clearRunUnsign({
+  runId,
+  discordId,
+  characterName: selectedCharacter.name,
+});
 
-await loadBanishLogs();
 await loadSignups();
 } 
 
@@ -1020,101 +1026,69 @@ async function sendChatMessage() {
 
   setChatInput("");
 }
-const [banishLogs, setBanishLogs] = useState<any[]>([]);
+
 const [banishOpen, setBanishOpen] = useState(false);
 const [statsOpen, setStatsOpen] = useState(false);
 const [statsSort, setStatsSort] = useState<"total" | "vip" | "saved">("total");
 const [statsSortDesc, setStatsSortDesc] = useState(true);
-useEffect(() => {
-  loadBanishLogs();
 
-  const channel = supabase
-    .channel("realtime-banish-logs")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "banish_logs" },
-      () => loadBanishLogs()
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, []);
-
-async function loadBanishLogs() {
-  const { data, error } = await supabase
-    .from("banish_logs")
-    .select("*")
-    .order("unsigned_at", { ascending: false });
-
-  if (error) {
-    console.error(error);
-    return;
-  }
-
-  setBanishLogs(data || []);
-}
 
 
 async function removeSignup(signupId: number) {
   const signup = signups.find((s) => s.id === signupId);
   const run = runs.find((r) => r.id === signup?.run_id);
-if (run?.finished) {
-  setPopup({
-    title: "Run Locked",
-    message: "This run is finished, so players cannot unsign.",
-    type: "error",
-  });
-  return;
-}
-  const now = new Date();
 
-  const signedAt = signup?.created_at
-    ? new Date(signup.created_at)
-    : null;
-
-  const signedForMs = signedAt
-    ? now.getTime() - signedAt.getTime()
-    : 0;
-
-  const signedForMoreThanOneHour = signedForMs >= 60 * 60 * 1000;
-
-if (
-  signup &&
-  run &&
-  signup.role !== "Loot Body" &&
-  signup.role !== "Bench"
-) {
-
-
-const { error: banishError } = await supabase
-  .from("banish_logs")
-  .insert({
-    player: signup.player,
-    discord_id: signup.discord_id,
-    run_id: run.id,
-    run_title: run.title,
-    week: run.week,
-    unsigned_at: now.toISOString(),
-  });
-
-if (banishError) {
-  alert("Banish insert error: " + banishError.message);
-  return;
-}
-
-await loadBanishLogs();
+  if (run?.finished) {
+    setPopup({
+      title: "Run Locked",
+      message: "This run is finished, so players cannot unsign.",
+      type: "error",
+    });
+    return;
   }
 
-  const { error } = await supabase
-    .from("signups")
-    .delete()
-    .eq("id", signupId);
+  if (!signup) return;
+
+  if (FREE_ROLES.includes(signup.role)) {
+    await deleteSignupRow(signupId);
+    return;
+  }
+
+  setPendingUnsign(signup);
+}
+
+async function deleteSignupRow(signupId: number) {
+  const { error } = await supabase.from("signups").delete().eq("id", signupId);
 
   if (error) return alert(error.message);
 
   await loadSignups();
+}
+
+async function confirmUnsign() {
+  const signup = pendingUnsign;
+  if (!signup) return;
+
+  const run = runs.find((r) => r.id === signup.run_id);
+
+  const result = await hearts.takeHeart({
+    player: signup.player,
+    discordId: signup.discord_id,
+    runId: signup.run_id,
+    runTitle: run?.title,
+    week: run?.week,
+  });
+
+  setPendingUnsign(null);
+
+  if (!result.ok) {
+    alert(result.message);
+    return;
+  }
+
+  await deleteSignupRow(signup.id);
+
+  if (result.ban) setBannedUntil(result.ban.banned_until);
 }
 async function markAttendance(signupId: number, status: "present" | "missing") {
   if (!isAdmin && !isOfficer) return;
@@ -1191,9 +1165,10 @@ const filteredRuns = runs.filter((run) => {
   return matchesRaid && matchesDay && matchesType;
 });
 
-const filteredBanishLogs = banishLogs.filter(
+const filteredBanishLogs = hearts.logs.filter(
   (log) => Number(log.week) === Number(selectedWeek)
 );
+
 
 const playerStats = [...buildPlayerStats(signups, runs)].sort((a, b) => {
   const diff = b[statsSort] - a[statsSort];
@@ -2214,6 +2189,14 @@ style={{
     </button>
   ))}
 </div>
+
+<HeartsBar
+  hearts={hearts.myHearts}
+  ban={hearts.myBan}
+  isAdmin={isAdmin}
+  roster={hearts.roster()}
+  onLiftBan={hearts.liftBan}
+/>
       </section>
 
 {/* ============================== */}
@@ -2729,11 +2712,7 @@ if (
 >
           {filteredRuns.map((run, index) => {
             const theme = getRunTheme(run, index);
-            const runUnsignedLogs = banishLogs.filter(
-  (log) =>
-    log.run_id === run.id &&
-    Number(log.week) === Number(selectedWeek)
-);
+            const runUnsignedLogs = hearts.logsForRun(run.id, selectedWeek);
 
 const isLeftCard = index % 2 === 0;
             const limits = getLimits(run);
