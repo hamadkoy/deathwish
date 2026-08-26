@@ -1428,282 +1428,30 @@ paddingRight: 80,
 </div>
 )}
 
-{playerPopup && (
-<div style={popupOverlay}>
-    <div
-      style={{
-        width: 520,
-        borderRadius: 26,
-        overflow: "hidden",
-        position: "relative",
-        background:
-          "linear-gradient(180deg, rgba(10,10,25,.98), rgba(5,5,15,.98))",
-        border: "1px solid rgba(168,85,247,.45)",
-        boxShadow:
-          "0 0 60px rgba(168,85,247,.35)",
-        backdropFilter: "blur(18px)",
-      }}
-    >
-      {/* TOP */}
-      <div
-        style={{
-          position: "relative",
-          padding: "34px 28px 24px",
-          borderBottom:
-            "1px solid rgba(168,85,247,.22)",
-          background:
-            "linear-gradient(180deg, rgba(168,85,247,.16), rgba(0,0,0,0))",
-        }}
-      >
-        <button
-          onClick={() => setPlayerPopup(null)}
-          style={{
-            position: "absolute",
-            right: 18,
-            top: 18,
-            width: 38,
-            height: 38,
-            borderRadius: 12,
-            border: "1px solid rgba(239,68,68,.45)",
-            background:
-              "linear-gradient(180deg,#7f1d1d,#450a0a)",
-            color: "white",
-            fontSize: 18,
-            fontWeight: 900,
-            cursor: "pointer",
-            boxShadow:
-              "0 0 18px rgba(239,68,68,.35)",
-          }}
-        >
-          ✕
-        </button>
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 18,
-          }}
-        >
-<img
-  src={
-    playerPopup.avatar_url ||
-    "https://cdn.discordapp.com/embed/avatars/0.png"
-  }
-  alt=""
-  style={{
-    width: 88,
-    height: 88,
-    borderRadius: "50%",
-    objectFit: "cover",
-    border: "2px solid rgba(168,85,247,.75)",
-    boxShadow:
-      "0 0 30px rgba(168,85,247,.55)",
-    background: "#111",
-  }}
+<PlayerPopup
+  signup={playerPopup}
+  canEditClass={isAdmin || isOfficer || playerPopup?.discord_id === discordId}
+  onClose={() => setPlayerPopup(null)}
+  onChanged={loadSignups}
 />
 
-          <div>
-            <div
-              style={{
-                fontSize: 38,
-                fontWeight: 900,
-                color: "white",
-                textShadow:
-                  "0 0 18px rgba(168,85,247,.6)",
-              }}
-            >
-              {playerPopup.player.split(" - ")[0]}
-            </div>
+<UnsignWarningPopup
+  open={!!pendingUnsign}
+  playerName={(pendingUnsign?.player || "").split(" - ")[0]}
+  runTitle={runs.find((r) => r.id === pendingUnsign?.run_id)?.title}
+  hearts={hearts.heartsOfPlayer({
+    discord_id: pendingUnsign?.discord_id,
+    player: pendingUnsign?.player,
+  })}
+  onConfirm={confirmUnsign}
+  onCancel={() => setPendingUnsign(null)}
+/>
 
-            <div
-              style={{
-                marginTop: 6,
-                color: "#c084fc",
-                fontSize: 15,
-                fontWeight: 700,
-                letterSpacing: 1,
-              }}
-            >
-              DEATH WISH BOOSTER
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* BUTTONS */}
-      <div
-        style={{
-          padding: 24,
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
-        }}
-      >
-        <button
-        onMouseEnter={(e) => {
-  e.currentTarget.style.transform =
-    "translateY(-3px) scale(1.03)";
-  e.currentTarget.style.boxShadow =
-    "0 0 28px rgba(96,165,250,.55)";
-}}
-
-onMouseLeave={(e) => {
-  e.currentTarget.style.transform =
-    "translateY(0) scale(1)";
-  e.currentTarget.style.boxShadow =
-  "0 0 12px rgba(168,85,247,.25)";
-}}
-          onClick={() => {
-            window.open(
-              `/profile?characterId=${playerPopup.character_id}`,
-              "_blank"
-            );
-          }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 18,
-            padding: 20,
-            borderRadius: 18,
-            border:
-              "1px solid rgba(168,85,247,.4)",
-            background:
-              "linear-gradient(90deg, rgba(124,58,237,.22), rgba(168,85,247,.08))",
-            cursor: "pointer",
-            transition:
-  "transform .22s ease, box-shadow .22s ease, background .22s ease",
-  transform: "translateY(0) scale(1)",
-boxShadow: "0 0 12px rgba(168,85,247,.25)",
-          }}
-        >
-          <div
-            style={{
-              width: 58,
-              height: 58,
-              borderRadius: 16,
-              background:
-                "linear-gradient(180deg,#c084fc,#7c3aed)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 28,
-              color: "white",
-              boxShadow:
-                "0 0 18px rgba(168,85,247,.45)",
-            }}
-          >
-            🏰
-          </div>
-
-          <div style={{ textAlign: "left" }}>
-            <div
-              style={{
-                fontSize: 26,
-                fontWeight: 900,
-                color: "white",
-              }}
-            >
-              View Garrison
-            </div>
-
-            <div
-              style={{
-                marginTop: 4,
-                color: "#d8b4fe",
-                fontSize: 14,
-              }}
-            >
-              View characters, mains and progress.
-            </div>
-          </div>
-        </button>
-
-        <button
-        onMouseEnter={(e) => {
-  e.currentTarget.style.transform =
-    "translateY(-3px) scale(1.03)";
-  e.currentTarget.style.boxShadow =
-    "0 0 28px rgba(96,165,250,.55)";
-}}
-
-onMouseLeave={(e) => {
-  e.currentTarget.style.transform =
-    "translateY(0) scale(1)";
-e.currentTarget.style.boxShadow =
-  "0 0 12px rgba(96,165,250,.25)";
-}}
-          onClick={() => {
-            window.open(
-              `discord://-/users/${playerPopup.discord_id}`,
-              "_blank"
-            );
-          }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 18,
-            padding: 20,
-            borderRadius: 18,
-            border:
-              "1px solid rgba(96,165,250,.35)",
-            background:
-              "linear-gradient(90deg, rgba(37,99,235,.22), rgba(96,165,250,.08))",
-            cursor: "pointer",
-            transition:
-  "transform .22s ease, box-shadow .22s ease, background .22s ease",
-
-transform: "translateY(0) scale(1)",
-
-boxShadow:
-  "0 0 12px rgba(96,165,250,.25)",
-          }}
-        >
-          <div
-            style={{
-              width: 58,
-              height: 58,
-              borderRadius: 16,
-              background:
-                "linear-gradient(180deg,#60a5fa,#2563eb)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 28,
-              color: "white",
-              boxShadow:
-                "0 0 18px rgba(96,165,250,.45)",
-            }}
-          >
-            💬
-          </div>
-
-          <div style={{ textAlign: "left" }}>
-            <div
-              style={{
-                fontSize: 24,
-                fontWeight: 900,
-                color: "white",
-              }}
-            >
-              Open Discord DM
-            </div>
-
-            <div
-              style={{
-                marginTop: 4,
-                color: "#bfdbfe",
-                fontSize: 14,
-              }}
-            >
-              Message this booster directly.
-            </div>
-          </div>
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+<BannedPopup
+  open={!!bannedUntil}
+  bannedUntil={bannedUntil}
+  onClose={() => setBannedUntil(null)}
+/>
       {popup && (
         <div style={popupOverlay}>
           <div style={popupBox}>
@@ -3261,49 +3009,13 @@ setAdminAddSpec={setAdminAddSpec}
                </div>
 )}
 </div>
-{runUnsignedLogs.length > 0 && (
-  <div
-    style={{
-      ...unsignedSidePanel,
-      left: isLeftCard ? -285 : "auto",
-      right: isLeftCard ? "auto" : -285,
-    }}
-  >
-    <div style={unsignedTitle}>
-      UNSIGNED ({runUnsignedLogs.length})
-    </div>
-
-    {runUnsignedLogs.map((log) => (
-      <div key={log.id} style={unsignedItem}>
-        <div style={unsignedConnector} />
-
-        <div style={unsignedIconBox}>
-          <SpecIcon player={log.player} />
-        </div>
-
-        <div>
-          <div style={unsignedName}>
-            {log.player.split(" - ")[0]}
-          </div>
-
-          <div style={unsignedSpec}>
-            {log.player.split(" - ")[1] || ""}
-          </div>
-
-          <div style={unsignedTime}>
-            {new Date(log.unsigned_at).toLocaleTimeString(
-              "en-GB",
-              {
-                hour: "2-digit",
-                minute: "2-digit",
-              }
-            )}
-          </div>
-        </div>
-      </div>
-    ))}
-  </div>
-)}
+<UnsignedPanel
+  logs={runUnsignedLogs}
+  isLeftCard={isLeftCard}
+  canRemove={isAdmin || isOfficer}
+  onRemove={(log) => hearts.giveHeartBack(log)}
+  renderIcon={(player) => <SpecIcon player={player} />}
+/>
 
 
 </div>
