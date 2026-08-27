@@ -7,6 +7,7 @@ import {
   useHearts,
   HeartsBar,
   HeartsRosterButton,
+  HeartBreak,
   UnsignedPanel,
   UnsignWarningPopup,
   BannedPopup,
@@ -337,6 +338,7 @@ const [adminAddSpec, setAdminAddSpec] = useState("Guardian");
 
   const [pendingUnsign, setPendingUnsign] = useState<Signup | null>(null);
   const [bannedUntil, setBannedUntil] = useState<string | null>(null);
+  const [breakOpen, setBreakOpen] = useState(false);
 const fixedRole = normalizeRole(profile?.site_role);
 
 const isAdmin =
@@ -1096,6 +1098,8 @@ async function confirmUnsign() {
 
   await deleteSignupRow(signup.id);
 
+  setBreakOpen(true);
+
   if (result.ban) setBannedUntil(result.ban.banned_until);
 }
 async function markAttendance(signupId: number, status: "present" | "missing") {
@@ -1460,6 +1464,8 @@ paddingRight: 80,
   bannedUntil={bannedUntil}
   onClose={() => setBannedUntil(null)}
 />
+
+<HeartBreak open={breakOpen} onDone={() => setBreakOpen(false)} />
       {popup && (
         <div style={popupOverlay}>
           <div style={popupBox}>

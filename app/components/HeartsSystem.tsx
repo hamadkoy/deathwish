@@ -441,8 +441,35 @@ function HeartStyles() {
   );
 }
 
-/** Full-screen heartbreak shown the moment a heart is lost. */
-function HeartBreakOverlay() {
+/**
+ * Full-screen heartbreak. Drive it from the page:
+ *   <HeartBreak open={breakOpen} onDone={() => setBreakOpen(false)} />
+ * Set open to true right after a heart is taken.
+ */
+export function HeartBreak({
+  open,
+  onDone,
+}: {
+  open: boolean;
+  onDone?: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => onDone?.(), 1700);
+    return () => clearTimeout(t);
+  }, [open, onDone]);
+
+  if (!open) return null;
+
+  return (
+    <>
+      <HeartStyles />
+      <HeartBreakArt />
+    </>
+  );
+}
+
+function HeartBreakArt() {
   const shards = [
     { dx: "-210px", dy: "160px" },
     { dx: "210px", dy: "150px" },
@@ -516,8 +543,6 @@ export function HeartsBar({
   return (
     <div style={hb.wrap}>
       <HeartStyles />
-
-      {lost && <HeartBreakOverlay />}
 
       <div style={hb.stack}>
         {Array.from({ length: MAX_HEARTS }, (_, i) => (
