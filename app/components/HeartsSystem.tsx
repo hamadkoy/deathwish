@@ -12,7 +12,8 @@
    - a player popup with Garrison / Discord DM / Change class
 ============================================================ */
 
-import { ReactNode, useCallback, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
 
 /* ============================================================
@@ -395,11 +396,6 @@ function HeartStyles() {
         70%  { transform: scale(1.1) rotate(-4deg); }
         100% { transform: scale(1) rotate(0deg); opacity: 1; }
       }
-      @keyframes dwCrack {
-        0%, 55% { opacity: 0; transform: scaleY(0); }
-        62%     { opacity: 1; transform: scaleY(1); }
-        100%    { opacity: 1; transform: scaleY(1); }
-      }
       @keyframes dwSplitLeft {
         0%, 62% { transform: translate(0,0) rotate(0deg); opacity: 1; }
         100%    { transform: translate(-130px, 190px) rotate(-42deg); opacity: 0; }
@@ -453,19 +449,32 @@ export function HeartBreak({
   open: boolean;
   onDone?: () => void;
 }) {
+  // Bumped every time it opens, so the animation restarts on repeats
+  // instead of showing once and never again.
+  const runs = useRef(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
     if (!open) return;
+
     const t = setTimeout(() => onDone?.(), 1700);
     return () => clearTimeout(t);
-  }, [open, onDone]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  runs.current += 1;
+
+  // Rendered straight into <body> so run cards can't stack over it.
+  return createPortal(
     <>
       <HeartStyles />
-      <HeartBreakArt />
-    </>
+      <HeartBreakArt key={runs.current} />
+    </>,
+    document.body
   );
 }
 
@@ -489,9 +498,6 @@ function HeartBreakArt() {
         {/* the two halves that fall apart */}
         <div style={{ ...brk.half, ...brk.left }}>♥</div>
         <div style={{ ...brk.half, ...brk.right }}>♥</div>
-
-        {/* jagged split down the middle */}
-        <div style={brk.crack} />
 
         {shards.map((sh, i) => (
           <span
@@ -1477,6 +1483,8 @@ const brk: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     pointerEvents: "none",
     userSelect: "none",
+    WebkitUserSelect: "none",
+    caretColor: "transparent",
   },
   flash: {
     position: "absolute",
@@ -1487,15 +1495,15 @@ const brk: Record<string, React.CSSProperties> = {
   },
   stage: {
     position: "relative",
-    width: 240,
-    height: 240,
+    width: 460,
+    height: 460,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
   half: {
     position: "absolute",
-    fontSize: 190,
+    fontSize: 380,
     lineHeight: 1,
     color: "#ff3b6b",
     textShadow: "0 0 40px rgba(255,59,107,.95), 0 0 80px rgba(255,59,107,.6)",
@@ -1515,28 +1523,17 @@ const brk: Record<string, React.CSSProperties> = {
     animation: "dwBurstIn .9s ease-out, dwSplitRight 1.6s ease-in forwards",
     textIndent: "-50%",
   },
-  crack: {
-    position: "absolute",
-    top: 30,
-    width: 5,
-    height: 150,
-    background:
-      "linear-gradient(180deg, transparent, #fff 20%, #ffd7e2 60%, transparent)",
-    boxShadow: "0 0 22px rgba(255,255,255,.95)",
-    transformOrigin: "top center",
-    animation: "dwCrack 1.6s ease-out forwards",
-  },
   shard: {
     position: "absolute",
-    fontSize: 34,
+    fontSize: 52,
     color: "#ff3b6b",
     textShadow: "0 0 18px rgba(255,59,107,.9)",
     animation: "dwShard 1.6s ease-out forwards",
   },
   label: {
-    marginTop: 26,
+    marginTop: 10,
     color: "#fff",
-    fontSize: 30,
+    fontSize: 46,
     fontWeight: 900,
     letterSpacing: 6,
     fontFamily: "Georgia, serif",
