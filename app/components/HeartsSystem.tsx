@@ -402,41 +402,40 @@ function HeartStyles() {
         70%  { transform: scale(1.1) rotate(-4deg); }
         100% { transform: scale(1) rotate(0deg); opacity: 1; }
       }
-      /* both halves tremble together, then tear apart */
+      /* short tremble, then the halves tear apart and fall away */
       @keyframes dwSplitLeft {
-        0%, 18% { transform: translate(0,0) scale(1) rotate(0deg); opacity: 1; }
-        26%     { transform: translate(0,0) scale(1.16) rotate(-11deg); }
-        34%     { transform: translate(0,0) scale(.9) rotate(12deg); }
-        42%     { transform: translate(0,0) scale(1.14) rotate(-9deg); }
-        50%     { transform: translate(0,0) scale(.94) rotate(9deg); }
-        58%     { transform: translate(0,0) scale(1.1) rotate(0deg); opacity: 1; }
-        66%     { transform: translate(-18px,-14px) rotate(-6deg); opacity: 1; }
-        100%    { transform: translate(-300px, 320px) rotate(-55deg); opacity: 0; }
+        0%   { transform: translate(0,0) scale(.3); opacity: 0; }
+        10%  { transform: translate(0,0) scale(1.15); opacity: 1; }
+        16%  { transform: translate(0,0) scale(1); }
+        22%  { transform: translate(-7px,0) rotate(-5deg); }
+        28%  { transform: translate(7px,0) rotate(5deg); }
+        34%  { transform: translate(-6px,0) rotate(-4deg); }
+        40%  { transform: translate(5px,0) rotate(3deg); }
+        46%  { transform: translate(0,0) scale(1.12) rotate(0deg); }
+        /* the tear */
+        56%  { transform: translate(-40px,-34px) rotate(-14deg) scale(1.05); opacity: 1; }
+        100% { transform: translate(-420px, 430px) rotate(-78deg) scale(.75); opacity: 0; }
       }
       @keyframes dwSplitRight {
-        0%, 18% { transform: translate(0,0) scale(1) rotate(0deg); opacity: 1; }
-        26%     { transform: translate(0,0) scale(1.16) rotate(-11deg); }
-        34%     { transform: translate(0,0) scale(.9) rotate(12deg); }
-        42%     { transform: translate(0,0) scale(1.14) rotate(-9deg); }
-        50%     { transform: translate(0,0) scale(.94) rotate(9deg); }
-        58%     { transform: translate(0,0) scale(1.1) rotate(0deg); opacity: 1; }
-        66%     { transform: translate(18px,-14px) rotate(6deg); opacity: 1; }
-        100%    { transform: translate(300px, 320px) rotate(55deg); opacity: 0; }
+        0%   { transform: translate(0,0) scale(.3); opacity: 0; }
+        10%  { transform: translate(0,0) scale(1.15); opacity: 1; }
+        16%  { transform: translate(0,0) scale(1); }
+        22%  { transform: translate(-7px,0) rotate(-5deg); }
+        28%  { transform: translate(7px,0) rotate(5deg); }
+        34%  { transform: translate(-6px,0) rotate(-4deg); }
+        40%  { transform: translate(5px,0) rotate(3deg); }
+        46%  { transform: translate(0,0) scale(1.12) rotate(0deg); }
+        56%  { transform: translate(40px,-34px) rotate(14deg) scale(1.05); opacity: 1; }
+        100% { transform: translate(420px, 430px) rotate(78deg) scale(.75); opacity: 0; }
       }
       @keyframes dwShard {
-        0%, 64% { transform: translate(0,0) scale(.3); opacity: 0; }
-        72%     { opacity: 1; }
+        0%, 48% { transform: translate(0,0) scale(.2); opacity: 0; }
+        56%     { opacity: 1; }
         100%    { transform: translate(var(--dx), var(--dy)) scale(1) rotate(140deg); opacity: 0; }
       }
-      @keyframes dwFlash {
-        0%   { opacity: 0; }
-        12%  { opacity: .9; }
-        40%  { opacity: .75; }
-        100% { opacity: 0; }
-      }
       @keyframes dwLabel {
-        0%, 62% { opacity: 0; transform: translateY(16px); }
-        74%     { opacity: 1; transform: translateY(0); }
+        0%, 50% { opacity: 0; transform: translateY(16px); }
+        62%     { opacity: 1; transform: translateY(0); }
         85%     { opacity: 1; transform: translateY(0); }
         100%    { opacity: 0; transform: translateY(-12px); }
       }
@@ -494,7 +493,7 @@ export function HeartBreak({
   useEffect(() => {
     if (!open) return;
 
-    const t = setTimeout(() => onDone?.(), 3000);
+    const t = setTimeout(() => onDone?.(), 2700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -531,8 +530,6 @@ function HeartBreakArt() {
 
   return (
     <div style={brk.overlay}>
-      <div style={brk.flash} />
-
       <div style={{ ...brk.stage, width: W, height: W }}>
         {/* left half */}
         <div style={{ ...brk.half, left: 0, width: W / 2 }}>
@@ -768,12 +765,14 @@ function Heart({
         color: filled ? "#ff3b6b" : "#3a2b4a",
         textShadow: filled
           ? "0 0 14px rgba(255,59,107,.9), 0 0 26px rgba(255,59,107,.45)"
-          : "0 0 8px rgba(0,0,0,.8)",
-        opacity: filled || breaking ? 1 : 0.5,
+          : "none",
+        // Spent hearts stay as broken hearts, just drained of colour.
+        filter: filled || breaking ? "none" : "grayscale(85%) brightness(.55)",
+        opacity: filled || breaking ? 1 : 0.75,
       }}
     >
       <span className="dw-heart-inner">
-        {breaking ? "💔" : filled ? "♥" : "♡"}
+        {filled ? "♥" : "💔"}
       </span>
     </span>
   );
@@ -1533,13 +1532,6 @@ const brk: Record<string, React.CSSProperties> = {
     WebkitUserSelect: "none",
     caretColor: "transparent",
   },
-  flash: {
-    position: "absolute",
-    inset: 0,
-    background:
-      "radial-gradient(circle at 50% 45%, rgba(255,59,107,.5), rgba(0,0,0,.78) 70%)",
-    animation: "dwFlash 2.9s ease-out forwards",
-  },
   stage: {
     position: "relative",
   },
@@ -1549,14 +1541,14 @@ const brk: Record<string, React.CSSProperties> = {
     top: 0,
     bottom: 0,
     overflow: "hidden",
-    animation: "dwBurstIn .55s ease-out, dwSplitLeft 2.9s ease-in-out forwards",
+    animation: "dwSplitLeft 2.6s cubic-bezier(.4,0,.6,1) forwards",
   },
   halfRight: {
     position: "absolute",
     top: 0,
     bottom: 0,
     overflow: "hidden",
-    animation: "dwBurstIn .55s ease-out, dwSplitRight 2.9s ease-in-out forwards",
+    animation: "dwSplitRight 2.6s cubic-bezier(.4,0,.6,1) forwards",
   },
   glyph: {
     position: "absolute",
@@ -1573,7 +1565,7 @@ const brk: Record<string, React.CSSProperties> = {
     left: "45%",
     fontSize: 52,
     filter: "drop-shadow(0 0 18px rgba(255,59,107,.95))",
-    animation: "dwShard 2.9s ease-out forwards",
+    animation: "dwShard 2.6s ease-out forwards",
   },
   label: {
     marginTop: 10,
@@ -1583,7 +1575,7 @@ const brk: Record<string, React.CSSProperties> = {
     letterSpacing: 6,
     fontFamily: "Georgia, serif",
     textShadow: "0 0 26px rgba(255,59,107,1), 0 0 50px rgba(255,59,107,.7)",
-    animation: "dwLabel 2.9s ease-out forwards",
+    animation: "dwLabel 2.6s ease-out forwards",
   },
 };
 
