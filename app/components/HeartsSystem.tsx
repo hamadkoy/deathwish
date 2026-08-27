@@ -388,26 +388,101 @@ function HeartStyles() {
         18%      { transform: scale(1.18); }
         36%      { transform: scale(1); }
       }
-      @keyframes heartBreak {
-        0%   { transform: scale(1) rotate(0deg);   opacity: 1; }
-        25%  { transform: scale(1.5) rotate(-12deg); opacity: 1; }
-        60%  { transform: scale(.7) rotate(14deg);  opacity: .5; }
-        100% { transform: scale(1) rotate(0deg);   opacity: 1; }
+      @keyframes dwBurstIn {
+        0%   { transform: scale(.2); opacity: 0; }
+        35%  { transform: scale(1.25); opacity: 1; }
+        55%  { transform: scale(1); opacity: 1; }
+        70%  { transform: scale(1.1) rotate(-4deg); }
+        100% { transform: scale(1) rotate(0deg); opacity: 1; }
       }
-      @keyframes lostFloat {
-        0%   { transform: translateY(0) scale(.6); opacity: 0; }
-        25%  { transform: translateY(-10px) scale(1.15); opacity: 1; }
-        100% { transform: translateY(-42px) scale(.9); opacity: 0; }
+      @keyframes dwCrack {
+        0%, 55% { opacity: 0; transform: scaleY(0); }
+        62%     { opacity: 1; transform: scaleY(1); }
+        100%    { opacity: 1; transform: scaleY(1); }
+      }
+      @keyframes dwSplitLeft {
+        0%, 62% { transform: translate(0,0) rotate(0deg); opacity: 1; }
+        100%    { transform: translate(-130px, 190px) rotate(-42deg); opacity: 0; }
+      }
+      @keyframes dwSplitRight {
+        0%, 62% { transform: translate(0,0) rotate(0deg); opacity: 1; }
+        100%    { transform: translate(130px, 190px) rotate(42deg); opacity: 0; }
+      }
+      @keyframes dwShard {
+        0%, 60% { transform: translate(0,0) scale(.4); opacity: 0; }
+        70%     { opacity: 1; }
+        100%    { transform: translate(var(--dx), var(--dy)) scale(1); opacity: 0; }
+      }
+      @keyframes dwFlash {
+        0%   { opacity: 0; }
+        60%  { opacity: 0; }
+        68%  { opacity: .55; }
+        100% { opacity: 0; }
+      }
+      @keyframes dwLabel {
+        0%, 60% { opacity: 0; transform: translateY(14px); }
+        75%     { opacity: 1; transform: translateY(0); }
+        100%    { opacity: 0; transform: translateY(-10px); }
       }
       .dw-heart {
         display: inline-block;
         transition: transform .18s ease, filter .18s ease;
         cursor: default;
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        caret-color: transparent;
       }
       .dw-heart.filled { animation: heartBeat 2.6s ease-in-out infinite; }
       .dw-heart:hover  { transform: scale(1.45); filter: brightness(1.3); }
-      .dw-heart.breaking { animation: heartBreak .7s ease-in-out 2; }
+      .dw-heart.dim    { filter: grayscale(100%) brightness(.6); }
     `}</style>
+  );
+}
+
+/** Full-screen heartbreak shown the moment a heart is lost. */
+function HeartBreakOverlay() {
+  const shards = [
+    { dx: "-210px", dy: "160px" },
+    { dx: "210px", dy: "150px" },
+    { dx: "-140px", dy: "-120px" },
+    { dx: "150px", dy: "-130px" },
+    { dx: "-260px", dy: "-30px" },
+    { dx: "260px", dy: "-20px" },
+    { dx: "-60px", dy: "220px" },
+    { dx: "70px", dy: "230px" },
+  ];
+
+  return (
+    <div style={brk.overlay}>
+      <div style={brk.flash} />
+
+      <div style={brk.stage}>
+        {/* the two halves that fall apart */}
+        <div style={{ ...brk.half, ...brk.left }}>♥</div>
+        <div style={{ ...brk.half, ...brk.right }}>♥</div>
+
+        {/* jagged split down the middle */}
+        <div style={brk.crack} />
+
+        {shards.map((sh, i) => (
+          <span
+            key={i}
+            style={{
+              ...brk.shard,
+              ["--dx" as any]: sh.dx,
+              ["--dy" as any]: sh.dy,
+              animationDelay: `${i * 0.015}s`,
+            }}
+          >
+            ♥
+          </span>
+        ))}
+      </div>
+
+      <div style={brk.label}>HEART LOST</div>
+    </div>
   );
 }
 
@@ -442,7 +517,7 @@ export function HeartsBar({
     <div style={hb.wrap}>
       <HeartStyles />
 
-      {lost && <div style={hb.lostFloat}>−1 ♥</div>}
+      {lost && <HeartBreakOverlay />}
 
       <div style={hb.stack}>
         {Array.from({ length: MAX_HEARTS }, (_, i) => (
@@ -609,21 +684,19 @@ function Heart({
   return (
     <span
       className={`dw-heart${filled ? " filled" : ""}${
-        breaking ? " breaking" : ""
+        breaking ? " dim" : ""
       }`}
       style={{
         fontSize: size,
         lineHeight: 1,
-        color: breaking ? "#ffffff" : filled ? "#ff3b6b" : "#3a2b4a",
-        textShadow: breaking
-          ? "0 0 22px rgba(255,255,255,.95), 0 0 34px rgba(255,59,107,.9)"
-          : filled
+        color: breaking ? "#6b7280" : filled ? "#ff3b6b" : "#3a2b4a",
+        textShadow: filled
           ? "0 0 14px rgba(255,59,107,.9), 0 0 26px rgba(255,59,107,.45)"
           : "0 0 8px rgba(0,0,0,.8)",
-        opacity: filled || breaking ? 1 : 0.5,
+        opacity: filled ? 1 : breaking ? 0.75 : 0.5,
       }}
     >
-      {breaking ? "💔" : filled ? "♥" : "♡"}
+      {breaking ? "♡" : filled ? "♥" : "♡"}
     </span>
   );
 }
@@ -1217,16 +1290,6 @@ const hb: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 2,
   },
-  lostFloat: {
-    position: "absolute",
-    top: -18,
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: 900,
-    textShadow: "0 0 16px rgba(255,59,107,1)",
-    animation: "lostFloat 2.2s ease-out",
-    pointerEvents: "none",
-  },
   label: {
     color: "#ff8fb0",
     fontSize: 13,
@@ -1374,6 +1437,86 @@ const hb: Record<string, React.CSSProperties> = {
     fontSize: 13,
     lineHeight: 1,
     cursor: "pointer",
+  },
+};
+
+/* Full-screen heartbreak */
+const brk: Record<string, React.CSSProperties> = {
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 1000001,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "none",
+    userSelect: "none",
+  },
+  flash: {
+    position: "absolute",
+    inset: 0,
+    background:
+      "radial-gradient(circle at 50% 45%, rgba(255,59,107,.55), rgba(0,0,0,.75) 70%)",
+    animation: "dwFlash 1.6s ease-out forwards",
+  },
+  stage: {
+    position: "relative",
+    width: 240,
+    height: 240,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  half: {
+    position: "absolute",
+    fontSize: 190,
+    lineHeight: 1,
+    color: "#ff3b6b",
+    textShadow: "0 0 40px rgba(255,59,107,.95), 0 0 80px rgba(255,59,107,.6)",
+    width: "50%",
+    overflow: "hidden",
+    display: "flex",
+    justifyContent: "center",
+  },
+  left: {
+    left: 0,
+    animation: "dwBurstIn .9s ease-out, dwSplitLeft 1.6s ease-in forwards",
+    clipPath: "polygon(0 0, 100% 0, 100% 100%, 0 100%)",
+    textIndent: "50%",
+  },
+  right: {
+    right: 0,
+    animation: "dwBurstIn .9s ease-out, dwSplitRight 1.6s ease-in forwards",
+    textIndent: "-50%",
+  },
+  crack: {
+    position: "absolute",
+    top: 30,
+    width: 5,
+    height: 150,
+    background:
+      "linear-gradient(180deg, transparent, #fff 20%, #ffd7e2 60%, transparent)",
+    boxShadow: "0 0 22px rgba(255,255,255,.95)",
+    transformOrigin: "top center",
+    animation: "dwCrack 1.6s ease-out forwards",
+  },
+  shard: {
+    position: "absolute",
+    fontSize: 34,
+    color: "#ff3b6b",
+    textShadow: "0 0 18px rgba(255,59,107,.9)",
+    animation: "dwShard 1.6s ease-out forwards",
+  },
+  label: {
+    marginTop: 26,
+    color: "#fff",
+    fontSize: 30,
+    fontWeight: 900,
+    letterSpacing: 6,
+    fontFamily: "Georgia, serif",
+    textShadow: "0 0 26px rgba(255,59,107,1), 0 0 50px rgba(255,59,107,.7)",
+    animation: "dwLabel 1.6s ease-out forwards",
   },
 };
 
