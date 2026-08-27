@@ -6,6 +6,7 @@ import CreateRunModal from "../components/CreateRunModal";
 import {
   useHearts,
   HeartsBar,
+  HeartsRosterButton,
   UnsignedPanel,
   UnsignWarningPopup,
   BannedPopup,
@@ -13,6 +14,7 @@ import {
   FREE_ROLES,
   hasWeekStarted,
 } from "../components/HeartsSystem";
+
 import { supabase } from "@/lib/supabase";
 import { queueRunCancellation } from "@/lib/queueRunCancellation";
 import {
@@ -1944,13 +1946,7 @@ style={{
   ))}
 </div>
 
-<HeartsBar
-  hearts={hearts.myHearts}
-  ban={hearts.myBan}
-  isAdmin={isAdmin}
-  roster={hearts.roster()}
-  onLiftBan={hearts.liftBan}
-/>
+<HeartsBar hearts={hearts.myHearts} ban={hearts.myBan} />
       </section>
 
 {/* ============================== */}
@@ -2213,106 +2209,7 @@ style={{
     </div>
   </div>
 )}
-
-{isAdmin && !isMobile && !banishOpen && (
-  <button
-    onClick={() => {
-      setBanishOpen(true);
-      setStatsOpen(false);
-    }}
-    style={{
-      position: "fixed",
-      left: 24,
-      bottom: 105,
-      width: 62,
-      height: 62,
-      borderRadius: "50%",
-      border: "1px solid rgba(239,68,68,.7)",
-      background: "linear-gradient(135deg,#7f1d1d,#ef4444)",
-      color: "white",
-      fontSize: 26,
-      cursor: "pointer",
-      zIndex: 999,
-      boxShadow: "0 0 24px rgba(239,68,68,.75)",
-    }}
-  >
-    ☠
-  </button>
-)}
-{isAdmin && !isMobile && banishOpen && (
-  <div
-    style={{
-      position: "fixed",
-      left: 20,
-      top: 120,
-      width: 430,
-      padding: 18,
-      borderRadius: 18,
-      background: "rgba(8,0,20,.92)",
-      border: "1px solid rgba(239,68,68,.45)",
-      boxShadow: "0 0 28px rgba(239,68,68,.35)",
-      zIndex: 999,
-    }}
-  >
-    <button
-      onClick={() => setBanishOpen(false)}
-      style={{
-        position: "absolute",
-        top: 10,
-        right: 12,
-        background: "transparent",
-        border: "none",
-        color: "white",
-        fontSize: 22,
-        cursor: "pointer",
-      }}
-    >
-      ×
-    </button>
-
-    <div
-      style={{
-        color: "#ef4444",
-        fontWeight: 900,
-        fontSize: 24,
-        textAlign: "center",
-        marginBottom: 14,
-      }}
-    >
-      ☠ BANISH
-    </div>
-
-    {filteredBanishLogs.length === 0 && (
-      <div style={{ color: "#9ca3af", textAlign: "center" }}>
-        No unsigned players yet.
-      </div>
-    )}
-
-  {filteredBanishLogs.map((log) => (
-      <div
-        key={log.id}
-        style={{
-          padding: 10,
-          marginBottom: 10,
-          borderRadius: 10,
-          background: "rgba(0,0,0,.35)",
-        }}
-      >
-        <div style={{ color: "#fff", fontWeight: 800 }}>
-          {log.player.split(" - ")[0]}
-        </div>
-
-        <div style={{ color: "#c084fc", fontSize: 12 }}>
-          {log.run_title} — Run ID #{log.run_id}
-        </div>
-
-        <div style={{ color: "#9ca3af", fontSize: 11 }}>
-          Unsigned: {new Date(log.unsigned_at).toLocaleString("en-GB")}
-        </div>
-      </div>
-    ))}
-  </div>
-)}
+{!isMobile && <HeartsRosterButton roster={hearts.roster()} />}
 
 <div style={createArea}>
   <button onClick={() => setShowCreateRun(true)} style={createRunButton}>

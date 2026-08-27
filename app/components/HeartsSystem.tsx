@@ -323,98 +323,127 @@ export function useHearts(discordId?: string | null) {
 }
 
 /* ============================================================
-   4. HEARTS BAR — goes under the day buttons
+   4. HEARTS BAR — floats directly above the chat button
 ============================================================ */
 export function HeartsBar({
   hearts,
   ban,
-  isAdmin = false,
-  roster = [],
-  onLiftBan,
 }: {
   hearts: number;
   ban?: SignupBan | null;
-  isAdmin?: boolean;
-  roster?: { key: string; name: string; hearts: number; ban: SignupBan | null }[];
-  onLiftBan?: (banId: number) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const banned = !!ban;
 
   return (
     <div style={hb.wrap}>
-      <div style={{ ...hb.bar, ...(banned ? hb.barBanned : {}) }}>
-        <div style={hb.label}>
-          {new Date().toLocaleDateString("en-GB", { month: "long" })} hearts
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {Array.from({ length: MAX_HEARTS }, (_, i) => (
-            <Heart key={i} filled={i < hearts} />
-          ))}
-        </div>
-
-        <div
-          style={{
-            ...hb.count,
-            color: hearts === 0 ? "#ef4444" : hearts <= 2 ? "#facc15" : "#fca5c7",
-          }}
-        >
-          {hearts} / {MAX_HEARTS}
-        </div>
-
-        {banned && (
-          <>
-            <div style={hb.divider} />
-
-            <div style={hb.locked}>
-              Locked until {formatDate(ban!.banned_until)} •{" "}
-              {daysUntil(ban!.banned_until)}d
-            </div>
-          </>
-        )}
-
-        {isAdmin && (
-          <button onClick={() => setOpen((v) => !v)} style={hb.toggle}>
-            {open ? "Hide roster" : `Roster (${roster.length})`}
-          </button>
-        )}
+      {/* hearts stack on top */}
+      <div style={hb.stack}>
+        {Array.from({ length: MAX_HEARTS }, (_, i) => (
+          <Heart key={i} filled={i < hearts} />
+        ))}
       </div>
 
-      {isAdmin && open && (
-        <div style={hb.rosterBox}>
-          {roster.length === 0 && (
-            <div style={hb.empty}>Nobody has lost a heart this month.</div>
-          )}
+      {/* count under the hearts */}
+      <div
+        style={{
+          ...hb.count,
+          color: hearts === 0 ? "#ef4444" : hearts <= 2 ? "#facc15" : "#ff8fb0",
+        }}
+      >
+        {hearts} / {MAX_HEARTS}
+      </div>
 
-          {roster.map((row) => (
-            <div key={row.key} style={hb.rosterRow}>
-              <b style={hb.rosterName} title={row.name}>
-                {row.name}
-              </b>
+      {/* month label at the bottom */}
+      <div style={hb.label}>
+        {new Date().toLocaleDateString("en-GB", { month: "long" })}
+        <br />
+        hearts
+      </div>
 
-              <div style={{ display: "flex", gap: 3 }}>
-                {Array.from({ length: MAX_HEARTS }, (_, i) => (
-                  <Heart key={i} filled={i < row.hearts} size={15} />
-                ))}
-              </div>
-
-              {row.ban ? (
-                <button
-                  onClick={() => onLiftBan?.(row.ban!.id)}
-                  style={hb.unban}
-                  title={`Locked until ${formatDate(row.ban.banned_until)}`}
-                >
-                  Unlock
-                </button>
-              ) : (
-                <span style={hb.ok}>ok</span>
-              )}
-            </div>
-          ))}
+      {banned && (
+        <div style={hb.locked}>
+          Locked {daysUntil(ban!.banned_until)}d
         </div>
       )}
     </div>
+  );
+}
+
+/* ============================================================
+   5. ROSTER BUTTON — round icon + panel, visible to everyone.
+   Read only: nobody can change hearts or lift bans from here.
+============================================================ */
+export function HeartsRosterButton({
+  roster = [],
+}: {
+  roster?: { key: string; name: string; hearts: number; ban: SignupBan | null }[];
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          title="Monthly hearts"
+          style={hb.roundBtn}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "scale(1.08)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+        >
+          ♥
+        </button>
+      )}
+
+      {open && (
+        <div style={hb.rosterBox}>
+          <button onClick={() => setOpen(false)} style={hb.rosterClose}>
+            ×
+          </button>
+
+          <div style={hb.rosterTitle}>♥ HEARTS</div>
+
+          <div style={hb.rosterSub}>
+            {new Date().toLocaleDateString("en-GB", { month: "long" })} •{" "}
+            {roster.length} player{roster.length === 1 ? "" : "s"}
+          </div>
+
+          <div style={hb.rosterScroll}>
+            {roster.length === 0 && (
+              <div style={hb.empty}>Nobody has lost a heart this month.</div>
+            )}
+
+            {roster.map((row) => (
+              <div key={row.key} style={hb.rosterRow}>
+                <b style={hb.rosterName} title={row.name}>
+                  {row.name}
+                </b>
+
+                <div style={{ display: "flex", gap: 3 }}>
+                  {Array.from({ length: MAX_HEARTS }, (_, i) => (
+                    <Heart key={i} filled={i < row.hearts} size={15} />
+                  ))}
+                </div>
+
+                {row.ban ? (
+                  <span
+                    style={hb.lockedTag}
+                    title={`Locked until ${formatDate(row.ban.banned_until)}`}
+                  >
+                    {daysUntil(row.ban.banned_until)}d
+                  </span>
+                ) : (
+                  <span style={hb.ok}>ok</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1005,84 +1034,123 @@ function ActionButton({
    8. Styles
 ============================================================ */
 const hb: Record<string, React.CSSProperties> = {
-  // Floats above the chat button so it stays visible while scrolling.
+  // Sits directly above the chat button. Same 62px width, no panel.
   wrap: {
     position: "fixed",
     right: 24,
+    width: 62,
     bottom: 180,
     zIndex: 999,
     display: "flex",
-    flexDirection: "column-reverse",
-    alignItems: "flex-end",
-    gap: 10,
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 6,
+    pointerEvents: "none",
   },
-  bar: {
+  stack: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 14,
-    padding: "18px 20px",
-    borderRadius: 28,
-    border: "1px solid rgba(255,59,107,.55)",
-    background: "linear-gradient(180deg, rgba(30,2,18,.94), rgba(8,0,16,.97))",
-    boxShadow: "0 0 30px rgba(255,59,107,.35), inset 0 0 24px rgba(255,59,107,.10)",
-    backdropFilter: "blur(10px)",
-  },
-  barBanned: {
-    border: "1px solid rgba(239,68,68,.85)",
-    boxShadow: "0 0 34px rgba(239,68,68,.55), inset 0 0 22px rgba(239,68,68,.20)",
+    gap: 4,
   },
   label: {
     color: "#ff8fb0",
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: 900,
-    letterSpacing: 2,
+    letterSpacing: 1.5,
     textTransform: "uppercase",
     textAlign: "center",
     lineHeight: 1.3,
-    maxWidth: 110,
-    textShadow: "0 0 14px rgba(255,59,107,.5)",
+    textShadow: "0 0 10px rgba(0,0,0,.9), 0 0 16px rgba(255,59,107,.5)",
   },
   count: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: 900,
-    letterSpacing: 2,
+    letterSpacing: 1,
     textAlign: "center",
+    textShadow: "0 0 10px rgba(0,0,0,.9)",
   },
-  divider: { width: 1, height: 22, background: "rgba(255,255,255,.15)" },
-  locked: { color: "#fca5a5", fontSize: 12, fontWeight: 800 },
-  toggle: {
-    padding: "9px 14px",
-    borderRadius: 999,
-    border: "1px solid rgba(255,59,107,.6)",
-    background: "linear-gradient(180deg, rgba(70,4,28,.95), rgba(20,0,12,.95))",
-    color: "#ffd9e4",
+  locked: {
+    color: "#fca5a5",
+    fontSize: 10,
     fontWeight: 900,
-    fontSize: 12,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    boxShadow: "0 0 18px rgba(255,59,107,.45)",
+    textShadow: "0 0 10px rgba(0,0,0,.9)",
   },
+
+  // Round button that replaces the old banish icon.
+  roundBtn: {
+    position: "fixed",
+    left: 24,
+    bottom: 105,
+    width: 62,
+    height: 62,
+    borderRadius: "50%",
+    border: "1px solid rgba(255,59,107,.7)",
+    background: "linear-gradient(135deg,#7f1d3a,#ff3b6b)",
+    color: "white",
+    fontSize: 28,
+    lineHeight: 1,
+    cursor: "pointer",
+    zIndex: 999,
+    boxShadow: "0 0 24px rgba(255,59,107,.75)",
+    transition: "transform .18s ease",
+  },
+
   rosterBox: {
-    width: "min(400px, 88vw)",
-    maxHeight: 300,
+    position: "fixed",
+    left: 20,
+    top: 120,
+    width: 400,
+    maxHeight: "72vh",
+    display: "flex",
+    flexDirection: "column",
+    padding: 18,
+    borderRadius: 18,
+    background: "rgba(14,0,10,.94)",
+    border: "1px solid rgba(255,59,107,.45)",
+    boxShadow: "0 0 30px rgba(255,59,107,.35)",
+    backdropFilter: "blur(12px)",
+    zIndex: 999,
+  },
+  rosterClose: {
+    position: "absolute",
+    top: 10,
+    right: 12,
+    background: "transparent",
+    border: "none",
+    color: "white",
+    fontSize: 22,
+    cursor: "pointer",
+  },
+  rosterTitle: {
+    color: "#ff8fb0",
+    fontWeight: 900,
+    fontSize: 22,
+    textAlign: "center",
+    marginBottom: 4,
+    letterSpacing: 2,
+    textShadow: "0 0 14px rgba(255,59,107,.7)",
+  },
+  rosterSub: {
+    color: "#9ca3af",
+    fontSize: 12,
+    textAlign: "center",
+    marginBottom: 14,
+  },
+  rosterScroll: {
     overflowY: "auto",
-    padding: 12,
-    borderRadius: 16,
-    border: "1px solid rgba(168,85,247,.35)",
-    background: "rgba(8,0,20,.94)",
-    boxShadow: "0 0 26px rgba(168,85,247,.3)",
+    minHeight: 0,
   },
   rosterRow: {
     display: "grid",
-    gridTemplateColumns: "1fr auto 76px",
+    gridTemplateColumns: "1fr auto 46px",
     alignItems: "center",
     gap: 10,
-    padding: "8px 10px",
+    padding: "9px 10px",
     marginBottom: 6,
     borderRadius: 10,
     background: "rgba(0,0,0,.4)",
-    border: "1px solid rgba(168,85,247,.18)",
+    border: "1px solid rgba(255,59,107,.18)",
   },
   rosterName: {
     color: "#fff",
@@ -1091,17 +1159,23 @@ const hb: Record<string, React.CSSProperties> = {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  ok: { textAlign: "center", color: "#22c55e", fontSize: 12, fontWeight: 900 },
-  empty: { color: "#9ca3af", textAlign: "center", padding: 14, fontSize: 14 },
-  unban: {
-    padding: "6px 10px",
-    borderRadius: 8,
-    border: "1px solid rgba(250,204,21,.6)",
-    background: "rgba(60,40,0,.6)",
-    color: "#fff7cc",
-    fontWeight: 900,
+  ok: {
+    textAlign: "center",
+    color: "#22c55e",
     fontSize: 12,
-    cursor: "pointer",
+    fontWeight: 900,
+  },
+  lockedTag: {
+    textAlign: "center",
+    color: "#ef4444",
+    fontSize: 12,
+    fontWeight: 900,
+  },
+  empty: {
+    color: "#9ca3af",
+    textAlign: "center",
+    padding: 14,
+    fontSize: 14,
   },
 };
 
