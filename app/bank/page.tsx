@@ -298,6 +298,11 @@ const activeSeason = useMemo(
   [seasonTabs, activeTab]
 );
 
+// Season history has no per-run data, so Bonus, Boosters and Pot
+// are dropped from those tabs.
+const isHistoryTab =
+  !!activeSeason || activeTab === "Midnight Season 1 History";
+
 useEffect(() => {
   loadProfiles();
   loadNotes();
@@ -1092,18 +1097,30 @@ function potIcon(name: string) {
 
 
           <div style={table}>
-            <div style={tableHead}>
-              <div>RUN Day</div>
-              <div>TYPE OF RUN</div>
-              <div>CHARACTER</div>
-              <div style={rightCell}>CUT</div>
-              <div style={centerCell}>BONUS</div>
-              <div style={centerCell}>STATUS</div>
-              <div style={centerCell}>BOOSTERS</div>
-              <div style={centerCell}>CLIENTS</div>
-              <div style={rightCell}>POT</div>
-              <div style={centerCell}>DETAILS</div>
-            </div>
+            {isHistoryTab ? (
+              <div style={historyHead}>
+                <div>RUN Day</div>
+                <div>TYPE OF RUN</div>
+                <div>CHARACTER</div>
+                <div style={rightCell}>CUT</div>
+                <div style={centerCell}>STATUS</div>
+                <div style={centerCell}>CLIENTS</div>
+                <div style={centerCell}>DETAILS</div>
+              </div>
+            ) : (
+              <div style={tableHead}>
+                <div>RUN Day</div>
+                <div>TYPE OF RUN</div>
+                <div>CHARACTER</div>
+                <div style={rightCell}>CUT</div>
+                <div style={centerCell}>BONUS</div>
+                <div style={centerCell}>STATUS</div>
+                <div style={centerCell}>BOOSTERS</div>
+                <div style={centerCell}>CLIENTS</div>
+                <div style={rightCell}>POT</div>
+                <div style={centerCell}>DETAILS</div>
+              </div>
+            )}
 
 {activeSeason ? (
   <div
@@ -1114,7 +1131,7 @@ function potIcon(name: string) {
     }}
   >
     {activeSeason.rows.map((row: any, index: number) => (
-      <div key={index} style={tableRow}>
+      <div key={index} style={historyRow}>
         <div>{row.week || "-"}</div>
 
         <div>
@@ -1129,23 +1146,13 @@ function potIcon(name: string) {
           {Number(row.cut || 0).toLocaleString()}g
         </div>
 
-        <div style={{ ...dimText, ...centerCell }}>—</div>
-
         <div style={centerCell}>
           <span style={row.status === "Paid" ? paidBadge : pendingBadge}>
             {row.status}
           </span>
         </div>
 
-        <div style={{ ...countCell, color: "#c4b5fd" }}>
-          {row.runs ? row.runs.toLocaleString() : "-"}
-        </div>
-
         <div style={{ ...dimText, ...centerCell }}>-</div>
-
-        <div style={{ ...goldText, ...rightCell }}>
-          {row.cut ? `${Number(row.cut).toLocaleString()}g` : "-"}
-        </div>
 
         <div style={{ ...dimText, ...centerCell }}>-</div>
       </div>
@@ -1160,7 +1167,7 @@ function potIcon(name: string) {
     }}
   >
 {history.map((week: any, index: number) => (
-  <div key={index} style={tableRow}>
+  <div key={index} style={historyRow}>
     <div>{week.week}</div>
 
     <div>
@@ -1175,8 +1182,6 @@ function potIcon(name: string) {
       {Number(week.amount || 0).toLocaleString()}g
     </div>
 
-    <div style={{ ...dimText, ...centerCell }}>—</div>
-
 <div style={centerCell}>
   <span
     style={
@@ -1188,13 +1193,8 @@ function potIcon(name: string) {
     {index === history.length - 1 ? "Pending" : "Paid"}
   </span>
 </div>
-    <div style={{ ...dimText, ...centerCell }}>-</div>
 
     <div style={{ ...dimText, ...centerCell }}>-</div>
-
-    <div style={{ ...goldText, ...rightCell }}>
-      {Number(week.amount || 0).toLocaleString()}g
-    </div>
 
     <div style={{ ...dimText, ...centerCell }}>-</div>
   </div>
@@ -1761,6 +1761,9 @@ const table: React.CSSProperties = {
 // the same width so their right-aligned digits line up with each other.
 const GRID_COLUMNS = "1.1fr 1.1fr 1.1fr 1fr 1.2fr 1fr .7fr .7fr 1fr 1.1fr";
 
+// Season history has no Bonus, Boosters or Pot, so it uses seven columns.
+const HISTORY_GRID_COLUMNS = "1.3fr 1.2fr 1.3fr 1.1fr 1fr .8fr 1.2fr";
+
 const tableHead: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: GRID_COLUMNS,
@@ -1777,6 +1780,16 @@ const tableRow: React.CSSProperties = {
   padding: "18px 16px",
   alignItems: "center",
   borderBottom: "1px solid rgba(255,255,255,0.05)",
+};
+
+const historyHead: React.CSSProperties = {
+  ...tableHead,
+  gridTemplateColumns: HISTORY_GRID_COLUMNS,
+};
+
+const historyRow: React.CSSProperties = {
+  ...tableRow,
+  gridTemplateColumns: HISTORY_GRID_COLUMNS,
 };
 
 const charText: React.CSSProperties = {
