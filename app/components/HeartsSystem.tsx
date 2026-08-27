@@ -397,28 +397,31 @@ function HeartStyles() {
         100% { transform: scale(1) rotate(0deg); opacity: 1; }
       }
       @keyframes dwSplitLeft {
-        0%, 62% { transform: translate(0,0) rotate(0deg); opacity: 1; }
-        100%    { transform: translate(-130px, 190px) rotate(-42deg); opacity: 0; }
+        0%, 40%  { transform: translate(0,0) rotate(0deg); opacity: 1; }
+        50%      { transform: translate(-14px,-10px) rotate(-5deg); opacity: 1; }
+        100%     { transform: translate(-300px, 320px) rotate(-55deg); opacity: 0; }
       }
       @keyframes dwSplitRight {
-        0%, 62% { transform: translate(0,0) rotate(0deg); opacity: 1; }
-        100%    { transform: translate(130px, 190px) rotate(42deg); opacity: 0; }
+        0%, 40%  { transform: translate(0,0) rotate(0deg); opacity: 1; }
+        50%      { transform: translate(14px,-10px) rotate(5deg); opacity: 1; }
+        100%     { transform: translate(300px, 320px) rotate(55deg); opacity: 0; }
       }
       @keyframes dwShard {
-        0%, 60% { transform: translate(0,0) scale(.4); opacity: 0; }
-        70%     { opacity: 1; }
-        100%    { transform: translate(var(--dx), var(--dy)) scale(1); opacity: 0; }
+        0%, 45% { transform: translate(0,0) scale(.3); opacity: 0; }
+        55%     { opacity: 1; }
+        100%    { transform: translate(var(--dx), var(--dy)) scale(1) rotate(140deg); opacity: 0; }
       }
       @keyframes dwFlash {
         0%   { opacity: 0; }
-        60%  { opacity: 0; }
-        68%  { opacity: .55; }
+        12%  { opacity: .9; }
+        40%  { opacity: .75; }
         100% { opacity: 0; }
       }
       @keyframes dwLabel {
-        0%, 60% { opacity: 0; transform: translateY(14px); }
-        75%     { opacity: 1; transform: translateY(0); }
-        100%    { opacity: 0; transform: translateY(-10px); }
+        0%, 45% { opacity: 0; transform: translateY(16px); }
+        58%     { opacity: 1; transform: translateY(0); }
+        85%     { opacity: 1; transform: translateY(0); }
+        100%    { opacity: 0; transform: translateY(-12px); }
       }
       .dw-heart {
         display: inline-block;
@@ -459,7 +462,7 @@ export function HeartBreak({
   useEffect(() => {
     if (!open) return;
 
-    const t = setTimeout(() => onDone?.(), 1700);
+    const t = setTimeout(() => onDone?.(), 2300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -479,25 +482,35 @@ export function HeartBreak({
 }
 
 function HeartBreakArt() {
+  // Stage is square; each half is exactly 50% wide with the same
+  // full-size heart inside, offset so together they read as one.
+  const W = 460;
+
   const shards = [
-    { dx: "-210px", dy: "160px" },
-    { dx: "210px", dy: "150px" },
-    { dx: "-140px", dy: "-120px" },
-    { dx: "150px", dy: "-130px" },
-    { dx: "-260px", dy: "-30px" },
-    { dx: "260px", dy: "-20px" },
-    { dx: "-60px", dy: "220px" },
-    { dx: "70px", dy: "230px" },
+    { dx: "-260px", dy: "200px" },
+    { dx: "260px", dy: "190px" },
+    { dx: "-170px", dy: "-150px" },
+    { dx: "180px", dy: "-160px" },
+    { dx: "-320px", dy: "-40px" },
+    { dx: "320px", dy: "-30px" },
+    { dx: "-70px", dy: "270px" },
+    { dx: "80px", dy: "280px" },
   ];
 
   return (
     <div style={brk.overlay}>
       <div style={brk.flash} />
 
-      <div style={brk.stage}>
-        {/* the two halves that fall apart */}
-        <div style={{ ...brk.half, ...brk.left }}>♥</div>
-        <div style={{ ...brk.half, ...brk.right }}>♥</div>
+      <div style={{ ...brk.stage, width: W, height: W }}>
+        {/* left half */}
+        <div style={{ ...brk.half, left: 0, width: W / 2 }}>
+          <span style={{ ...brk.glyph, width: W, left: 0 }}>♥</span>
+        </div>
+
+        {/* right half */}
+        <div style={{ ...brk.halfRight, left: W / 2, width: W / 2 }}>
+          <span style={{ ...brk.glyph, width: W, left: -W / 2 }}>♥</span>
+        </div>
 
         {shards.map((sh, i) => (
           <span
@@ -506,7 +519,7 @@ function HeartBreakArt() {
               ...brk.shard,
               ["--dx" as any]: sh.dx,
               ["--dy" as any]: sh.dy,
-              animationDelay: `${i * 0.015}s`,
+              animationDelay: `${i * 0.02}s`,
             }}
           >
             ♥
@@ -705,7 +718,7 @@ export function HeartsRosterButton({
 
 function Heart({
   filled,
-  size = 40,
+  size = 54,
   breaking = false,
 }: {
   filled: boolean;
@@ -1306,9 +1319,9 @@ const hb: Record<string, React.CSSProperties> = {
   // Sits directly above the chat button. Same 62px width, no panel.
   wrap: {
     position: "fixed",
-    right: 24,
-    width: 72,
-    bottom: 190,
+    right: 18,
+    width: 96,
+    bottom: 195,
     zIndex: 999,
     display: "flex",
     flexDirection: "column",
@@ -1323,7 +1336,7 @@ const hb: Record<string, React.CSSProperties> = {
   },
   label: {
     color: "#ff8fb0",
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: 900,
     letterSpacing: 1.5,
     textTransform: "uppercase",
@@ -1332,7 +1345,7 @@ const hb: Record<string, React.CSSProperties> = {
     textShadow: "0 0 10px rgba(0,0,0,.9), 0 0 16px rgba(255,59,107,.5)",
   },
   count: {
-    fontSize: 22,
+    fontSize: 30,
     fontWeight: 900,
     letterSpacing: 1,
     textAlign: "center",
@@ -1490,45 +1503,44 @@ const brk: Record<string, React.CSSProperties> = {
     position: "absolute",
     inset: 0,
     background:
-      "radial-gradient(circle at 50% 45%, rgba(255,59,107,.55), rgba(0,0,0,.75) 70%)",
-    animation: "dwFlash 1.6s ease-out forwards",
+      "radial-gradient(circle at 50% 45%, rgba(255,59,107,.5), rgba(0,0,0,.78) 70%)",
+    animation: "dwFlash 2.2s ease-out forwards",
   },
   stage: {
     position: "relative",
-    width: 460,
-    height: 460,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
   },
+  // Each half clips the shared glyph down the centre line.
   half: {
     position: "absolute",
-    fontSize: 380,
-    lineHeight: 1,
-    color: "#ff3b6b",
-    textShadow: "0 0 40px rgba(255,59,107,.95), 0 0 80px rgba(255,59,107,.6)",
-    width: "50%",
+    top: 0,
+    bottom: 0,
     overflow: "hidden",
-    display: "flex",
-    justifyContent: "center",
+    animation: "dwBurstIn .55s ease-out, dwSplitLeft 2.2s ease-in forwards",
   },
-  left: {
-    left: 0,
-    animation: "dwBurstIn .9s ease-out, dwSplitLeft 1.6s ease-in forwards",
-    clipPath: "polygon(0 0, 100% 0, 100% 100%, 0 100%)",
-    textIndent: "50%",
+  halfRight: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    overflow: "hidden",
+    animation: "dwBurstIn .55s ease-out, dwSplitRight 2.2s ease-in forwards",
   },
-  right: {
-    right: 0,
-    animation: "dwBurstIn .9s ease-out, dwSplitRight 1.6s ease-in forwards",
-    textIndent: "-50%",
+  glyph: {
+    position: "absolute",
+    top: 0,
+    fontSize: 380,
+    lineHeight: "460px",
+    textAlign: "center",
+    color: "#ff3b6b",
+    textShadow: "0 0 46px rgba(255,59,107,.95), 0 0 95px rgba(255,59,107,.6)",
   },
   shard: {
     position: "absolute",
+    top: "45%",
+    left: "45%",
     fontSize: 52,
     color: "#ff3b6b",
-    textShadow: "0 0 18px rgba(255,59,107,.9)",
-    animation: "dwShard 1.6s ease-out forwards",
+    textShadow: "0 0 20px rgba(255,59,107,.9)",
+    animation: "dwShard 2.2s ease-out forwards",
   },
   label: {
     marginTop: 10,
@@ -1538,7 +1550,7 @@ const brk: Record<string, React.CSSProperties> = {
     letterSpacing: 6,
     fontFamily: "Georgia, serif",
     textShadow: "0 0 26px rgba(255,59,107,1), 0 0 50px rgba(255,59,107,.7)",
-    animation: "dwLabel 1.6s ease-out forwards",
+    animation: "dwLabel 2.2s ease-out forwards",
   },
 };
 
