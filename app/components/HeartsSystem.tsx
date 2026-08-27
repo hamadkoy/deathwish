@@ -440,20 +440,34 @@ function HeartStyles() {
         85%     { opacity: 1; transform: translateY(0); }
         100%    { opacity: 0; transform: translateY(-12px); }
       }
+      /* Outer span owns hover, inner owns the idle beat. Two elements,
+         so the two transforms multiply instead of fighting each other. */
       .dw-heart {
         display: inline-block;
         transition: transform .18s ease, filter .18s ease;
-        cursor: default;
+        cursor: pointer;
         user-select: none;
         -webkit-user-select: none;
         -moz-user-select: none;
         -ms-user-select: none;
         caret-color: transparent;
       }
-      .dw-heart.filled { animation: heartBeat 2.6s ease-in-out infinite; }
-      .dw-heart:hover  { transform: scale(1.45); filter: brightness(1.3); }
-      .dw-heart.dim      { filter: grayscale(100%) brightness(.6); }
-      .dw-heart.breaking { animation: heartBreak .7s ease-in-out 3; }
+      .dw-heart:hover {
+        transform: scale(1.5);
+        filter: brightness(1.45)
+                drop-shadow(0 0 16px rgba(255,59,107,1))
+                drop-shadow(0 0 34px rgba(255,59,107,.85));
+      }
+      .dw-heart-inner {
+        display: inline-block;
+      }
+      .dw-heart.filled .dw-heart-inner {
+        animation: heartBeat 2.6s ease-in-out infinite;
+      }
+      .dw-heart.dim { filter: grayscale(100%) brightness(.7); }
+      .dw-heart.breaking .dw-heart-inner {
+        animation: heartBreak .7s ease-in-out 3;
+      }
     `}</style>
   );
 }
@@ -522,12 +536,12 @@ function HeartBreakArt() {
       <div style={{ ...brk.stage, width: W, height: W }}>
         {/* left half */}
         <div style={{ ...brk.half, left: 0, width: W / 2 }}>
-          <span style={{ ...brk.glyph, width: W, left: 0 }}>♥</span>
+          <span style={{ ...brk.glyph, width: W, left: 0 }}>💔</span>
         </div>
 
         {/* right half */}
         <div style={{ ...brk.halfRight, left: W / 2, width: W / 2 }}>
-          <span style={{ ...brk.glyph, width: W, left: -W / 2 }}>♥</span>
+          <span style={{ ...brk.glyph, width: W, left: -W / 2 }}>💔</span>
         </div>
 
         {shards.map((sh, i) => (
@@ -540,7 +554,7 @@ function HeartBreakArt() {
               animationDelay: `${i * 0.02}s`,
             }}
           >
-            ♥
+            💔
           </span>
         ))}
       </div>
@@ -746,19 +760,21 @@ function Heart({
   return (
     <span
       className={`dw-heart${filled ? " filled" : ""}${
-        breaking ? " dim breaking" : ""
+        breaking ? " breaking" : ""
       }`}
       style={{
         fontSize: size,
         lineHeight: 1,
-        color: breaking ? "#6b7280" : filled ? "#ff3b6b" : "#3a2b4a",
+        color: filled ? "#ff3b6b" : "#3a2b4a",
         textShadow: filled
           ? "0 0 14px rgba(255,59,107,.9), 0 0 26px rgba(255,59,107,.45)"
           : "0 0 8px rgba(0,0,0,.8)",
-        opacity: filled ? 1 : breaking ? 0.75 : 0.5,
+        opacity: filled || breaking ? 1 : 0.5,
       }}
     >
-      {breaking ? "♡" : filled ? "♥" : "♡"}
+      <span className="dw-heart-inner">
+        {breaking ? "💔" : filled ? "♥" : "♡"}
+      </span>
     </span>
   );
 }
@@ -1548,16 +1564,15 @@ const brk: Record<string, React.CSSProperties> = {
     fontSize: 380,
     lineHeight: "460px",
     textAlign: "center",
-    color: "#ff3b6b",
-    textShadow: "0 0 46px rgba(255,59,107,.95), 0 0 95px rgba(255,59,107,.6)",
+    filter:
+      "drop-shadow(0 0 30px rgba(255,59,107,.95)) drop-shadow(0 0 70px rgba(255,59,107,.55))",
   },
   shard: {
     position: "absolute",
     top: "45%",
     left: "45%",
     fontSize: 52,
-    color: "#ff3b6b",
-    textShadow: "0 0 20px rgba(255,59,107,.9)",
+    filter: "drop-shadow(0 0 18px rgba(255,59,107,.95))",
     animation: "dwShard 2.9s ease-out forwards",
   },
   label: {
