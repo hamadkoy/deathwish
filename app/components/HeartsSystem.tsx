@@ -395,50 +395,6 @@ function HeartStyles() {
         60%  { transform: scale(.7) rotate(14deg);   opacity: .5; }
         100% { transform: scale(1) rotate(0deg);    opacity: 1; }
       }
-      @keyframes dwBurstIn {
-        0%   { transform: scale(.2); opacity: 0; }
-        35%  { transform: scale(1.25); opacity: 1; }
-        55%  { transform: scale(1); opacity: 1; }
-        70%  { transform: scale(1.1) rotate(-4deg); }
-        100% { transform: scale(1) rotate(0deg); opacity: 1; }
-      }
-      /* short tremble, then the halves tear apart and fall away */
-      @keyframes dwSplitLeft {
-        0%   { transform: translate(0,0) scale(.3); opacity: 0; }
-        10%  { transform: translate(0,0) scale(1.15); opacity: 1; }
-        16%  { transform: translate(0,0) scale(1); }
-        22%  { transform: translate(-7px,0) rotate(-5deg); }
-        28%  { transform: translate(7px,0) rotate(5deg); }
-        34%  { transform: translate(-6px,0) rotate(-4deg); }
-        40%  { transform: translate(5px,0) rotate(3deg); }
-        46%  { transform: translate(0,0) scale(1.12) rotate(0deg); }
-        /* the tear */
-        56%  { transform: translate(-40px,-34px) rotate(-14deg) scale(1.05); opacity: 1; }
-        100% { transform: translate(-420px, 430px) rotate(-78deg) scale(.75); opacity: 0; }
-      }
-      @keyframes dwSplitRight {
-        0%   { transform: translate(0,0) scale(.3); opacity: 0; }
-        10%  { transform: translate(0,0) scale(1.15); opacity: 1; }
-        16%  { transform: translate(0,0) scale(1); }
-        22%  { transform: translate(-7px,0) rotate(-5deg); }
-        28%  { transform: translate(7px,0) rotate(5deg); }
-        34%  { transform: translate(-6px,0) rotate(-4deg); }
-        40%  { transform: translate(5px,0) rotate(3deg); }
-        46%  { transform: translate(0,0) scale(1.12) rotate(0deg); }
-        56%  { transform: translate(40px,-34px) rotate(14deg) scale(1.05); opacity: 1; }
-        100% { transform: translate(420px, 430px) rotate(78deg) scale(.75); opacity: 0; }
-      }
-      @keyframes dwShard {
-        0%, 48% { transform: translate(0,0) scale(.2); opacity: 0; }
-        56%     { opacity: 1; }
-        100%    { transform: translate(var(--dx), var(--dy)) scale(1) rotate(140deg); opacity: 0; }
-      }
-      @keyframes dwLabel {
-        0%, 50% { opacity: 0; transform: translateY(16px); }
-        62%     { opacity: 1; transform: translateY(0); }
-        85%     { opacity: 1; transform: translateY(0); }
-        100%    { opacity: 0; transform: translateY(-12px); }
-      }
       /* Outer span owns hover, inner owns the idle beat. Two elements,
          so the two transforms multiply instead of fighting each other. */
       .dw-heart {
@@ -465,7 +421,7 @@ function HeartStyles() {
       }
       .dw-heart.dim { filter: grayscale(100%) brightness(.7); }
       .dw-heart.breaking .dw-heart-inner {
-        animation: heartBreak .7s ease-in-out 3;
+        animation: heartBreak 1s ease-in-out 1;
       }
     `}</style>
   );
@@ -493,7 +449,7 @@ export function HeartBreak({
   useEffect(() => {
     if (!open) return;
 
-    const t = setTimeout(() => onDone?.(), 2700);
+    const t = setTimeout(() => onDone?.(), 2100);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -513,50 +469,9 @@ export function HeartBreak({
 }
 
 function HeartBreakArt() {
-  // Stage is square; each half is exactly 50% wide with the same
-  // full-size heart inside, offset so together they read as one.
-  const W = 460;
-
-  const shards = [
-    { dx: "-260px", dy: "200px" },
-    { dx: "260px", dy: "190px" },
-    { dx: "-170px", dy: "-150px" },
-    { dx: "180px", dy: "-160px" },
-    { dx: "-320px", dy: "-40px" },
-    { dx: "320px", dy: "-30px" },
-    { dx: "-70px", dy: "270px" },
-    { dx: "80px", dy: "280px" },
-  ];
-
   return (
     <div style={brk.overlay}>
-      <div style={{ ...brk.stage, width: W, height: W }}>
-        {/* left half */}
-        <div style={{ ...brk.half, left: 0, width: W / 2 }}>
-          <span style={{ ...brk.glyph, width: W, left: 0 }}>💔</span>
-        </div>
-
-        {/* right half */}
-        <div style={{ ...brk.halfRight, left: W / 2, width: W / 2 }}>
-          <span style={{ ...brk.glyph, width: W, left: -W / 2 }}>💔</span>
-        </div>
-
-        {shards.map((sh, i) => (
-          <span
-            key={i}
-            style={{
-              ...brk.shard,
-              ["--dx" as any]: sh.dx,
-              ["--dy" as any]: sh.dy,
-              animationDelay: `${i * 0.02}s`,
-            }}
-          >
-            💔
-          </span>
-        ))}
-      </div>
-
-      <div style={brk.label}>HEART LOST</div>
+      <span style={brk.bigHeart}>💔</span>
     </div>
   );
 }
@@ -577,7 +492,7 @@ export function HeartsBar({
   useEffect(() => {
     if (hearts < prev) {
       setLost(true);
-      const t = setTimeout(() => setLost(false), 2200);
+      const t = setTimeout(() => setLost(false), 1000);
       setPrev(hearts);
       return () => clearTimeout(t);
     }
@@ -765,14 +680,12 @@ function Heart({
         color: filled ? "#ff3b6b" : "#3a2b4a",
         textShadow: filled
           ? "0 0 14px rgba(255,59,107,.9), 0 0 26px rgba(255,59,107,.45)"
-          : "none",
-        // Spent hearts stay as broken hearts, just drained of colour.
-        filter: filled || breaking ? "none" : "grayscale(85%) brightness(.55)",
-        opacity: filled || breaking ? 1 : 0.75,
+          : "0 0 8px rgba(0,0,0,.8)",
+        opacity: filled || breaking ? 1 : 0.55,
       }}
     >
       <span className="dw-heart-inner">
-        {filled ? "♥" : "💔"}
+        {breaking ? "💔" : filled ? "♥" : "♡"}
       </span>
     </span>
   );
@@ -1524,7 +1437,6 @@ const brk: Record<string, React.CSSProperties> = {
     inset: 0,
     zIndex: 1000001,
     display: "flex",
-    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     pointerEvents: "none",
@@ -1532,50 +1444,11 @@ const brk: Record<string, React.CSSProperties> = {
     WebkitUserSelect: "none",
     caretColor: "transparent",
   },
-  stage: {
-    position: "relative",
-  },
-  // Each half clips the shared glyph down the centre line.
-  half: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    overflow: "hidden",
-    animation: "dwSplitLeft 2.6s cubic-bezier(.4,0,.6,1) forwards",
-  },
-  halfRight: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    overflow: "hidden",
-    animation: "dwSplitRight 2.6s cubic-bezier(.4,0,.6,1) forwards",
-  },
-  glyph: {
-    position: "absolute",
-    top: 0,
-    fontSize: 380,
-    lineHeight: "460px",
-    textAlign: "center",
-    filter:
-      "drop-shadow(0 0 30px rgba(255,59,107,.95)) drop-shadow(0 0 70px rgba(255,59,107,.55))",
-  },
-  shard: {
-    position: "absolute",
-    top: "45%",
-    left: "45%",
-    fontSize: 52,
-    filter: "drop-shadow(0 0 18px rgba(255,59,107,.95))",
-    animation: "dwShard 2.6s ease-out forwards",
-  },
-  label: {
-    marginTop: 10,
-    color: "#fff",
-    fontSize: 46,
-    fontWeight: 900,
-    letterSpacing: 6,
-    fontFamily: "Georgia, serif",
-    textShadow: "0 0 26px rgba(255,59,107,1), 0 0 50px rgba(255,59,107,.7)",
-    animation: "dwLabel 2.6s ease-out forwards",
+  // Same wobble as the small hearts, just much larger.
+  bigHeart: {
+    fontSize: 300,
+    lineHeight: 1,
+    animation: "heartBreak 1s ease-in-out 2",
   },
 };
 
