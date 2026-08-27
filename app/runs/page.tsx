@@ -2209,7 +2209,14 @@ style={{
     </div>
   </div>
 )}
-{!isMobile && <HeartsRosterButton roster={hearts.roster()} />}
+{!isMobile && (
+  <HeartsRosterButton
+    roster={hearts.roster()}
+    isAdmin={isAdmin}
+    onGiveHeart={hearts.giveHeartTo}
+    onClearPlayer={hearts.clearPlayer}
+  />
+)}
 
 <div style={createArea}>
   <button onClick={() => setShowCreateRun(true)} style={createRunButton}>

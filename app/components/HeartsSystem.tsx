@@ -303,6 +303,57 @@ export function useHearts(discordId?: string | null) {
     await reload();
   }
 
+  /** Admin: hand one heart back by deleting that player's newest unsign. */
+  async function giveHeartTo(key: string) {
+    const month = monthKey();
+
+    const mine = logs
+      .filter(
+        (l) =>
+          playerKey(l) === key &&
+          monthKey(new Date(l.unsigned_at)) === month
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.unsigned_at).getTime() - new Date(a.unsigned_at).getTime()
+      );
+
+    if (mine.length === 0) return;
+
+    await supabase.from("banish_logs").delete().eq("id", mine[0].id);
+
+    const ban = activeBanFor(key, bans);
+    if (ban) {
+      await supabase.from("signup_bans").update({ lifted: true }).eq("id", ban.id);
+    }
+
+    await reload();
+  }
+
+  /** Admin: wipe a player off the list — all hearts back, ban lifted. */
+  async function clearPlayer(key: string) {
+    const month = monthKey();
+
+    const ids = logs
+      .filter(
+        (l) =>
+          playerKey(l) === key &&
+          monthKey(new Date(l.unsigned_at)) === month
+      )
+      .map((l) => l.id);
+
+    if (ids.length > 0) {
+      await supabase.from("banish_logs").delete().in("id", ids);
+    }
+
+    const ban = activeBanFor(key, bans);
+    if (ban) {
+      await supabase.from("signup_bans").update({ lifted: true }).eq("id", ban.id);
+    }
+
+    await reload();
+  }
+
   const myKey = discordId || "";
 
   return {
@@ -318,6 +369,8 @@ export function useHearts(discordId?: string | null) {
     giveHeartBack,
     clearRunUnsign,
     liftBan,
+    giveHeartTo,
+    clearPlayer,
     reload,
   };
 }
@@ -325,6 +378,39 @@ export function useHearts(discordId?: string | null) {
 /* ============================================================
    4. HEARTS BAR — floats directly above the chat button
 ============================================================ */
+
+/** Keyframes can't live in inline styles, so they're injected once. */
+function HeartStyles() {
+  return (
+    <style>{`
+      @keyframes heartBeat {
+        0%, 100% { transform: scale(1); }
+        18%      { transform: scale(1.18); }
+        36%      { transform: scale(1); }
+      }
+      @keyframes heartBreak {
+        0%   { transform: scale(1) rotate(0deg);   opacity: 1; }
+        25%  { transform: scale(1.5) rotate(-12deg); opacity: 1; }
+        60%  { transform: scale(.7) rotate(14deg);  opacity: .5; }
+        100% { transform: scale(1) rotate(0deg);   opacity: 1; }
+      }
+      @keyframes lostFloat {
+        0%   { transform: translateY(0) scale(.6); opacity: 0; }
+        25%  { transform: translateY(-10px) scale(1.15); opacity: 1; }
+        100% { transform: translateY(-42px) scale(.9); opacity: 0; }
+      }
+      .dw-heart {
+        display: inline-block;
+        transition: transform .18s ease, filter .18s ease;
+        cursor: default;
+      }
+      .dw-heart.filled { animation: heartBeat 2.6s ease-in-out infinite; }
+      .dw-heart:hover  { transform: scale(1.45); filter: brightness(1.3); }
+      .dw-heart.breaking { animation: heartBreak .7s ease-in-out 2; }
+    `}</style>
+  );
+}
+
 export function HeartsBar({
   hearts,
   ban,
@@ -334,16 +420,40 @@ export function HeartsBar({
 }) {
   const banned = !!ban;
 
+  // Watches for the count dropping so the loss can be shown.
+  const [prev, setPrev] = useState(hearts);
+  const [lost, setLost] = useState(false);
+
+  useEffect(() => {
+    if (hearts < prev) {
+      setLost(true);
+      const t = setTimeout(() => setLost(false), 2200);
+      setPrev(hearts);
+      return () => clearTimeout(t);
+    }
+
+    if (hearts !== prev) setPrev(hearts);
+  }, [hearts, prev]);
+
+  // Hearts empty from the TOP down, so the filled ones sit at the bottom.
+  const firstFilled = MAX_HEARTS - hearts;
+
   return (
     <div style={hb.wrap}>
-      {/* hearts stack on top */}
+      <HeartStyles />
+
+      {lost && <div style={hb.lostFloat}>−1 ♥</div>}
+
       <div style={hb.stack}>
         {Array.from({ length: MAX_HEARTS }, (_, i) => (
-          <Heart key={i} filled={i < hearts} />
+          <Heart
+            key={i}
+            filled={i >= firstFilled}
+            breaking={lost && i === firstFilled - 1}
+          />
         ))}
       </div>
 
-      {/* count under the hearts */}
       <div
         style={{
           ...hb.count,
@@ -353,7 +463,6 @@ export function HeartsBar({
         {hearts} / {MAX_HEARTS}
       </div>
 
-      {/* month label at the bottom */}
       <div style={hb.label}>
         {new Date().toLocaleDateString("en-GB", { month: "long" })}
         <br />
@@ -370,18 +479,26 @@ export function HeartsBar({
 }
 
 /* ============================================================
-   5. ROSTER BUTTON — round icon + panel, visible to everyone.
-   Read only: nobody can change hearts or lift bans from here.
+   5. ROSTER BUTTON — round icon + panel.
+   Everyone can look. Only admins get the + and ✕ buttons.
 ============================================================ */
 export function HeartsRosterButton({
   roster = [],
+  isAdmin = false,
+  onGiveHeart,
+  onClearPlayer,
 }: {
   roster?: { key: string; name: string; hearts: number; ban: SignupBan | null }[];
+  isAdmin?: boolean;
+  onGiveHeart?: (key: string) => void;
+  onClearPlayer?: (key: string) => void;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
+      <HeartStyles />
+
       {!open && (
         <button
           onClick={() => setOpen(true)}
@@ -417,14 +534,26 @@ export function HeartsRosterButton({
             )}
 
             {roster.map((row) => (
-              <div key={row.key} style={hb.rosterRow}>
+              <div
+                key={row.key}
+                style={{
+                  ...hb.rosterRow,
+                  gridTemplateColumns: isAdmin
+                    ? "1fr auto 46px auto"
+                    : "1fr auto 46px",
+                }}
+              >
                 <b style={hb.rosterName} title={row.name}>
                   {row.name}
                 </b>
 
                 <div style={{ display: "flex", gap: 3 }}>
                   {Array.from({ length: MAX_HEARTS }, (_, i) => (
-                    <Heart key={i} filled={i < row.hearts} size={15} />
+                    <Heart
+                      key={i}
+                      filled={i >= MAX_HEARTS - row.hearts}
+                      size={15}
+                    />
                   ))}
                 </div>
 
@@ -438,6 +567,27 @@ export function HeartsRosterButton({
                 ) : (
                   <span style={hb.ok}>ok</span>
                 )}
+
+                {isAdmin && (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onClick={() => onGiveHeart?.(row.key)}
+                      title="Give one heart back"
+                      style={hb.giveBtn}
+                      disabled={row.hearts >= MAX_HEARTS}
+                    >
+                      +
+                    </button>
+
+                    <button
+                      onClick={() => onClearPlayer?.(row.key)}
+                      title="Remove from the list — all hearts back"
+                      style={hb.dropBtn}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -447,24 +597,39 @@ export function HeartsRosterButton({
   );
 }
 
-function Heart({ filled, size = 26 }: { filled: boolean; size?: number }) {
+function Heart({
+  filled,
+  size = 40,
+  breaking = false,
+}: {
+  filled: boolean;
+  size?: number;
+  breaking?: boolean;
+}) {
   return (
     <span
+      className={`dw-heart${filled ? " filled" : ""}${
+        breaking ? " breaking" : ""
+      }`}
       style={{
         fontSize: size,
         lineHeight: 1,
-        color: filled ? "#ff3b6b" : "#3a2b4a",
-        textShadow: filled ? "0 0 14px rgba(255,59,107,.9)" : "none",
-        opacity: filled ? 1 : 0.55,
+        color: breaking ? "#ffffff" : filled ? "#ff3b6b" : "#3a2b4a",
+        textShadow: breaking
+          ? "0 0 22px rgba(255,255,255,.95), 0 0 34px rgba(255,59,107,.9)"
+          : filled
+          ? "0 0 14px rgba(255,59,107,.9), 0 0 26px rgba(255,59,107,.45)"
+          : "0 0 8px rgba(0,0,0,.8)",
+        opacity: filled || breaking ? 1 : 0.5,
       }}
     >
-      {filled ? "♥" : "♡"}
+      {breaking ? "💔" : filled ? "♥" : "♡"}
     </span>
   );
 }
 
 /* ============================================================
-   5. UNSIGNED PANEL — the red list beside a run card
+   6. UNSIGNED PANEL — the red list beside a run card
 ============================================================ */
 export function UnsignedPanel({
   logs,
@@ -573,7 +738,7 @@ export function UnsignedPanel({
 }
 
 /* ============================================================
-   6. WARNING POPUP — shown before anything is deleted
+   7. WARNING POPUP — shown before anything is deleted
 ============================================================ */
 export function UnsignWarningPopup({
   open,
@@ -694,7 +859,7 @@ export function BannedPopup({
 }
 
 /* ============================================================
-   7. PLAYER POPUP — Garrison / Discord DM / Change class
+   8. PLAYER POPUP — Garrison / Discord DM / Change class
 ============================================================ */
 export type PopupSignup = {
   id: number;
@@ -1031,31 +1196,40 @@ function ActionButton({
 }
 
 /* ============================================================
-   8. Styles
+   9. Styles
 ============================================================ */
 const hb: Record<string, React.CSSProperties> = {
   // Sits directly above the chat button. Same 62px width, no panel.
   wrap: {
     position: "fixed",
     right: 24,
-    width: 62,
-    bottom: 180,
+    width: 72,
+    bottom: 190,
     zIndex: 999,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 6,
-    pointerEvents: "none",
+    gap: 8,
   },
   stack: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 4,
+    gap: 2,
+  },
+  lostFloat: {
+    position: "absolute",
+    top: -18,
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: 900,
+    textShadow: "0 0 16px rgba(255,59,107,1)",
+    animation: "lostFloat 2.2s ease-out",
+    pointerEvents: "none",
   },
   label: {
     color: "#ff8fb0",
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: 900,
     letterSpacing: 1.5,
     textTransform: "uppercase",
@@ -1064,7 +1238,7 @@ const hb: Record<string, React.CSSProperties> = {
     textShadow: "0 0 10px rgba(0,0,0,.9), 0 0 16px rgba(255,59,107,.5)",
   },
   count: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: 900,
     letterSpacing: 1,
     textAlign: "center",
@@ -1176,6 +1350,30 @@ const hb: Record<string, React.CSSProperties> = {
     textAlign: "center",
     padding: 14,
     fontSize: 14,
+  },
+  giveBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    border: "1px solid rgba(34,197,94,.6)",
+    background: "rgba(4,40,20,.8)",
+    color: "#86efac",
+    fontWeight: 900,
+    fontSize: 15,
+    lineHeight: 1,
+    cursor: "pointer",
+  },
+  dropBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    border: "1px solid rgba(239,68,68,.6)",
+    background: "rgba(50,0,0,.8)",
+    color: "#fecaca",
+    fontWeight: 900,
+    fontSize: 13,
+    lineHeight: 1,
+    cursor: "pointer",
   },
 };
 
