@@ -15,7 +15,7 @@ import {
   FREE_ROLES,
   hasWeekStarted,
 } from "../components/HeartsSystem";
-
+import { useEarlyAccess, EarlyAccessButton } from "../components/EarlyAccess";
 import { supabase } from "@/lib/supabase";
 import { queueRunCancellation } from "@/lib/queueRunCancellation";
 import {
@@ -334,7 +334,8 @@ const [adminAddSpec, setAdminAddSpec] = useState("Guardian");
 
   const discordId =
     user?.user_metadata?.provider_id || user?.user_metadata?.sub;
-  const hearts = useHearts(discordId);
+    const hearts = useHearts(discordId);
+  const early = useEarlyAccess(discordId);
 
   const [pendingUnsign, setPendingUnsign] = useState<Signup | null>(null);
   const [bannedUntil, setBannedUntil] = useState<string | null>(null);
@@ -362,7 +363,9 @@ function getEffectiveSignupOpen(run: Run) {
 
   const openAt = new Date(run.signup_open_at).getTime();
 
-  return hasEarlyAccess ? openAt - EARLY_ACCESS_MS : openAt;
+    const unlocked = hasEarlyAccess || early.hasUnlocked(run.week);
+
+  return unlocked ? openAt - EARLY_ACCESS_MS : openAt;
 }
 
 const canMarkAttendance =
@@ -1761,7 +1764,16 @@ onClick={deleteSelectedWeek}
 </div>
 
 <div style={weekButtons}>
- {weeks
+  <EarlyAccessButton
+    week={selectedWeek}
+    discordId={discordId}
+    playerName={selectedCharacter?.name}
+    characterCount={characters.length}
+    alreadyUnlocked={early.hasUnlocked(selectedWeek)}
+    onUnlock={early.unlock}
+  />
+
+  {weeks
 .filter((week) =>
   isPhone
     ? week >= selectedWeek - 3 && week <= selectedWeek + 1
