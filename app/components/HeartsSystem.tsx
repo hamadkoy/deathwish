@@ -22,13 +22,6 @@ import { supabase } from "@/lib/supabase";
 export const MAX_HEARTS = 5;
 export const BAN_DAYS = 14;
 export const FREE_ROLES = ["Bench", "Loot Body"]; // unsigning these costs nothing
-
-/**
- * Grace window. Someone who signs up and changes their mind within this
- * many hours leaves for free — no warning, no heart, no card on the run.
- * Set to 0 to charge from the moment they sign.
- */
-export const GRACE_HOURS = 12;
 export const RESTORE_HEART_ON_RESIGN = true;      // signing back returns the heart
 export const LIFT_BAN_WHEN_HEART_RESTORED = true; // X on a card can unlock a player
 
@@ -47,71 +40,6 @@ export function hasWeekStarted(week?: number | null) {
   const startsAt = SEASON_START.getTime() + (Number(week) - 1) * WEEK_MS;
 
   return Date.now() >= startsAt;
-}
-
-/** When week N begins, in milliseconds. */
-export function weekStartMs(week?: number | null) {
-  if (week === null || week === undefined) return 0;
-  return SEASON_START.getTime() + (Number(week) - 1) * WEEK_MS;
-}
-
-/**
- * The moment the grace clock starts for a signup. It is the latest of:
- *   - when they signed up
- *   - when the week began (signing early doesn't burn the window)
- *   - when the raid time was last changed (a moved run resets it)
- */
-export function graceStartsAt(input: {
-  createdAt?: string | null;
-  week?: number | null;
-  timeChangedAt?: string | null;
-}) {
-  const times = [weekStartMs(input.week)];
-
-  if (input.createdAt) {
-    const t = new Date(input.createdAt).getTime();
-    if (!Number.isNaN(t)) times.push(t);
-  }
-
-  if (input.timeChangedAt) {
-    const t = new Date(input.timeChangedAt).getTime();
-    if (!Number.isNaN(t)) times.push(t);
-  }
-
-  return Math.max(...times);
-}
-
-/**
- * Can this player walk away without losing a heart?
- * Free while the week hasn't started, and for GRACE_HOURS after the
- * clock starts. Everything else costs a heart.
- */
-export function isFreeToUnsign(input: {
-  createdAt?: string | null;
-  week?: number | null;
-  timeChangedAt?: string | null;
-}) {
-  // Nothing counts until the week is actually running.
-  if (!hasWeekStarted(input.week)) return true;
-
-  if (GRACE_HOURS <= 0) return false;
-
-  const start = graceStartsAt(input);
-
-  return Date.now() - start < GRACE_HOURS * 60 * 60 * 1000;
-}
-
-/** Hours left in the window, for showing a countdown. 0 once it's spent. */
-export function graceHoursLeft(input: {
-  createdAt?: string | null;
-  week?: number | null;
-  timeChangedAt?: string | null;
-}) {
-  if (!isFreeToUnsign(input)) return 0;
-
-  const ends = graceStartsAt(input) + GRACE_HOURS * 60 * 60 * 1000;
-
-  return Math.max(0, Math.ceil((ends - Date.now()) / (60 * 60 * 1000)));
 }
 
 /* ============================================================

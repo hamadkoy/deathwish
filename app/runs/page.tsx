@@ -14,13 +14,8 @@ import {
   PlayerPopup,
   FREE_ROLES,
   hasWeekStarted,
-  isFreeToUnsign,
 } from "../components/HeartsSystem";
-import {
-  useEarlyAccess,
-  EarlyAccessButton,
-  deadlineForWeek,
-} from "../components/EarlyAccess";
+
 import { supabase } from "@/lib/supabase";
 import { queueRunCancellation } from "@/lib/queueRunCancellation";
 import {
@@ -56,7 +51,6 @@ type Run = {
   healer_limit?: number;
   background_key?: string;
   exp_required?: string;
-  time_changed_at?: string;
 dps_limit?: number;
 };
 
@@ -340,8 +334,7 @@ const [adminAddSpec, setAdminAddSpec] = useState("Guardian");
 
   const discordId =
     user?.user_metadata?.provider_id || user?.user_metadata?.sub;
-   const hearts = useHearts(discordId);
-  const early = useEarlyAccess(discordId);
+  const hearts = useHearts(discordId);
 
   const [pendingUnsign, setPendingUnsign] = useState<Signup | null>(null);
   const [bannedUntil, setBannedUntil] = useState<string | null>(null);
@@ -360,8 +353,6 @@ const canFinishRun = isAdmin || isOfficer;
 
 // Soulreaper and above get signups 24h earlier than everyone else
 // (isAdmin covers Dreadlord, isOfficer covers Nightblade + Soulreaper)
-// Soulreaper and above get signups 24h earlier than everyone else.
-// (isAdmin covers Dreadlord, isOfficer covers Nightblade + Soulreaper)
 const hasEarlyAccess = isAdmin || isOfficer;
 
 const EARLY_ACCESS_MS = 24 * 60 * 60 * 1000;
@@ -371,10 +362,7 @@ function getEffectiveSignupOpen(run: Run) {
 
   const openAt = new Date(run.signup_open_at).getTime();
 
-  // Rank-based early access, or a player who unlocked it themselves.
-  const unlocked = hasEarlyAccess || early.hasUnlocked(run.week);
-
-  return unlocked ? openAt - EARLY_ACCESS_MS : openAt;
+  return hasEarlyAccess ? openAt - EARLY_ACCESS_MS : openAt;
 }
 
 const canMarkAttendance =
@@ -504,45 +492,7 @@ await supabase.from("profiles").upsert(
     loadSignups();
     loadLogs();
     loadUserAndProfile();
-useEffect(() => {
-  const check = () => {
-    early.enforce({
-      week: selectedWeek,
-      deadlineMs: deadlineForWeek(runs, selectedWeek),
 
-      countSignups: (key: string) =>
-        signups.filter(
-          (s) =>
-            (s.discord_id || s.player.split(" - ")[0].toLowerCase()) === key &&
-            runs.some(
-              (r) => r.id === s.run_id && Number(r.week) === Number(selectedWeek)
-            )
-        ).length,
-
-         clearSignups: async (key: string) => {
-        const ids = signups
-          .filter(
-            (s) =>
-              (s.discord_id || s.player.split(" - ")[0].toLowerCase()) === key &&
-              runs.some(
-                (r) =>
-                  r.id === s.run_id && Number(r.week) === Number(selectedWeek)
-              )
-          )
-          .map((s) => s.id);
-
-        if (ids.length > 0) {
-          await supabase.from("signups").delete().in("id", ids);
-          await loadSignups();
-        }
-      },
-    });
-  };
-
-  check();
-  const t = setInterval(check, 60000);
-  return () => clearInterval(t);
-}, [runs, signups, selectedWeek, early]);
 const channel = supabase
   .channel("realtime-runs-and-signups")
   .on(
@@ -986,13 +936,6 @@ async function finishRun(run: Run) {
   day: editRunDay,
   time: editRunTime,
   run_date: editRunDate || null,
-  // Moving a run restarts everyone's grace window.
-  time_changed_at:
-    editRunDay !== editingRun.day ||
-    editRunTime !== editingRun.time ||
-    editRunDate !== (editingRun.run_date || "")
-      ? new Date().toISOString()
-      : editingRun.time_changed_at,
   notes: editRunNotes,
   background_key: editRunBackground,
   ilvl_required: Number(editRunIlvl) || null,
@@ -1116,16 +1059,8 @@ async function removeSignup(signupId: number) {
 
   if (!signup) return;
 
-  // Free to leave if the role is exempt, the week hasn't started yet,
-  // or they're still inside the 12 hour grace window after signing.
-  if (
-    FREE_ROLES.includes(signup.role) ||
-    isFreeToUnsign({
-      createdAt: signup.created_at,
-      week: run?.week,
-      timeChangedAt: run?.time_changed_at,
-    })
-  ) {
+  // Free to leave if the role is exempt, or the week hasn't started yet.
+  if (FREE_ROLES.includes(signup.role) || !hasWeekStarted(run?.week)) {
     await deleteSignupRow(signupId);
     return;
   }
@@ -1826,16 +1761,7 @@ onClick={deleteSelectedWeek}
 </div>
 
 <div style={weekButtons}>
-  <EarlyAccessButton
-    week={selectedWeek}
-    discordId={discordId}
-    playerName={selectedCharacter?.name}
-    characterCount={characters.length}
-    alreadyUnlocked={early.hasUnlocked(selectedWeek)}
-    onUnlock={early.unlock}
-  />
-
-  {weeks
+ {weeks
 .filter((week) =>
   isPhone
     ? week >= selectedWeek - 3 && week <= selectedWeek + 1
