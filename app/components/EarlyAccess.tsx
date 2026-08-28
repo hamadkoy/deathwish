@@ -29,6 +29,17 @@ export const REQUIRED_CHARACTERS = 10;
 /** How long before signups open that the check runs. */
 export const CLEAR_BEFORE_HOURS = 1;
 
+/** Keep in sync with runs/page.tsx. */
+export const SEASON_START = new Date("2026-08-19T07:00:00");
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Has this week already begun? Early access is pointless if so. */
+export function weekHasStarted(week?: number | null) {
+  if (week === null || week === undefined) return true;
+
+  return Date.now() >= SEASON_START.getTime() + (Number(week) - 1) * WEEK_MS;
+}
+
 /* ============================================================
    2. Types and helpers
 ============================================================ */
@@ -228,8 +239,36 @@ function EarlyStyles() {
         72%  { transform: translate(5px,0) rotate(2deg); opacity: 1; }
         100% { transform: translate(0,-14px) scale(.6); opacity: 0; }
       }
+      /* Loot-box rattle while the unlock is being written. */
+      @keyframes eaRattle {
+        0%, 100% { transform: translate(0,0) rotate(0deg); }
+        10% { transform: translate(-8px,-3px) rotate(-1.4deg); }
+        20% { transform: translate(8px,3px) rotate(1.4deg); }
+        30% { transform: translate(-10px,2px) rotate(-1.8deg); }
+        40% { transform: translate(10px,-2px) rotate(1.8deg); }
+        50% { transform: translate(-12px,-4px) rotate(-2.2deg); }
+        60% { transform: translate(12px,4px) rotate(2.2deg); }
+        70% { transform: translate(-9px,3px) rotate(-1.6deg); }
+        80% { transform: translate(9px,-3px) rotate(1.6deg); }
+        90% { transform: translate(-5px,1px) rotate(-.8deg); }
+      }
+      @keyframes eaGlow {
+        0%, 100% { box-shadow: 0 0 45px rgba(0,0,0,.9),
+                               0 0 28px rgba(250,204,21,.28); }
+        50%      { box-shadow: 0 0 70px rgba(250,204,21,.9),
+                               0 0 140px rgba(250,204,21,.55); }
+      }
+      @keyframes eaPopOut {
+        0%   { transform: scale(1); opacity: 1; }
+        40%  { transform: scale(1.14); opacity: 1; }
+        100% { transform: scale(.6); opacity: 0; }
+      }
       .ea-btn { animation: eaPulse 2.4s ease-in-out infinite; }
       .ea-btn.going { animation: eaShake .85s ease-in-out forwards; }
+      .ea-box.unlocking {
+        animation: eaRattle .32s linear infinite, eaGlow .7s ease-in-out infinite;
+      }
+      .ea-box.opened { animation: eaPopOut .5s ease-in forwards; }
     `}</style>
   );
 }
@@ -257,7 +296,19 @@ export function EarlyAccessButton({
   const [going, setGoing] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [opened, setOpened] = useState(false);
   const [error, setError] = useState("");
+
+  // Each week is its own decision. Without this the button stays
+  // hidden after unlocking one week and switching to the next.
+  useEffect(() => {
+    setConfirming(false);
+    setGoing(false);
+    setHidden(false);
+    setBusy(false);
+    setOpened(false);
+    setError("");
+  }, [week]);
 
   const eligible = characterCount >= REQUIRED_CHARACTERS;
 
@@ -269,20 +320,27 @@ export function EarlyAccessButton({
 
     const result = await onUnlock({ week, discordId, player: playerName });
 
-    setBusy(false);
-
     if (!result.ok) {
+      setBusy(false);
       setError(result.message || "Could not unlock.");
       return;
     }
 
-    // Close the popup, shake the button, then drop it.
-    setConfirming(false);
-    setGoing(true);
-    setTimeout(() => setHidden(true), 850);
+    // Let the box rattle for a beat before it bursts open.
+    await new Promise((r) => setTimeout(r, 1100));
+
+    setOpened(true);
+
+    setTimeout(() => {
+      setBusy(false);
+      setConfirming(false);
+      setGoing(true);
+      setTimeout(() => setHidden(true), 850);
+    }, 500);
   }
 
-  if (alreadyUnlocked || hidden) return null;
+  // Nothing to unlock once the week is already running.
+  if (alreadyUnlocked || hidden || weekHasStarted(week)) return null;
 
   return (
     <>
@@ -302,8 +360,9 @@ export function EarlyAccessButton({
         eligible={eligible}
         characterCount={characterCount}
         busy={busy}
+        opened={opened}
         error={error}
-        onCancel={() => setConfirming(false)}
+        onCancel={() => !busy && setConfirming(false)}
         onConfirm={confirm}
       />
     </>
@@ -317,6 +376,7 @@ function ConfirmPopup({
   eligible,
   characterCount,
   busy,
+  opened,
   error,
   onCancel,
   onConfirm,
@@ -326,6 +386,7 @@ function ConfirmPopup({
   eligible: boolean;
   characterCount: number;
   busy: boolean;
+  opened: boolean;
   error: string;
   onCancel: () => void;
   onConfirm: () => void;
@@ -338,7 +399,13 @@ function ConfirmPopup({
 
   return createPortal(
     <div style={ea.overlay} onClick={onCancel}>
-      <div style={ea.box} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`ea-box${busy ? " unlocking" : ""}${opened ? " opened" : ""}`}
+        style={ea.box}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <EarlyStyles />
+
         <div style={ea.icon}>{eligible ? "🔓" : "⛔"}</div>
 
         <div style={ea.title}>
@@ -416,7 +483,7 @@ function ConfirmPopup({
 ============================================================ */
 const ea: Record<string, React.CSSProperties> = {
   button: {
-    padding: "12px 18px",
+    padding: "14px 22px",
     borderRadius: 40,
     border: "1px solid #facc15",
     background:
@@ -442,10 +509,10 @@ const ea: Record<string, React.CSSProperties> = {
     padding: 16,
   },
   box: {
-    width: 500,
+    width: 720,
     maxWidth: "94vw",
-    padding: "30px 30px 26px",
-    borderRadius: 20,
+    padding: "44px 46px 38px",
+    borderRadius: 24,
     border: "1px solid rgba(250,204,21,.5)",
     background:
       "linear-gradient(180deg, rgba(24,16,2,.98), rgba(6,3,0,.98))",
@@ -454,91 +521,91 @@ const ea: Record<string, React.CSSProperties> = {
     textAlign: "center",
   },
   icon: {
-    fontSize: 46,
+    fontSize: 76,
     lineHeight: 1,
-    marginBottom: 14,
+    marginBottom: 18,
   },
   title: {
     color: "#fff",
-    fontSize: 26,
+    fontSize: 40,
     fontWeight: 900,
-    marginBottom: 14,
+    marginBottom: 20,
     fontFamily: "Georgia, serif",
     letterSpacing: 1,
   },
   text: {
     color: "#e8ddc4",
-    fontSize: 15,
+    fontSize: 21,
     lineHeight: 1.6,
-    marginBottom: 16,
+    marginBottom: 22,
   },
   warning: {
-    padding: "14px 16px",
-    borderRadius: 12,
+    padding: "22px 24px",
+    borderRadius: 14,
     border: "1px solid rgba(239,68,68,.5)",
     background: "rgba(60,0,0,.4)",
     color: "#fecaca",
-    fontSize: 14,
-    lineHeight: 1.6,
+    fontSize: 19,
+    lineHeight: 1.7,
     textAlign: "left",
   },
   warningRed: {
-    padding: "14px 16px",
-    borderRadius: 12,
+    padding: "22px 24px",
+    borderRadius: 14,
     border: "1px solid rgba(239,68,68,.65)",
     background: "rgba(70,0,0,.5)",
     color: "#fecaca",
-    fontSize: 15,
-    lineHeight: 1.6,
+    fontSize: 20,
+    lineHeight: 1.7,
   },
   meta: {
-    marginTop: 12,
+    marginTop: 18,
     color: "#86efac",
-    fontSize: 13,
+    fontSize: 17,
     fontWeight: 800,
   },
-  error: {
-    marginTop: 12,
-    padding: "10px 14px",
+   error: {
+    marginTop: 16,
+    padding: "14px 18px",
     borderRadius: 10,
     border: "1px solid rgba(239,68,68,.45)",
     background: "rgba(70,0,0,.35)",
     color: "#fecaca",
     fontWeight: 700,
-    fontSize: 14,
+    fontSize: 17,
   },
   cancel: {
     flex: 1,
-    height: 50,
+    height: 64,
     borderRadius: 12,
     border: "1px solid rgba(255,255,255,.2)",
     background: "rgba(255,255,255,.06)",
     color: "white",
     fontWeight: 900,
-    fontSize: 15,
+    fontSize: 19,
     cursor: "pointer",
   },
   confirm: {
     flex: 1.4,
-    height: 50,
+    height: 64,
     borderRadius: 12,
     border: "none",
     background: "linear-gradient(90deg,#facc15,#a66a1f)",
     color: "#160b02",
     fontWeight: 900,
-    fontSize: 15,
+    fontSize: 19,
     boxShadow: "0 0 22px rgba(250,204,21,.45)",
   },
   // Red and dead when they don't have the characters.
   confirmBlocked: {
     flex: 1.4,
-    height: 50,
+    height: 64,
     borderRadius: 12,
     border: "1px solid rgba(239,68,68,.7)",
     background: "linear-gradient(90deg,#7f1d1d,#ef4444)",
     color: "#ffe4e6",
     fontWeight: 900,
-    fontSize: 15,
+    fontSize: 19,
     boxShadow: "0 0 22px rgba(239,68,68,.5)",
   },
 };
