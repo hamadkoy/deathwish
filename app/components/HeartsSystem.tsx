@@ -421,7 +421,7 @@ function HeartStyles() {
       }
       .dw-heart.dim { filter: grayscale(100%) brightness(.7); }
       .dw-heart.breaking .dw-heart-inner {
-        animation: heartBreak 1s ease-in-out 1;
+        animation: heartBreak .75s ease-in-out 1;
       }
     `}</style>
   );
@@ -449,7 +449,7 @@ export function HeartBreak({
   useEffect(() => {
     if (!open) return;
 
-    const t = setTimeout(() => onDone?.(), 2100);
+    const t = setTimeout(() => onDone?.(), 850);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -486,19 +486,23 @@ export function HeartsBar({
   const banned = !!ban;
 
   // Watches for the count dropping so the loss can be shown.
-  const [prev, setPrev] = useState(hearts);
+  // prev lives in a ref: if it were state, updating it would re-run this
+  // effect, the cleanup would kill the timer, and the broken heart would
+  // stay on screen forever.
+  const prev = useRef(hearts);
   const [lost, setLost] = useState(false);
 
   useEffect(() => {
-    if (hearts < prev) {
+    if (hearts < prev.current) {
+      prev.current = hearts;
       setLost(true);
-      const t = setTimeout(() => setLost(false), 1000);
-      setPrev(hearts);
+
+      const t = setTimeout(() => setLost(false), 900);
       return () => clearTimeout(t);
     }
 
-    if (hearts !== prev) setPrev(hearts);
-  }, [hearts, prev]);
+    prev.current = hearts;
+  }, [hearts]);
 
   // Hearts empty from the TOP down, so the filled ones sit at the bottom.
   const firstFilled = MAX_HEARTS - hearts;
@@ -1448,7 +1452,7 @@ const brk: Record<string, React.CSSProperties> = {
   bigHeart: {
     fontSize: 300,
     lineHeight: 1,
-    animation: "heartBreak 1s ease-in-out 2",
+    animation: "heartBreak .75s ease-in-out 1",
   },
 };
 
