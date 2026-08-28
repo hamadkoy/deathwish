@@ -1073,11 +1073,7 @@ async function removeSignup(signupId: number) {
 
   if (
     FREE_ROLES.includes(signup.role) ||
-    isFreeToUnsign({
-      createdAt: signup.created_at,
-      week: run?.week,
-      timeChangedAt: run?.time_changed_at,
-    })
+    isFreeToUnsign({ week: run?.week })
   ) {
     await deleteSignupRow(signupId);
     return;
@@ -1105,6 +1101,7 @@ async function confirmUnsign() {
     runId: signup.run_id,
     runTitle: run?.title,
     week: run?.week,
+    signedAt: signup.created_at,
   });
 
   setPendingUnsign(null);
@@ -2957,6 +2954,8 @@ setAdminAddSpec={setAdminAddSpec}
   isLeftCard={isLeftCard}
   canRemove={isAdmin || isOfficer}
   onRemove={(log) => hearts.giveHeartBack(log)}
+  canClaim={(log) => !!discordId && log.discord_id === discordId}
+  onClaim={(log) => hearts.giveHeartBack(log)}
   renderIcon={(player) => <SpecIcon player={player} />}
 />
 

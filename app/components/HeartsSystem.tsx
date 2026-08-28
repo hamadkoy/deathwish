@@ -82,36 +82,36 @@ export function graceStartsAt(input: {
 }
 
 /**
- * Can this player walk away without losing a heart?
- * Free while the week hasn't started, and for GRACE_HOURS after the
- * clock starts. Everything else costs a heart.
+ * Free walk-away. Only covers weeks that haven't begun — the 12h window
+ * is no longer decided here. The heart is taken, then claimed back from
+ * the unsign card while the timer is still green.
  */
-export function isFreeToUnsign(input: {
-  createdAt?: string | null;
-  week?: number | null;
-  timeChangedAt?: string | null;
-}) {
-  // Nothing counts until the week is actually running.
-  if (!hasWeekStarted(input.week)) return true;
-
-  if (GRACE_HOURS <= 0) return false;
-
-  const start = graceStartsAt(input);
-
-  return Date.now() - start < GRACE_HOURS * 60 * 60 * 1000;
+export function isFreeToUnsign(input: { week?: number | null }) {
+  return !hasWeekStarted(input.week);
 }
 
-/** Hours left in the window, for showing a countdown. 0 once it's spent. */
-export function graceHoursLeft(input: {
-  createdAt?: string | null;
-  week?: number | null;
-  timeChangedAt?: string | null;
-}) {
-  if (!isFreeToUnsign(input)) return 0;
+/**
+ * When the claim window shuts. Measured from the moment they SIGNED.
+ * Falls back to the unsign time if signed_at was never recorded, so old
+ * rows still get a usable window instead of an instantly dead button.
+ */
+export function claimWindowEndsAt(log: BanishLog) {
+  const signed = log.signed_at ? new Date(log.signed_at).getTime() : NaN;
+  const base = Number.isNaN(signed) ? new Date(log.unsigned_at).getTime() : signed;
 
-  const ends = graceStartsAt(input) + GRACE_HOURS * 60 * 60 * 1000;
+  return base + GRACE_HOURS * 60 * 60 * 1000;
+}
 
-  return Math.max(0, Math.ceil((ends - Date.now()) / (60 * 60 * 1000)));
+export function claimMsLeft(log: BanishLog, now = Date.now()) {
+  return Math.max(0, claimWindowEndsAt(log) - now);
+}
+
+export function formatLeft(ms: number) {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+
+  return `${h}h ${String(m).padStart(2, "0")}m ${String(s % 60).padStart(2, "0")}s`;
 }
 
 /* ============================================================
@@ -125,6 +125,7 @@ export type BanishLog = {
   run_title?: string | null;
   week?: number | null;
   unsigned_at: string;
+  signed_at?: string | null;
 };
 
 export type SignupBan = {
@@ -286,6 +287,7 @@ export function useHearts(discordId?: string | null) {
     runId: number;
     runTitle?: string | null;
     week?: number | null;
+    signedAt?: string | null;
   }) {
     const key = playerKey({ discord_id: input.discordId, player: input.player });
     const now = new Date();
@@ -296,6 +298,7 @@ export function useHearts(discordId?: string | null) {
       run_id: input.runId,
       run_title: input.runTitle || null,
       week: input.week ?? null,
+      signed_at: input.signedAt || null,
       unsigned_at: now.toISOString(),
     });
 
@@ -776,17 +779,27 @@ export function UnsignedPanel({
   canRemove = false,
   onRemove,
   renderIcon,
+  canClaim,
+  onClaim,
 }: {
   logs: BanishLog[];
   isLeftCard: boolean;
   canRemove?: boolean;
   onRemove?: (log: BanishLog) => void;
   renderIcon?: (player: string) => ReactNode;
+  canClaim?: (log: BanishLog) => boolean;
+  onClaim?: (log: BanishLog) => void;
 }) {
   const [hovered, setHovered] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  // Ticks the countdown on every card once a second.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   if (logs.length === 0) return null;
-
   return (
     <div
       style={{
@@ -855,6 +868,35 @@ export function UnsignedPanel({
               )}
 
               {open && <div style={up.heartNote}>♥ −1 heart</div>}
+
+              {canClaim?.(log) && (() => {
+                const left = claimMsLeft(log, now);
+                const live = left > 0;
+
+                return (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (live) onClaim?.(log);
+                    }}
+                    disabled={!live}
+                    title={
+                      live
+                        ? "Take your heart back"
+                        : "The claim window has closed"
+                    }
+                    style={{
+                      ...up.claim,
+                      ...(live ? up.claimOn : up.claimOff),
+                    }}
+                  >
+                    <span>{live ? "♥ CLAIM HEART BACK" : "♥ WINDOW CLOSED"}</span>
+                    <b style={{ fontVariantNumeric: "tabular-nums", fontSize: 13 }}>
+                      {live ? formatLeft(left) : "0h 00m 00s"}
+                    </b>
+                  </button>
+                );
+              })()}
             </div>
 
             {canRemove && (
@@ -901,27 +943,43 @@ export function UnsignWarningPopup({
 
   return (
     <div style={pop.overlay} onClick={onCancel}>
-      <div style={pop.box} onClick={(e) => e.stopPropagation()}>
-        <div style={pop.icon}>♥</div>
+      <div style={{ ...pop.box, ...pop.boxBig }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ ...pop.icon, ...pop.iconBig }}>♥</div>
 
-        <div style={pop.title}>
+        <div style={{ ...pop.title, fontSize: 34 }}>
           {lastOne ? "This is your last heart" : "You will lose a heart"}
         </div>
 
-        <div style={pop.text}>
+        {/* Big current-total readout */}
+        <div style={pop.totalBox}>
+          <div style={pop.totalLabel}>
+            {new Date().toLocaleDateString("en-GB", { month: "long" })} hearts
+          </div>
+
+          <div
+            style={{
+              ...pop.totalValue,
+              color: hearts === 0 ? "#ef4444" : hearts <= 2 ? "#facc15" : "#ff3b6b",
+            }}
+          >
+            {hearts} <span style={{ fontSize: 30, opacity: .55 }}>/ {MAX_HEARTS}</span>
+          </div>
+        </div>
+
+        <div style={{ ...pop.text, fontSize: 17 }}>
           Leaving <b style={{ color: "#fff" }}>{runTitle || "this run"}</b> costs{" "}
           <b style={{ color: "#ff8fb0" }}>{playerName}</b> one heart this month.
         </div>
 
-        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 16 }}>
           {Array.from({ length: MAX_HEARTS }, (_, i) => (
             <span
               key={i}
               style={{
-                fontSize: 30,
+                fontSize: 46,
                 lineHeight: 1,
                 color: i < after ? "#ff3b6b" : "#3a2b4a",
-                textShadow: i < after ? "0 0 14px rgba(255,59,107,.85)" : "none",
+                textShadow: i < after ? "0 0 18px rgba(255,59,107,.85)" : "none",
                 opacity: i < hearts ? 1 : 0.4,
               }}
             >
@@ -934,25 +992,30 @@ export function UnsignWarningPopup({
           style={{
             color: lastOne ? "#ef4444" : "#facc15",
             fontWeight: 900,
-            fontSize: 15,
-            marginBottom: 12,
+            fontSize: 20,
+            marginBottom: 16,
           }}
         >
           {hearts} → {after} hearts left
         </div>
 
+        <div style={{ ...pop.claimHint }}>
+          Change your mind? You can claim this heart back from the unsigned card
+          for up to {GRACE_HOURS}h after you signed.
+        </div>
+
         {lastOne && (
-          <div style={pop.banWarning}>
+          <div style={{ ...pop.banWarning, fontSize: 16 }}>
             Unsign now and signups lock for {BAN_DAYS} days.
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
-          <button onClick={onCancel} style={pop.stay}>
+        <div style={{ display: "flex", gap: 14, marginTop: 12 }}>
+          <button onClick={onCancel} style={{ ...pop.stay, height: 60, fontSize: 17 }}>
             Stay signed
           </button>
 
-          <button onClick={onConfirm} style={pop.leave}>
+          <button onClick={onConfirm} style={{ ...pop.leave, height: 60, fontSize: 17 }}>
             Unsign anyway
           </button>
         </div>
@@ -1609,6 +1672,34 @@ const up: Record<string, React.CSSProperties> = {
     color: "#ff8fb0",
     fontSize: 11,
     fontWeight: 900,
+  },
+  claim: {
+    marginTop: 8,
+    width: "100%",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 2,
+    padding: "7px 10px",
+    borderRadius: 10,
+    fontWeight: 900,
+    fontSize: 11,
+    letterSpacing: .5,
+    cursor: "pointer",
+    transition: "all .18s ease",
+  },
+  claimOn: {
+    border: "1px solid rgba(34,197,94,.85)",
+    background: "linear-gradient(180deg,#16a34a,#065f46)",
+    color: "#eafff1",
+    boxShadow: "0 0 16px rgba(34,197,94,.55)",
+  },
+  claimOff: {
+    border: "1px solid rgba(255,255,255,.12)",
+    background: "#080808",
+    color: "#6b7280",
+    boxShadow: "none",
+    cursor: "not-allowed",
   },
   remove: {
     width: 28,
