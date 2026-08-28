@@ -15,7 +15,8 @@ import {
   FREE_ROLES,
   hasWeekStarted,
 } from "../components/HeartsSystem";
-import { useEarlyAccess, EarlyAccessButton } from "../components/EarlyAccess";
+import { useEarlyAccess, EarlyAccessButton } from "../components/Earlyaccess";
+
 import { supabase } from "@/lib/supabase";
 import { queueRunCancellation } from "@/lib/queueRunCancellation";
 import {
