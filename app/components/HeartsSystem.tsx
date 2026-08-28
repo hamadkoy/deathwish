@@ -15,7 +15,7 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
-
+import CharacterInfoCard from "./CharacterInfoCard";
 /* ============================================================
    1. SETTINGS — change these numbers, nothing else.
 ============================================================ */
@@ -1164,6 +1164,8 @@ export function PlayerPopup({
 
         {!editing ? (
           <div style={pp.actions}>
+            <CharacterInfoCard signup={signup} />
+
             <ActionButton
               icon="🏰"
               from="#c084fc"
