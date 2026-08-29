@@ -2640,6 +2640,20 @@ overflow: "visible",
                       {run.run_date ? ` • ${formatRunDate(run.run_date)}` : ""}
                     </div>
 
+                    {!signupLocked && !run.signup_open_at && isAdmin && (
+                      <div
+                        style={{
+                          ...earlyWindowBadge,
+                          background: "rgba(120,120,120,.18)",
+                          border: "1px solid rgba(160,160,160,.4)",
+                          boxShadow: "none",
+                          color: "#9ca3af",
+                        }}
+                      >
+                        ⚠ NO SIGNUP TIME SET — OPEN TO EVERYONE
+                      </div>
+                    )}
+
                     {inEarlyWindow && (
                       <div style={earlyWindowBadge}>
                         <span style={{ fontSize: 14 }}>⚡</span>
