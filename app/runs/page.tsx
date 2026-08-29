@@ -2441,6 +2441,24 @@ const signupLocked =
   signupLocked && effectiveOpenAt !== null
     ? formatCountdown(new Date(effectiveOpenAt).toISOString())
     : null;
+
+// The real, un-discounted open time. While you're inside your 24h head
+// start the card is unlocked, so this is the only way to see how long
+// is left before everyone else can sign.
+const publicOpenAt = run.signup_open_at
+  ? new Date(run.signup_open_at).getTime()
+  : null;
+
+const inEarlyWindow =
+  !signupLocked &&
+  publicOpenAt !== null &&
+  publicOpenAt > nowTick &&
+  (hasEarlyAccess || early.hasUnlocked(run.week));
+
+const publicCountdownText =
+  inEarlyWindow && publicOpenAt !== null
+    ? formatCountdown(new Date(publicOpenAt).toISOString())
+    : null;
     const runLog = logs.find((l) => l.run_id === run.id);
 return (
   <div
@@ -2621,6 +2639,27 @@ overflow: "visible",
                       Run ID #{run.id} • {run.day} • {run.time}
                       {run.run_date ? ` • ${formatRunDate(run.run_date)}` : ""}
                     </div>
+
+                    {inEarlyWindow && (
+                      <div style={earlyWindowBadge}>
+                        <span style={{ fontSize: 14 }}>⚡</span>
+
+                        <span style={{ color: "#c084fc" }}>
+                          EARLY ACCESS — OPENS TO ALL IN
+                        </span>
+
+                        <b
+                          style={{
+                            color: "#facc15",
+                            fontSize: 15,
+                            fontVariantNumeric: "tabular-nums",
+                            textShadow: "0 0 10px rgba(250,204,21,.7)",
+                          }}
+                        >
+                          {publicCountdownText}
+                        </b>
+                      </div>
+                    )}
 
                     {run.notes && <div style={runNotes}>{run.notes}</div>}
                     {run.ilvl_required && (
@@ -4247,6 +4286,22 @@ const runTime: React.CSSProperties = {
   marginTop: 8,
   color: "#c8b8a0",
   fontSize: 16,
+};
+
+const earlyWindowBadge: React.CSSProperties = {
+  marginTop: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "5px 14px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 900,
+  letterSpacing: 1,
+  background: "linear-gradient(90deg, rgba(168,85,247,.22), rgba(250,204,21,.10))",
+  border: "1px solid rgba(168,85,247,.5)",
+  boxShadow: "0 0 16px rgba(168,85,247,.35)",
+  backdropFilter: "blur(8px)",
 };
 
 const runNotes: React.CSSProperties = {
