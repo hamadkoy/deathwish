@@ -2979,7 +2979,17 @@ setAdminAddSpec={setAdminAddSpec}
   canClaim={(log) =>
     !!discordId && log.discord_id === discordId && log.kind !== "no_show"
   }
-  onClaim={(log) => hearts.claimHeart(log)}
+  onClaim={async (log) => {
+    const res = await hearts.claimHeart(log);
+
+    if (!res?.ok) {
+      setPopup({
+        title: "Claim Failed",
+        message: res?.message || "Could not claim that heart.",
+        type: "error",
+      });
+    }
+  }}
   renderIcon={(player) => <SpecIcon player={player} />}
 />
 

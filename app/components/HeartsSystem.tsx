@@ -382,13 +382,22 @@ export function useHearts(discordId?: string | null) {
    */
   async function claimHeart(log: BanishLog) {
     if (log.claimed || log.kind === "no_show") return { ok: false as const };
-
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("banish_logs")
       .update({ claimed: true })
-      .eq("id", log.id);
+      .eq("id", log.id)
+      .select();
 
-    if (error) return { ok: false as const, message: error.message };
+    if (error) {
+      console.error("claimHeart failed:", error.message);
+      return { ok: false as const, message: error.message };
+    }
+
+    // RLS blocks return zero rows with no error — catch that here.
+    if (!data || data.length === 0) {
+      console.error("claimHeart updated 0 rows — check RLS update policy on banish_logs");
+      return { ok: false as const, message: "Could not claim — no permission to update this record." };
+    }
 
     if (LIFT_BAN_WHEN_HEART_RESTORED) {
       const key = playerKey(log);
@@ -458,7 +467,12 @@ export function useHearts(discordId?: string | null) {
   }) {
     if (!RESTORE_HEART_ON_RESIGN) return;
 
-    let query = supabase.from("banish_logs").delete().eq("run_id", input.runId);
+     // No-show penalties are not undone by signing back in.
+    let query = supabase
+      .from("banish_logs")
+      .delete()
+      .eq("run_id", input.runId)
+      .neq("kind", "no_show");
 
     if (input.discordId) query = query.eq("discord_id", input.discordId);
     else if (input.characterName)
@@ -970,16 +984,17 @@ export function UnsignedPanel({
               {open && <div style={up.heartNote}>♥ −1 heart</div>}
 
               {canClaim?.(log) && (() => {
+                const total = GRACE_HOURS * 60 * 60 * 1000;
                 const left = claimMsLeft(log, now);
                 const live = left > 0 && !log.claimed;
+                const pct = Math.max(0, Math.min(1, left / total));
 
-                if (log.claimed) {
-                  return (
-                    <div style={{ ...up.claim, ...up.claimDone }}>
-                      <span>♥ HEART RECLAIMED</span>
-                    </div>
-                  );
-                }
+                const done = !!log.claimed;
+
+                // Green while claimable, muted green once taken, dark red when dead.
+                const stroke = done ? "#4ade80" : live ? "#22c55e" : "#7f1d1d";
+                const fill = done ? "#065f46" : live ? "#16a34a" : "#1a0505";
+                const glow = done || live ? "rgba(34,197,94,.55)" : "none";
 
                 return (
                   <button
@@ -988,18 +1003,73 @@ export function UnsignedPanel({
                       if (live) onClaim?.(log);
                     }}
                     disabled={!live}
-                    title={live ? "Take your heart back" : "The claim window has closed"}
-                    style={{ ...up.claim, ...(live ? up.claimOn : up.claimOff) }}
+                    title={
+                      done
+                        ? "Heart already reclaimed"
+                        : live
+                        ? "Take your heart back"
+                        : "The claim window has closed"
+                    }
+                    style={{
+                      ...up.claimHeart,
+                      cursor: live ? "pointer" : "default",
+                      filter: glow === "none" ? "none" : `drop-shadow(0 0 10px ${glow})`,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (live) e.currentTarget.style.transform = "scale(1.09)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "scale(1)";
+                    }}
                   >
-                    <span style={{ fontSize: 15, letterSpacing: 3 }}>
-                      {live ? "♥♥♥" : "♥♥♥"}
-                    </span>
+                    <svg viewBox="0 0 100 92" width="92" height="85">
+                      <defs>
+                        <clipPath id={`fillclip-${log.id}`}>
+                          {/* Drains from the top as the window runs out. */}
+                          <rect x="0" y={92 - 92 * (done ? 1 : pct)} width="100" height="92" />
+                        </clipPath>
+                      </defs>
 
-                    <span>{live ? "CLAIM HEART BACK" : "WINDOW CLOSED"}</span>
+                      <path
+                        d="M50 88 L12 50 C-6 32 4 6 26 6 C38 6 46 13 50 20 C54 13 62 6 74 6 C96 6 106 32 88 50 Z"
+                        fill="#0b0b0b"
+                        stroke={stroke}
+                        strokeWidth="4"
+                      />
 
-                    <b style={{ fontVariantNumeric: "tabular-nums", fontSize: 13 }}>
-                      {live ? formatLeft(left) : "0h 00m 00s"}
-                    </b>
+                      <path
+                        d="M50 88 L12 50 C-6 32 4 6 26 6 C38 6 46 13 50 20 C54 13 62 6 74 6 C96 6 106 32 88 50 Z"
+                        fill={fill}
+                        clipPath={`url(#fillclip-${log.id})`}
+                        opacity={done ? 0.75 : 0.9}
+                      />
+
+                      <text
+                        x="50"
+                        y="42"
+                        textAnchor="middle"
+                        fill={live || done ? "#eafff1" : "#7f1d1d"}
+                        fontSize="13"
+                        fontWeight="900"
+                        letterSpacing="0.5"
+                      >
+                        {done ? "TAKEN" : live ? "CLAIM" : "CLOSED"}
+                      </text>
+
+                      {!done && (
+                        <text
+                          x="50"
+                          y="60"
+                          textAnchor="middle"
+                          fill={live ? "#bbf7d0" : "#5b1414"}
+                          fontSize="11"
+                          fontWeight="800"
+                          style={{ fontVariantNumeric: "tabular-nums" }}
+                        >
+                          {live ? formatLeft(left) : "0h 00m"}
+                        </text>
+                      )}
+                    </svg>
                   </button>
                 );
               })()}
@@ -1779,20 +1849,14 @@ const up: Record<string, React.CSSProperties> = {
     fontSize: 11,
     fontWeight: 900,
   },
-  claim: {
+  claimHeart: {
     marginTop: 8,
-    width: "100%",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 2,
-    padding: "7px 10px",
-    borderRadius: 10,
-    fontWeight: 900,
-    fontSize: 11,
-    letterSpacing: .5,
-    cursor: "pointer",
-    transition: "all .18s ease",
+    padding: 0,
+    border: "none",
+    background: "transparent",
+    lineHeight: 0,
+    display: "block",
+    transition: "transform .18s ease, filter .18s ease",
   },
   claimOn: {
     border: "1px solid rgba(34,197,94,.9)",
