@@ -126,6 +126,9 @@ export type BanishLog = {
   week?: number | null;
   unsigned_at: string;
   signed_at?: string | null;
+  claimed?: boolean;
+  weight?: number;
+  kind?: string; // 'unsign' | 'no_show'
 };
 
 export type SignupBan = {
@@ -163,12 +166,26 @@ function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString("en-GB");
 }
 
+/**
+ * Hearts spent this month. A claimed card still shows on the run but
+ * costs nothing, and a no-show is worth double.
+ */
 function heartsLostFor(key: string, logs: BanishLog[]) {
   const month = monthKey();
-  return logs.filter(
-    (log) =>
-      playerKey(log) === key && monthKey(new Date(log.unsigned_at)) === month
-  ).length;
+
+  return logs
+    .filter(
+      (log) =>
+        playerKey(log) === key &&
+        !log.claimed &&
+        monthKey(new Date(log.unsigned_at)) === month
+    )
+    .reduce((sum, log) => sum + (Number(log.weight) || 1), 0);
+}
+
+/** No-shows are a penalty, not a change of mind — nothing to claim. */
+export function isClaimable(log: BanishLog) {
+  return log.kind !== "no_show" && !log.claimed;
 }
 
 function heartsFor(key: string, logs: BanishLog[]) {
@@ -271,7 +288,7 @@ export function useHearts(discordId?: string | null) {
           ban: null,
         };
 
-      entry.hearts = Math.max(0, entry.hearts - 1);
+      entry.hearts = heartsFor(key, logs);
       entry.ban = activeBanFor(key, bans);
 
       map.set(key, entry);
@@ -288,9 +305,12 @@ export function useHearts(discordId?: string | null) {
     runTitle?: string | null;
     week?: number | null;
     signedAt?: string | null;
+    weight?: number;
+    kind?: string;
   }) {
     const key = playerKey({ discord_id: input.discordId, player: input.player });
     const now = new Date();
+    const weight = input.weight ?? 1;
 
     const { error } = await supabase.from("banish_logs").insert({
       player: input.player,
@@ -300,11 +320,13 @@ export function useHearts(discordId?: string | null) {
       week: input.week ?? null,
       signed_at: input.signedAt || null,
       unsigned_at: now.toISOString(),
+      weight,
+      kind: input.kind || "unsign",
     });
 
     if (error) return { ok: false as const, message: error.message };
 
-    const heartsLeft = Math.max(0, MAX_HEARTS - (heartsLostFor(key, logs) + 1));
+    const heartsLeft = Math.max(0, MAX_HEARTS - (heartsLostFor(key, logs) + weight));
 
     let ban = activeBanFor(key, bans);
 
@@ -351,6 +373,81 @@ export function useHearts(discordId?: string | null) {
 
     await reload();
     return { ok: true as const };
+  }
+
+  /**
+   * The green button on an unsign card. Marks the row claimed so the heart
+   * comes back, but leaves the card standing — the record of who left only
+   * goes away when they sign into the run again.
+   */
+  async function claimHeart(log: BanishLog) {
+    if (log.claimed || log.kind === "no_show") return { ok: false as const };
+
+    const { error } = await supabase
+      .from("banish_logs")
+      .update({ claimed: true })
+      .eq("id", log.id);
+
+    if (error) return { ok: false as const, message: error.message };
+
+    if (LIFT_BAN_WHEN_HEART_RESTORED) {
+      const key = playerKey(log);
+
+      const left = heartsFor(
+        key,
+        logs.map((l) => (l.id === log.id ? { ...l, claimed: true } : l))
+      );
+
+      const ban = activeBanFor(key, bans);
+
+      if (left > 0 && ban) {
+        await supabase.from("signup_bans").update({ lifted: true }).eq("id", ban.id);
+      }
+    }
+
+    await reload();
+    return { ok: true as const };
+  }
+
+  /** Marked missing on the night: double penalty, no claim. */
+  async function markNoShow(input: {
+    player: string;
+    discordId?: string | null;
+    runId: number;
+    runTitle?: string | null;
+    week?: number | null;
+  }) {
+    const already = logs.find(
+      (l) =>
+        l.run_id === input.runId &&
+        l.kind === "no_show" &&
+        playerKey(l) ===
+          playerKey({ discord_id: input.discordId, player: input.player })
+    );
+
+    if (already) return;
+
+    return takeHeart({ ...input, weight: 2, kind: "no_show" });
+  }
+
+  /** Attendance flipped back off — drop the penalty row. */
+  async function clearNoShow(input: {
+    runId: number;
+    discordId?: string | null;
+    player?: string | null;
+  }) {
+    const key = playerKey({ discord_id: input.discordId, player: input.player });
+
+    const ids = logs
+      .filter(
+        (l) => l.run_id === input.runId && l.kind === "no_show" && playerKey(l) === key
+      )
+      .map((l) => l.id);
+
+    if (ids.length === 0) return;
+
+    await supabase.from("banish_logs").delete().in("id", ids);
+    await reload();
   }
 
   /** Player signed back into a run — clear their card for it. */
@@ -442,6 +539,9 @@ export function useHearts(discordId?: string | null) {
     banOf,
     roster,
     takeHeart,
+    claimHeart,
+    markNoShow,
+    clearNoShow,
     giveHeartBack,
     clearRunUnsign,
     liftBan,
@@ -871,7 +971,15 @@ export function UnsignedPanel({
 
               {canClaim?.(log) && (() => {
                 const left = claimMsLeft(log, now);
-                const live = left > 0;
+                const live = left > 0 && !log.claimed;
+
+                if (log.claimed) {
+                  return (
+                    <div style={{ ...up.claim, ...up.claimDone }}>
+                      <span>♥ HEART RECLAIMED</span>
+                    </div>
+                  );
+                }
 
                 return (
                   <button
@@ -880,17 +988,15 @@ export function UnsignedPanel({
                       if (live) onClaim?.(log);
                     }}
                     disabled={!live}
-                    title={
-                      live
-                        ? "Take your heart back"
-                        : "The claim window has closed"
-                    }
-                    style={{
-                      ...up.claim,
-                      ...(live ? up.claimOn : up.claimOff),
-                    }}
+                    title={live ? "Take your heart back" : "The claim window has closed"}
+                    style={{ ...up.claim, ...(live ? up.claimOn : up.claimOff) }}
                   >
-                    <span>{live ? "♥ CLAIM HEART BACK" : "♥ WINDOW CLOSED"}</span>
+                    <span style={{ fontSize: 15, letterSpacing: 3 }}>
+                      {live ? "♥♥♥" : "♥♥♥"}
+                    </span>
+
+                    <span>{live ? "CLAIM HEART BACK" : "WINDOW CLOSED"}</span>
+
                     <b style={{ fontVariantNumeric: "tabular-nums", fontSize: 13 }}>
                       {live ? formatLeft(left) : "0h 00m 00s"}
                     </b>
@@ -1689,17 +1795,25 @@ const up: Record<string, React.CSSProperties> = {
     transition: "all .18s ease",
   },
   claimOn: {
-    border: "1px solid rgba(34,197,94,.85)",
-    background: "linear-gradient(180deg,#16a34a,#065f46)",
-    color: "#eafff1",
-    boxShadow: "0 0 16px rgba(34,197,94,.55)",
+    border: "1px solid rgba(34,197,94,.9)",
+    background: "linear-gradient(180deg, rgba(6,60,32,.95), rgba(2,20,10,.98))",
+    color: "#4ade80",
+    textShadow: "0 0 12px rgba(34,197,94,.9)",
+    boxShadow: "0 0 18px rgba(34,197,94,.5), inset 0 0 14px rgba(34,197,94,.2)",
   },
   claimOff: {
-    border: "1px solid rgba(255,255,255,.12)",
-    background: "#080808",
-    color: "#6b7280",
+    border: "1px solid rgba(239,68,68,.5)",
+    background: "linear-gradient(180deg, rgba(30,0,0,.95), #070707)",
+    color: "#7f1d1d",
+    textShadow: "none",
     boxShadow: "none",
     cursor: "not-allowed",
+  },
+  claimDone: {
+    border: "1px solid rgba(34,197,94,.35)",
+    background: "rgba(4,30,16,.7)",
+    color: "#86efac",
+    cursor: "default",
   },
   remove: {
     width: 28,
@@ -1760,6 +1874,50 @@ const pop: Record<string, React.CSSProperties> = {
     letterSpacing: 1,
   },
   text: { color: "#e5d9f5", fontSize: 15, lineHeight: 1.6, marginBottom: 18 },
+  boxBig: {
+    width: 620,
+    padding: "40px 44px 34px",
+  },
+  iconBig: {
+    width: 84,
+    height: 84,
+    fontSize: 44,
+    lineHeight: "76px",
+    marginBottom: 20,
+  },
+  totalBox: {
+    margin: "0 auto 20px",
+    padding: "12px 26px",
+    display: "inline-block",
+    borderRadius: 16,
+    background: "rgba(255,59,107,.10)",
+    border: "1px solid rgba(255,59,107,.4)",
+  },
+  totalLabel: {
+    color: "#d8b4fe",
+    fontSize: 12,
+    fontWeight: 900,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
+  totalValue: {
+    marginTop: 2,
+    fontSize: 52,
+    fontWeight: 900,
+    lineHeight: 1.1,
+    textShadow: "0 0 20px rgba(255,59,107,.5)",
+  },
+  claimHint: {
+    margin: "0 0 16px",
+    padding: "10px 14px",
+    borderRadius: 12,
+    border: "1px solid rgba(34,197,94,.45)",
+    background: "rgba(4,40,20,.45)",
+    color: "#bbf7d0",
+    fontSize: 13,
+    fontWeight: 700,
+    lineHeight: 1.5,
+  },
   banWarning: {
     margin: "0 0 18px",
     padding: "10px 14px",

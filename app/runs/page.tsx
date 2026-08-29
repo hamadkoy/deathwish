@@ -1120,6 +1120,9 @@ async function confirmUnsign() {
 async function markAttendance(signupId: number, status: "present" | "missing") {
   if (!isAdmin && !isOfficer) return;
 
+  const signup = signups.find((s) => s.id === signupId);
+  const run = runs.find((r) => r.id === signup?.run_id);
+
   const { error } = await supabase
     .from("signups")
     .update({ attendance: status })
@@ -1128,6 +1131,25 @@ async function markAttendance(signupId: number, status: "present" | "missing") {
   if (error) {
     alert(error.message);
     return;
+  }
+
+  if (signup && !FREE_ROLES.includes(signup.role)) {
+    if (status === "missing") {
+      // Not showing up costs double, and it can't be claimed back.
+      await hearts.markNoShow({
+        player: signup.player,
+        discordId: signup.discord_id,
+        runId: signup.run_id,
+        runTitle: run?.title,
+        week: run?.week,
+      });
+    } else {
+      await hearts.clearNoShow({
+        runId: signup.run_id,
+        discordId: signup.discord_id,
+        player: signup.player,
+      });
+    }
   }
 
   await loadSignups();
@@ -2954,8 +2976,10 @@ setAdminAddSpec={setAdminAddSpec}
   isLeftCard={isLeftCard}
   canRemove={isAdmin || isOfficer}
   onRemove={(log) => hearts.giveHeartBack(log)}
-  canClaim={(log) => !!discordId && log.discord_id === discordId}
-  onClaim={(log) => hearts.giveHeartBack(log)}
+  canClaim={(log) =>
+    !!discordId && log.discord_id === discordId && log.kind !== "no_show"
+  }
+  onClaim={(log) => hearts.claimHeart(log)}
   renderIcon={(player) => <SpecIcon player={player} />}
 />
 
