@@ -2636,8 +2636,24 @@ overflow: "visible",
 </div>
 
                     <div style={runTime}>
-                      Run ID #{run.id} • {run.day} • {run.time}
-                      {run.run_date ? ` • ${formatRunDate(run.run_date)}` : ""}
+                      <span style={{ opacity: .6, fontSize: 17, fontWeight: 700 }}>
+                        #{run.id}
+                      </span>
+
+                      <span style={{ opacity: .45, margin: "0 8px" }}>•</span>
+
+                      <b style={{ color: "#ffffff" }}>{run.day}</b>
+
+                      <span style={{ opacity: .45, margin: "0 8px" }}>•</span>
+
+                      <b style={{ color: "#facc15" }}>{run.time}</b>
+
+                      {run.run_date && (
+                        <>
+                          <span style={{ opacity: .45, margin: "0 8px" }}>•</span>
+                          <b style={{ color: "#d8b4fe" }}>{formatRunDate(run.run_date)}</b>
+                        </>
+                      )}
                     </div>
 
                     {!signupLocked && !run.signup_open_at && isAdmin && (
@@ -4297,9 +4313,13 @@ const runTitle: React.CSSProperties = {
 };
 
 const runTime: React.CSSProperties = {
-  marginTop: 8,
-  color: "#c8b8a0",
-  fontSize: 16,
+  marginTop: 10,
+  color: "#f0e6d2",
+  fontSize: 22,
+  fontWeight: 800,
+  letterSpacing: .3,
+  // The banner art is bright, so the text needs its own backing.
+  textShadow: "0 2px 6px rgba(0,0,0,.95), 0 0 14px rgba(0,0,0,.85)",
 };
 
 const earlyWindowBadge: React.CSSProperties = {

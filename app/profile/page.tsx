@@ -1768,34 +1768,39 @@ background:
 <StatusCard saved={savedStatus[char.id]?.mythic || false} />
 
 <div style={actionCell}>
+  {isOwnProfile ? (
+    <>
+      <button
+        onClick={() => updateCharacter(char)}
+        disabled={updatingId === char.id}
+        style={{
+          ...actionBtn,
+          opacity: updatingId === char.id ? 0.6 : 1,
+        }}
+        title="Update character"
+      >
+        {updatingId === char.id ? "⟳" : "↻"}
+      </button>
 
-  <button
-    onClick={() => updateCharacter(char)}
-    disabled={updatingId === char.id}
-    style={{
-      ...actionBtn,
-      opacity: updatingId === char.id ? 0.6 : 1,
-    }}
-    title="Update character"
-  >
-    {updatingId === char.id ? "⟳" : "↻"}
-  </button>
-
-<button
-  onClick={() => {
-    setPopup({
-      title: "Delete Character",
-      message: `${char.name} will be permanently deleted. This cannot be undone.`,
-      type: "danger",
-      confirmText: "Delete",
-      onConfirm: () => deleteCharacter(char.id),
-    });
-  }}
-  style={trashBtn}
-  title="Delete character"
->
-  🗑
-</button>
+      <button
+        onClick={() => {
+          setPopup({
+            title: "Delete Character",
+            message: `${char.name} will be permanently deleted. This cannot be undone.`,
+            type: "danger",
+            confirmText: "Delete",
+            onConfirm: () => deleteCharacter(char.id),
+          });
+        }}
+        style={trashBtn}
+        title="Delete character"
+      >
+        🗑
+      </button>
+    </>
+  ) : (
+    <span style={{ color: "#4b5563", fontSize: 18 }}>—</span>
+  )}
 </div>
  
               </div>
