@@ -89,6 +89,7 @@ type Character = {
   spec: string;
   ilvl?: number;
   progress?: string;
+  avatar_url?: string;
 };
 
 function getCurrentWeek() {
@@ -338,6 +339,14 @@ const [adminAddSpec, setAdminAddSpec] = useState("Guardian");
     user?.user_metadata?.provider_id || user?.user_metadata?.sub;
     const hearts = useHearts(discordId);
   const early = useEarlyAccess(discordId);
+
+  // When set, the character picker is open. signupId present = swapping
+  // the character on an existing signup instead of making a new one.
+  const [pickerTarget, setPickerTarget] = useState<{
+    runId: number;
+    role: string;
+    signupId?: number;
+  } | null>(null);
 
   const [pendingUnsign, setPendingUnsign] = useState<Signup | null>(null);
   const [bannedUntil, setBannedUntil] = useState<string | null>(null);
@@ -649,180 +658,237 @@ function getLimits(run: Run) {
     router.push("/login");
     return;
   }
-const run = runs.find((r) => r.id === runId);
 
-if (run?.finished) {
-  setPopup({
-    title: "Run Locked",
-    message: "This run is finished, so signups are locked.",
-    type: "error",
-  });
-  return;
-}
+  const run = runs.find((r) => r.id === runId);
+
+  if (run?.finished) {
+    setPopup({
+      title: "Run Locked",
+      message: "This run is finished, so signups are locked.",
+      type: "error",
+    });
+    return;
+  }
+
   if (!canUseRunCards) {
     setShowAccessPopup(true);
     return;
   }
-if (fixedRole === "Wandering_soul" && role !== "Loot Body") {
-  setPopup({
-    title: "LB Only",
-    message: "Wandering Souls can only sign as Loot Body.",
-    type: "error",
-  });
-  return;
-}
-  if (!selectedCharacter) {
-    alert("Select a character first.");
-    return;
-  }
-if (
-  role !== "Loot Body" &&
-  run?.ilvl_required &&
-  (selectedCharacter.ilvl || 0) < run.ilvl_required
-) {
-  setPopup({
-    title: "Item Level Too Low",
-    message: `This run requires ${run.ilvl_required}+ ilvl. Your selected character is ${selectedCharacter.ilvl || 0}.`,
-    type: "error",
-  });
-  return;
-}
 
-if (role !== "Loot Body" && run) {
-  const requiredExp = getRequiredBossExp(run);
-  const characterExp =
-  characters
-    .map((char) => getCharacterBossExp(char.progress))
-    .sort((a, b) => b.bosses - a.bosses)[0] ||
-  getCharacterBossExp(selectedCharacter.progress);
-
-if (
-  requiredExp &&
-  characterExp.bosses < requiredExp.bosses
-)
-  {
+  if (fixedRole === "Wandering_soul" && role !== "Loot Body") {
     setPopup({
-      title: "Boss Experience Too Low",
-      message: `This run requires ${requiredExp.bosses}/9${requiredExp.difficulty} experience. ${selectedCharacter.name} has ${selectedCharacter.progress || "0/9"}.`,
+      title: "LB Only",
+      message: "Wandering Souls can only sign as Loot Body.",
       type: "error",
     });
     return;
   }
+
+  if (characters.length === 0) {
+    setPopup({
+      title: "No Characters",
+      message: "Add a character in your Garrison before signing up.",
+      type: "error",
+    });
+    return;
+  }
+
+  // Everything else is decided once they pick a character.
+  setPickerTarget({ runId, role });
 }
- const signupSpec = getSpecForSignupRole(
-  selectedCharacter.class,
-  selectedCharacter.spec,
-  role
-);
 
-const signupName = `${selectedCharacter.name} - ${signupSpec} ${selectedCharacter.class}`;
+/** The real signup, run against whichever character was picked. */
+async function signWithCharacter(char: Character, runId: number, role: string) {
+  const run = runs.find((r) => r.id === runId);
 
-if (role !== "Loot Body") {
-  const alreadyInRun = signups.find(
-    (s) =>
-      s.run_id === runId &&
-      s.role !== "Loot Body" &&
-      s.discord_id === discordId
+  if (
+    role !== "Loot Body" &&
+    run?.ilvl_required &&
+    (char.ilvl || 0) < run.ilvl_required
+  ) {
+    setPopup({
+      title: "Item Level Too Low",
+      message: `This run requires ${run.ilvl_required}+ ilvl. ${char.name} is ${char.ilvl || 0}.`,
+      type: "error",
+    });
+    return;
+  }
+
+  if (role !== "Loot Body" && run) {
+    const requiredExp = getRequiredBossExp(run);
+
+    const characterExp =
+      characters
+        .map((c) => getCharacterBossExp(c.progress))
+        .sort((a, b) => b.bosses - a.bosses)[0] ||
+      getCharacterBossExp(char.progress);
+
+    if (requiredExp && characterExp.bosses < requiredExp.bosses) {
+      setPopup({
+        title: "Boss Experience Too Low",
+        message: `This run requires ${requiredExp.bosses}/9${requiredExp.difficulty} experience. ${char.name} has ${char.progress || "0/9"}.`,
+        type: "error",
+      });
+      return;
+    }
+  }
+
+  const signupSpec = getSpecForSignupRole(char.class, char.spec, role);
+  const signupName = `${char.name} - ${signupSpec} ${char.class}`;
+
+  if (role !== "Loot Body") {
+    const alreadyInRun = signups.find(
+      (s) =>
+        s.run_id === runId &&
+        s.role !== "Loot Body" &&
+        s.discord_id === discordId
+    );
+
+    if (alreadyInRun) {
+      setPopup({
+        title: "Already Signed",
+        message:
+          "You already have a character signed for this run. Only Loot Body can use extra characters.",
+        type: "error",
+      });
+      return;
+    }
+  }
+
+  const alreadySigned = signups.find(
+    (s) => s.run_id === runId && s.character_id === char.id
   );
 
-  if (alreadyInRun) {
+  if (alreadySigned) {
     setPopup({
       title: "Already Signed",
-      message:
-        "You already have a character signed for this run. Only Loot Body can use extra characters.",
+      message: `${char.name} is already signed for this run.`,
       type: "error",
     });
     return;
   }
-}
-  const alreadySigned = signups.find(
-    (s) =>
-      s.run_id === runId &&
-      s.character_id === selectedCharacter.id
-  );
 
-if (alreadySigned) {
-  setPopup({
-    title: "Already Signed",
-    message: "This character is already signed for this run.",
-    type: "error",
+  const { error } = await supabase.from("signups").insert({
+    player: signupName,
+    role,
+    run_id: runId,
+    character_id: char.id,
+    avatar_url: profile?.avatar_url || "",
+    discord_id: discordId,
   });
-  return;
-}
-
-
-
-  const { error } = await supabase
-    .from("signups")
-    .insert({
-      player: signupName,
-      role,
-      run_id: runId,
-      character_id: selectedCharacter.id,
-      avatar_url: profile?.avatar_url || "",
-      discord_id: discordId,
-    });
 
   if (error) {
     alert(error.message);
     return;
   }
 
-await hearts.clearRunUnsign({
-  runId,
-  discordId,
-  characterName: selectedCharacter.name,
-});
+  await hearts.clearRunUnsign({
+    runId,
+    discordId,
+    characterName: char.name,
+  });
 
-await loadSignups();
-} 
+  await loadSignups();
+}
 
+/** Swap which character is on an existing signup. */
+async function swapSignupCharacter(char: Character, signupId: number) {
+  const signup = signups.find((s) => s.id === signupId);
+  if (!signup) return;
 
+  const run = runs.find((r) => r.id === signup.run_id);
+
+  if (
+    signup.role !== "Loot Body" &&
+    run?.ilvl_required &&
+    (char.ilvl || 0) < run.ilvl_required
+  ) {
+    setPopup({
+      title: "Item Level Too Low",
+      message: `This run requires ${run.ilvl_required}+ ilvl. ${char.name} is ${char.ilvl || 0}.`,
+      type: "error",
+    });
+    return;
+  }
+
+  const clash = signups.find(
+    (s) =>
+      s.run_id === signup.run_id &&
+      s.id !== signupId &&
+      s.character_id === char.id
+  );
+
+  if (clash) {
+    setPopup({
+      title: "Already Signed",
+      message: `${char.name} is already in this run.`,
+      type: "error",
+    });
+    return;
+  }
+
+  const spec = getSpecForSignupRole(char.class, char.spec, signup.role);
+
+  const { error } = await supabase
+    .from("signups")
+    .update({
+      character_id: char.id,
+      player: `${char.name} - ${spec} ${char.class}`,
+    })
+    .eq("id", signupId);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  await loadSignups();
+}
 async function sendAccessApplication() {
-if (
-  !appName.trim() ||
-  !appProgress.trim() ||
-  !appAlts.trim() ||
-  !appRoles.trim() ||
-  !raiderIoInput.trim()
-) {
+  if (
+    !appName.trim() ||
+    !appProgress.trim() ||
+    !appAlts.trim() ||
+    !appRoles.trim() ||
+    !raiderIoInput.trim()
+  ) {
     alert("Please fill required fields.");
     return;
   }
-const { data: existingApplication } = await supabase
-  .from("profiles")
-  .select("applied_at")
-  .eq("user_id", user.id)
-  .single();
 
-if (existingApplication?.applied_at) {
-  const lastApplied = new Date(existingApplication.applied_at);
-  const now = new Date();
+  const { data: existingApplication } = await supabase
+    .from("profiles")
+    .select("applied_at")
+    .eq("user_id", user.id)
+    .single();
 
-  const diffDays =
-    (now.getTime() - lastApplied.getTime()) /
-    (1000 * 60 * 60 * 24);
+  if (existingApplication?.applied_at) {
+    const lastApplied = new Date(existingApplication.applied_at);
+    const now = new Date();
 
-  if (diffDays < 30) {
-setPopup({
-  title: "Application Cooldown",
-  message:
-    "You can only send 1 application every 30 days.",
-  type: "error",
-});
+    const diffDays =
+      (now.getTime() - lastApplied.getTime()) / (1000 * 60 * 60 * 24);
 
-    return;
+    if (diffDays < 30) {
+      setPopup({
+        title: "Application Cooldown",
+        message: "You can only send 1 application every 30 days.",
+        type: "error",
+      });
+
+      return;
+    }
   }
-}
+
   const { error } = await supabase
     .from("profiles")
     .update({
-app_name: appName,
-app_progress: appProgress,
-app_alts: appAlts,
-app_roles: appRoles,
-raider_io: raiderIoInput,
-application_note: `
+      app_name: appName,
+      app_progress: appProgress,
+      app_alts: appAlts,
+      app_roles: appRoles,
+      raider_io: raiderIoInput,
+      application_note: `
 Name: ${appName}
 Progress: ${appProgress}
 Alts: ${appAlts}
@@ -843,10 +909,10 @@ Raider.IO: ${raiderIoInput}
 
   setPopup({
     title: "Application Sent",
-    message:
-      "Your signup access request was sent to admins.",
+    message: "Your signup access request was sent to admins.",
   });
 }
+
 async function adminAddSignup(runId: number, role: string, playerName: string) {
   if (!isAdmin) return;
 
@@ -1480,8 +1546,36 @@ paddingRight: 80,
 <PlayerPopup
   signup={playerPopup}
   canEditClass={isAdmin || isOfficer || playerPopup?.discord_id === discordId}
+  canChangeCharacter={playerPopup?.discord_id === discordId}
+  onChangeCharacter={(s) =>
+    setPickerTarget({ runId: s.run_id, role: s.role, signupId: s.id })
+  }
   onClose={() => setPlayerPopup(null)}
   onChanged={loadSignups}
+/>
+
+<CharacterPicker
+  open={!!pickerTarget}
+  characters={characters}
+  role={pickerTarget?.role || ""}
+  runTitle={runs.find((r) => r.id === pickerTarget?.runId)?.title}
+  ilvlRequired={runs.find((r) => r.id === pickerTarget?.runId)?.ilvl_required}
+  usedIds={signups
+    .filter((s) => s.run_id === pickerTarget?.runId)
+    .map((s) => s.character_id)
+    .filter((id): id is number => !!id)}
+  onPick={async (char) => {
+    const target = pickerTarget;
+    setPickerTarget(null);
+    if (!target) return;
+
+    if (target.signupId) {
+      await swapSignupCharacter(char, target.signupId);
+    } else {
+      await signWithCharacter(char, target.runId, target.role);
+    }
+  }}
+  onClose={() => setPickerTarget(null)}
 />
 
 <UnsignWarningPopup
@@ -3458,7 +3552,131 @@ function buildPlayerStats(signups: Signup[], runs: Run[]) {
 
   return Array.from(map.values()).sort((a, b) => b.total - a.total);
 }
+function CharacterPicker({
+  open,
+  characters,
+  role,
+  runTitle,
+  ilvlRequired,
+  usedIds,
+  onPick,
+  onClose,
+}: {
+  open: boolean;
+  characters: Character[];
+  role: string;
+  runTitle?: string;
+  ilvlRequired?: number;
+  usedIds: number[];
+  onPick: (char: Character) => void;
+  onClose: () => void;
+}) {
+  if (!open) return null;
 
+  const sorted = [...characters].sort((a, b) => (b.ilvl || 0) - (a.ilvl || 0));
+
+  return (
+    <div style={popupOverlay} onClick={onClose}>
+      <div style={pickerPanel} onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} style={pickerClose}>
+          ✕
+        </button>
+
+        <div style={pickerTitle}>CHOOSE YOUR CHARACTER</div>
+
+        <div style={pickerSub}>
+          {role ? `${getRoleLabel(role)} • ` : ""}
+          {runTitle || "this run"}
+          {ilvlRequired ? ` • ${ilvlRequired}+ ilvl required` : ""}
+        </div>
+
+        <div style={pickerGrid}>
+          {sorted.map((char) => {
+            const used = usedIds.includes(char.id);
+
+            const tooLow =
+              role !== "Loot Body" &&
+              !!ilvlRequired &&
+              (char.ilvl || 0) < ilvlRequired;
+
+            const blocked = used || tooLow;
+            const accent = getClassColor(char.class);
+
+            return (
+              <button
+                key={char.id}
+                disabled={blocked}
+                onClick={() => !blocked && onPick(char)}
+                onMouseEnter={(e) => {
+                  if (blocked) return;
+                  e.currentTarget.style.transform = "translateY(-6px) scale(1.04)";
+                  e.currentTarget.style.boxShadow = `0 0 30px ${accent}`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0) scale(1)";
+                  e.currentTarget.style.boxShadow = `0 0 14px ${accent}44`;
+                }}
+                style={{
+                  ...pickerCard,
+                  border: `1px solid ${blocked ? "rgba(120,120,120,.4)" : accent}`,
+                  boxShadow: blocked ? "none" : `0 0 14px ${accent}44`,
+                  opacity: blocked ? 0.38 : 1,
+                  filter: blocked ? "grayscale(90%)" : "none",
+                  cursor: blocked ? "not-allowed" : "pointer",
+                }}
+              >
+                <img
+                  src={char.avatar_url || getSpecIconPath(`${char.name} - ${char.spec} ${char.class}`) || "/logo.png"}
+                  alt=""
+                  style={{
+                    ...pickerAvatar,
+                    border: `2px solid ${accent}`,
+                    boxShadow: `0 0 16px ${accent}88`,
+                  }}
+                />
+
+                <div
+                  style={{
+                    ...pickerName,
+                    color: accent,
+                    textShadow: `0 0 12px ${accent}77`,
+                  }}
+                >
+                  {char.name}
+                </div>
+
+                <div style={pickerRealm}>(EU) {char.realm}</div>
+
+                <div
+                  style={{
+                    ...pickerIlvl,
+                    color: getIlvlColor(char.ilvl),
+                    textShadow: `0 0 14px ${getIlvlColor(char.ilvl)}`,
+                  }}
+                >
+                  {char.ilvl || 0}
+                  <div style={pickerIlvlLabel}>ilvl</div>
+                </div>
+
+                <div style={{ marginTop: 8 }}>
+                  <SpecIcon player={`${char.name} - ${char.spec} ${char.class}`} />
+                </div>
+
+                <div style={pickerProgress}>{char.progress || "0/9"}</div>
+
+                {blocked && (
+                  <div style={pickerBlocked}>
+                    {used ? "ALREADY SIGNED" : "ILVL TOO LOW"}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 function FilterButton({
   label,
   active,
@@ -4362,7 +4580,127 @@ const roleBox: React.CSSProperties = {
   minWidth: 0,
 overflow: "hidden",
 };
+const pickerPanel: React.CSSProperties = {
+  position: "relative",
+  width: "min(1500px, 94vw)",
+  maxHeight: "88vh",
+  overflowY: "auto",
+  padding: "34px 30px 30px",
+  borderRadius: 24,
+  background: "linear-gradient(180deg, rgba(10,4,24,.98), rgba(4,0,12,.98))",
+  border: "1px solid rgba(168,85,247,.55)",
+  boxShadow: "0 0 60px rgba(168,85,247,.35)",
+};
 
+const pickerClose: React.CSSProperties = {
+  position: "absolute",
+  top: 16,
+  right: 18,
+  width: 40,
+  height: 40,
+  borderRadius: 12,
+  border: "1px solid rgba(239,68,68,.5)",
+  background: "linear-gradient(180deg,#7f1d1d,#450a0a)",
+  color: "white",
+  fontSize: 16,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const pickerTitle: React.CSSProperties = {
+  textAlign: "center",
+  color: "#e9d5ff",
+  fontSize: 30,
+  fontWeight: 900,
+  letterSpacing: 3,
+  fontFamily: "Georgia, serif",
+  textShadow: "0 0 20px rgba(168,85,247,.7)",
+};
+
+const pickerSub: React.CSSProperties = {
+  textAlign: "center",
+  color: "#c084fc",
+  fontSize: 14,
+  fontWeight: 800,
+  marginTop: 6,
+  marginBottom: 26,
+};
+
+const pickerGrid: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  justifyContent: "center",
+  gap: 16,
+};
+
+const pickerCard: React.CSSProperties = {
+  width: 168,
+  padding: "18px 12px 16px",
+  borderRadius: 18,
+  background: "linear-gradient(180deg, rgba(18,8,34,.95), rgba(6,2,14,.98))",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  transition: "all .2s ease",
+};
+
+const pickerAvatar: React.CSSProperties = {
+  width: 76,
+  height: 76,
+  borderRadius: "50%",
+  objectFit: "cover",
+  background: "#111",
+};
+
+const pickerName: React.CSSProperties = {
+  marginTop: 12,
+  fontSize: 19,
+  fontWeight: 900,
+  maxWidth: 148,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const pickerRealm: React.CSSProperties = {
+  marginTop: 4,
+  color: "#cbd5e1",
+  fontSize: 12,
+  fontWeight: 700,
+};
+
+const pickerIlvl: React.CSSProperties = {
+  marginTop: 10,
+  fontSize: 34,
+  fontWeight: 900,
+  lineHeight: 1,
+};
+
+const pickerIlvlLabel: React.CSSProperties = {
+  color: "#e5e7eb",
+  fontSize: 12,
+  fontWeight: 700,
+  marginTop: 2,
+};
+
+const pickerProgress: React.CSSProperties = {
+  marginTop: 6,
+  color: "#d8b4fe",
+  fontSize: 13,
+  fontWeight: 900,
+};
+
+const pickerBlocked: React.CSSProperties = {
+  marginTop: 8,
+  padding: "3px 8px",
+  borderRadius: 999,
+  fontSize: 9,
+  fontWeight: 900,
+  letterSpacing: 1,
+  color: "#fca5a5",
+  border: "1px solid rgba(239,68,68,.5)",
+  background: "rgba(60,0,0,.6)",
+};
 const roleTitle: React.CSSProperties = {
   textAlign: "center",
   fontWeight: 900,
