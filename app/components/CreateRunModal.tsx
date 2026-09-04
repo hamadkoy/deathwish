@@ -22,7 +22,8 @@ const RAIDS = [
 ];
 
 const DIFFICULTIES = ["Normal", "Heroic", "Mythic"] as const;
-const LOOT_TYPES = ["VIP", "Saved", "Solo", "Mythic Mount", "Lootshare"] as const;
+// "None" prints nothing on the card — for titles that already say it all.
+const LOOT_TYPES = ["VIP", "Saved", "Solo", "Mythic Mount", "Lootshare", "None"] as const;
 const BOSS_COUNTS = ["1/9", "2/9", "3/9", "4/9", "5/9", "6/9", "7/9", "8/9", "9/9"];
 
 // Blank means the title carries the detail instead — e.g. "Last 2 HC".
@@ -181,13 +182,15 @@ export default function CreateRunModal({
     difficulty === "Mythic" ? "M" : difficulty === "Heroic" ? "HC" : "NM";
 
   const runTitle = () => {
-    const name = customRaid.trim() || raid;
+    // Anything left blank is dropped rather than leaving a gap or a
+    // stray tag — a custom title usually carries the detail already.
+    const parts = [
+      customRaid.trim() || raid,
+      bossCount ? `${bossCount}${diffTag}` : "",
+      lootType === "None" ? "" : lootType,
+    ];
 
-    // With no boss count the difficulty tag has nothing to attach to,
-    // so it rides along with the loot type instead.
-    const middle = bossCount ? `${bossCount}${diffTag}` : diffTag;
-
-    return `${name} ${middle} ${lootType}`.replace(/\s+/g, " ").trim();
+    return parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
   };
 
   const expValue = expRequired ? `${expRequired}${diffTag}` : null;
