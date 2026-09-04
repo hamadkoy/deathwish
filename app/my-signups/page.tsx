@@ -19,7 +19,17 @@ export default function MySignupsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState("All");
   const [now, setNow] = useState(new Date());
-const [selectedWeek, setSelectedWeek] = useState<number | "All">("All");
+const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
+
+/** Which week we're in now, using the same 8/12 season anchor as getRunDate. */
+function getCurrentWeek() {
+  const start = new Date("2026-08-12T07:00:00").getTime();
+  const days = Math.floor((serverNow().getTime() - start) / 86400000);
+
+  if (days < 0) return 0;
+
+  return Math.floor(days / 7);
+}
 const [runPopup, setRunPopup] = useState<any>(null);
 const [runPopupSignups, setRunPopupSignups] = useState<any[]>([]);
 
@@ -132,6 +142,19 @@ const weeks = Array.from(
 ).sort((a, b) => a - b);
 
 setAvailableWeeks(weeks);
+
+// Land on the current week if it has runs, otherwise the nearest one.
+setSelectedWeek((prev) => {
+  if (prev !== null && weeks.includes(prev)) return prev;
+
+  const current = getCurrentWeek();
+  if (weeks.includes(current)) return current;
+
+  const upcoming = weeks.find((w) => w > current);
+
+  return upcoming ?? weeks[weeks.length - 1] ?? null;
+});
+
 setSignups(merged);
 setLoading(false);
   }
@@ -223,7 +246,7 @@ const filteredSignups = useMemo(() => {
   return [...signups]
     .filter((signup) => {
       const matchesWeek =
-        selectedWeek === "All" || signup.run?.week === selectedWeek;
+        selectedWeek === null || signup.run?.week === selectedWeek;
 
       const matchesDay =
         selectedDay === "All" || signup.run?.day === selectedDay;
@@ -341,29 +364,49 @@ return (
           </div>
         </section>
 <section style={dayPanel}>
-  <button
-    style={selectedWeek === "All" ? dayBtnActive : dayBtn}
-    onClick={() => setSelectedWeek("All")}
-  >
-    All Weeks
-  </button>
+  {availableWeeks.map((week) => {
+    const isCurrent = week === getCurrentWeek();
+    const isActive = selectedWeek === week;
 
-  {availableWeeks.map((week) => (
-    <button
-      key={week}
-      style={selectedWeek === week ? dayBtnActive : dayBtn}
-      onClick={() => setSelectedWeek(week)}
-    >
-    Week {week} —{" "}
-{new Date(
-  new Date("2026-08-12T07:00:00").getTime() +
-    week * 7 * 24 * 60 * 60 * 1000
-).toLocaleDateString("en-US", {
-  month: "numeric",
-  day: "numeric",
-})}
-    </button>
-  ))}
+    return (
+      <button
+        key={week}
+        onClick={() => setSelectedWeek(week)}
+        style={
+          isActive && isCurrent
+            ? currentWeekBtnActive
+            : isActive
+            ? dayBtnActive
+            : isCurrent
+            ? currentDayBtn
+            : dayBtn
+        }
+        onMouseEnter={(e) => glow(e)}
+        onMouseLeave={(e) =>
+          unGlow(
+            e,
+            (isActive && isCurrent
+              ? currentWeekBtnActive.boxShadow
+              : isActive
+              ? dayBtnActive.boxShadow
+              : isCurrent
+              ? currentDayBtn.boxShadow
+              : dayBtn.boxShadow) as string
+          )
+        }
+      >
+        {isCurrent ? "Current Week" : `Week ${week}`}
+        {" — "}
+        {new Date(
+          new Date("2026-08-12T07:00:00").getTime() +
+            week * 7 * 24 * 60 * 60 * 1000
+        ).toLocaleDateString("en-US", {
+          month: "numeric",
+          day: "numeric",
+        })}
+      </button>
+    );
+  })}
 </section>
         <section style={dayPanel}>
           <button
@@ -758,6 +801,18 @@ const dayBtnActive: React.CSSProperties = {
   color: "white",
   border: "1px solid rgba(255,255,255,0.35)",
   boxShadow: "0 0 24px rgba(217,70,239,0.65)",
+};
+
+const currentWeekBtnActive: React.CSSProperties = {
+  padding: "13px 20px",
+  borderRadius: 14,
+  border: "1px solid rgba(134,239,172,.9)",
+  background: "linear-gradient(90deg,#15803d,#22c55e)",
+  color: "white",
+  fontWeight: 900,
+  cursor: "pointer",
+  transition: "all 0.2s ease",
+  boxShadow: "0 0 24px rgba(34,197,94,.7)",
 };
 
 const currentDayBtn: React.CSSProperties = {
