@@ -1307,11 +1307,15 @@ function parsePlayer(player: string) {
 export function PlayerPopup({
   signup,
   canEditClass = false,
+  canChangeCharacter = false,
+  onChangeCharacter,
   onClose,
   onChanged,
 }: {
   signup: PopupSignup | null;
   canEditClass?: boolean;
+  canChangeCharacter?: boolean;
+  onChangeCharacter?: (signup: PopupSignup) => void;
   onClose: () => void;
   onChanged?: () => void | Promise<void>;
 }) {
@@ -1428,6 +1432,36 @@ export function PlayerPopup({
                 window.open(`discord://-/users/${signup.discord_id}`, "_blank")
               }
             />
+
+            {canChangeCharacter && (
+              <ActionButton
+                icon="🔄"
+                from="#34d399"
+                to="#047857"
+                glow="rgba(52,211,153,"
+                title="Change character"
+                subtitle="Swap which of your characters is signed."
+                onClick={() => {
+                  onChangeCharacter?.(signup);
+                  onClose();
+                }}
+              />
+            )}
+
+            {canChangeCharacter && (
+              <ActionButton
+                icon="🔄"
+                from="#34d399"
+                to="#047857"
+                glow="rgba(52,211,153,"
+                title="Change character"
+                subtitle="Swap which of your characters is signed."
+                onClick={() => {
+                  onChangeCharacter?.(signup);
+                  onClose();
+                }}
+              />
+            )}
 
             {canEditClass && (
               <ActionButton
