@@ -25,6 +25,9 @@ const DIFFICULTIES = ["Normal", "Heroic", "Mythic"] as const;
 const LOOT_TYPES = ["VIP", "Saved", "Solo", "Mythic Mount", "Lootshare"] as const;
 const BOSS_COUNTS = ["1/9", "2/9", "3/9", "4/9", "5/9", "6/9", "7/9", "8/9", "9/9"];
 
+// Blank means the title carries the detail instead — e.g. "Last 2 HC".
+const NO_BOSS_COUNT = "";
+
 const THEMES = [
   { key: "mythic-red", label: "Mythic Red", dot: "#ef4444" },
   { key: "mythic-purple", label: "Purple", dot: "#a855f7" },
@@ -179,7 +182,12 @@ export default function CreateRunModal({
 
   const runTitle = () => {
     const name = customRaid.trim() || raid;
-    return `${name} ${bossCount}${diffTag} ${lootType}`.trim();
+
+    // With no boss count the difficulty tag has nothing to attach to,
+    // so it rides along with the loot type instead.
+    const middle = bossCount ? `${bossCount}${diffTag}` : diffTag;
+
+    return `${name} ${middle} ${lootType}`.replace(/\s+/g, " ").trim();
   };
 
   const expValue = expRequired ? `${expRequired}${diffTag}` : null;
@@ -335,6 +343,10 @@ export default function CreateRunModal({
                 onChange={(e) => setBossCount(e.target.value)}
                 style={input}
               >
+                <option value={NO_BOSS_COUNT}>
+                  None — title says it
+                </option>
+
                 {BOSS_COUNTS.map((b) => (
                   <option key={b} value={b}>
                     {b}
