@@ -20,9 +20,46 @@ export default function MySignupsPage() {
   const [selectedDay, setSelectedDay] = useState("All");
   const [now, setNow] = useState(new Date());
 const [selectedWeek, setSelectedWeek] = useState<number | "All">("All");
+const [runPopup, setRunPopup] = useState<any>(null);
+const [runPopupSignups, setRunPopupSignups] = useState<any[]>([]);
+
+/** Pull the full roster for one run so the popup can show every role. */
+async function openRunPopup(run: any) {
+  if (!run) return;
+
+  setRunPopup(run);
+  setRunPopupSignups([]);
+
+  const { data } = await supabase
+    .from("signups")
+    .select("*")
+    .eq("run_id", run.id);
+
+  setRunPopupSignups(data || []);
+}
 const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
   useEffect(() => {
     loadSignups();
+
+    // Runs get edited and deleted from the signup page; without this the
+    // list here keeps showing whatever was true when the tab was opened.
+    const channel = supabase
+      .channel("my-signups-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "runs" },
+        () => loadSignups()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "signups" },
+        () => loadSignups()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
@@ -74,11 +111,14 @@ const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
       .select("*")
       .in("id", runIds);
 
-    const merged = signupData.map((signup) => ({
-      ...signup,
-      run: runs?.find((r) => r.id === signup.run_id),
-      character: myCharacters.find((c) => c.id === signup.character_id),
-    }));
+    const merged = signupData
+      .map((signup) => ({
+        ...signup,
+        run: runs?.find((r) => r.id === signup.run_id),
+        character: myCharacters.find((c) => c.id === signup.character_id),
+      }))
+      // A deleted run leaves nothing to show, so the row goes too.
+      .filter((s) => !!s.run);
 
 const weeks = Array.from(
   new Set(
@@ -422,22 +462,21 @@ return (
                   </div>
 
                   <div>
-                    <Link href={`/runs/${signup.run?.id}`}>
-                      <button
-                        style={past ? pastViewBtn : viewRunBtn}
-                        onMouseEnter={(e) => glow(e)}
-                        onMouseLeave={(e) =>
-                          unGlow(
-                            e,
-                            (past
-                              ? pastViewBtn.boxShadow
-                              : viewRunBtn.boxShadow) as string
-                          )
-                        }
-                      >
-                        View Run
-                      </button>
-                    </Link>
+                    <button
+                      onClick={() => openRunPopup(signup.run)}
+                      style={past ? pastViewBtn : viewRunBtn}
+                      onMouseEnter={(e) => glow(e)}
+                      onMouseLeave={(e) =>
+                        unGlow(
+                          e,
+                          (past
+                            ? pastViewBtn.boxShadow
+                            : viewRunBtn.boxShadow) as string
+                        )
+                      }
+                    >
+                      View Run
+                    </button>
                   </div>
                 </div>
               );
@@ -446,8 +485,91 @@ return (
         </section>
       </main>
     </div>
+
+    {runPopup && (
+      <div style={runOverlay} onClick={() => setRunPopup(null)}>
+        <div style={runPanel} onClick={(e) => e.stopPropagation()}>
+          <button onClick={() => setRunPopup(null)} style={runClose}>
+            ✕
+          </button>
+
+          <div style={runPanelHead}>
+            <h2 style={runPanelTitle}>{runPopup.title}</h2>
+
+            <div style={runPanelMeta}>
+              <span style={{ opacity: .6 }}>#{runPopup.id}</span>
+              <span style={{ opacity: .4, margin: "0 8px" }}>•</span>
+              <b style={{ color: "#fff" }}>{runPopup.day}</b>
+              <span style={{ opacity: .4, margin: "0 8px" }}>•</span>
+              <b style={{ color: "#facc15" }}>{runPopup.time}</b>
+            </div>
+
+            {runPopup.notes && <div style={runPanelNotes}>{runPopup.notes}</div>}
+
+            {runPopup.ilvl_required && (
+              <div style={runPanelIlvl}>
+                Required ilvl: {runPopup.ilvl_required}+
+              </div>
+            )}
+          </div>
+
+          <div style={runRoleGrid}>
+            {["Tank", "Healer", "DPS", "Bench", "Loot Body"].map((role) => {
+              const rows = runPopupSignups.filter((s) => s.role === role);
+              const color = roleColor(role);
+
+              return (
+                <div key={role} style={runRoleBox}>
+                  <div
+                    style={{
+                      ...runRoleTitle,
+                      color,
+                      textShadow: `0 0 16px ${color}`,
+                    }}
+                  >
+                    {role === "Loot Body" ? "LB" : role.toUpperCase()}{" "}
+                    <span style={{ fontSize: 13, opacity: .8 }}>
+                      {rows.length}
+                    </span>
+                  </div>
+
+                  {rows.length === 0 && <div style={runRoleEmpty}>—</div>}
+
+                  {rows.map((s) => {
+                    const mine = signups.some((own) => own.id === s.id);
+
+                    return (
+                      <div
+                        key={s.id}
+                        style={{
+                          ...runPill,
+                          borderColor: mine ? "#facc15" : `${color}55`,
+                          background: mine
+                            ? "rgba(70,50,0,.55)"
+                            : "rgba(20,16,10,.9)",
+                        }}
+                      >
+                        {(s.player || "").split(" - ")[0]}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    )}
   </div>
 );
+}
+
+function roleColor(role: string) {
+  if (role === "Tank") return "#1d8cff";
+  if (role === "Healer") return "#22c55e";
+  if (role === "DPS") return "#ff4d8d";
+  if (role === "Bench") return "#a855f7";
+  return "#f97316";
 }
 
 function glow(e: React.MouseEvent<HTMLButtonElement>) {
@@ -878,4 +1000,120 @@ const mutedText: React.CSSProperties = {
   color: "#9ca3af",
   fontSize: 13,
   lineHeight: 1.5,
+};
+const runOverlay: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,.75)",
+  backdropFilter: "blur(6px)",
+  zIndex: 99999,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 20,
+};
+
+const runPanel: React.CSSProperties = {
+  position: "relative",
+  width: "min(1150px, 95vw)",
+  maxHeight: "90vh",
+  overflowY: "auto",
+  borderRadius: 22,
+  background:
+    "linear-gradient(180deg, rgba(10,4,22,.98), rgba(3,0,10,.98))",
+  border: "1px solid rgba(168,85,247,.5)",
+  boxShadow: "0 0 55px rgba(168,85,247,.35)",
+};
+
+const runClose: React.CSSProperties = {
+  position: "absolute",
+  top: 16,
+  right: 18,
+  width: 40,
+  height: 40,
+  borderRadius: 12,
+  border: "1px solid rgba(239,68,68,.5)",
+  background: "linear-gradient(180deg,#7f1d1d,#450a0a)",
+  color: "white",
+  fontSize: 16,
+  fontWeight: 900,
+  cursor: "pointer",
+  zIndex: 2,
+};
+
+const runPanelHead: React.CSSProperties = {
+  padding: "30px 30px 22px",
+  borderBottom: "1px solid rgba(168,85,247,.25)",
+  background: "linear-gradient(180deg, rgba(168,85,247,.14), transparent)",
+};
+
+const runPanelTitle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 38,
+  fontWeight: 900,
+  fontFamily: "Georgia, serif",
+  color: "#e9d5ff",
+  textShadow: "0 0 18px rgba(168,85,247,.6)",
+};
+
+const runPanelMeta: React.CSSProperties = {
+  marginTop: 10,
+  fontSize: 20,
+  fontWeight: 800,
+  color: "#f0e6d2",
+};
+
+const runPanelNotes: React.CSSProperties = {
+  marginTop: 10,
+  color: "#d8b4fe",
+  fontSize: 15,
+  fontWeight: 800,
+};
+
+const runPanelIlvl: React.CSSProperties = {
+  marginTop: 8,
+  color: "#facc15",
+  fontWeight: 900,
+  textShadow: "0 0 10px rgba(250,204,21,.6)",
+};
+
+const runRoleGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(5, minmax(0,1fr))",
+  gap: 1,
+  background: "rgba(255,255,255,.06)",
+};
+
+const runRoleBox: React.CSSProperties = {
+  padding: 14,
+  minHeight: 260,
+  background: "rgba(4,2,10,.95)",
+};
+
+const runRoleTitle: React.CSSProperties = {
+  textAlign: "center",
+  fontWeight: 900,
+  fontSize: 19,
+  letterSpacing: 1,
+  marginBottom: 12,
+};
+
+const runRoleEmpty: React.CSSProperties = {
+  textAlign: "center",
+  color: "#4b5563",
+  fontSize: 20,
+  marginTop: 10,
+};
+
+const runPill: React.CSSProperties = {
+  border: "1px solid",
+  borderRadius: 6,
+  padding: "7px 10px",
+  marginBottom: 6,
+  fontSize: 14,
+  fontWeight: 700,
+  color: "#fff",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };
