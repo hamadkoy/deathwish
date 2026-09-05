@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
@@ -116,6 +116,7 @@ const [selectedTheme, setSelectedTheme] =
 
 const currentTheme = themes[selectedTheme] || themes.midnight;
 const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+const refreshingRef = useRef(false);
 useEffect(() => {
   loadUserAndProfile();
 }, []);
@@ -692,7 +693,7 @@ const response = await fetch(
       .map((b: any) => b.name);
 
     if (data.statusCode) {
-      alert("Character not found on Raider.IO");
+      if (!silent) alert("Character not found on Raider.IO");
       return;
     }
 
@@ -756,6 +757,8 @@ const response = await fetch(
 }
 
 async function autoRefreshStale(chars: Character[]) {
+  if (refreshingRef.current) return;
+
   const stale = chars.filter(
     (c) =>
       !c.last_updated ||
@@ -764,12 +767,18 @@ async function autoRefreshStale(chars: Character[]) {
 
   if (stale.length === 0) return;
 
-  for (const c of stale) {
-    await updateCharacter(c, true);
-    await new Promise((r) => setTimeout(r, 700));
-  }
+  refreshingRef.current = true;
 
-  await loadCharacters();
+  try {
+    for (const c of stale) {
+      await updateCharacter(c, true);
+      await new Promise((r) => setTimeout(r, 700));
+    }
+
+    await loadCharacters();
+  } finally {
+    refreshingRef.current = false;
+  }
 }
 async function updateAllCharacters() {
   if (characters.length === 0) return;
@@ -778,7 +787,7 @@ async function updateAllCharacters() {
 
   try {
     for (const char of characters) {
-      await updateCharacter(char);
+      await updateCharacter(char, true);
 
       // small delay so Raider.IO does not get spammed too fast
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -1401,7 +1410,11 @@ justifyContent: isOwnProfile ? "unset" : "center",
 
   <div style={miniStat}>
     <span style={miniStatLabel}>Raid EXP</span>
-    <b style={experienceValue}>{totalExperience}</b>
+    <b style={experienceValue}>
+      {totalExperience.split(" · ").map((part) => (
+        <div key={part}>{part}</div>
+      ))}
+    </b>
   </div>
 
   <div style={miniStat}>
@@ -1773,7 +1786,7 @@ background:
   }}
 />
                   <div>
-                    <div style={progressText}>{char.progress || "0/9"}</div>
+                    <div style={progressText}>{char.progress || "0/8"}</div>
                     <div
                       style={{
                         ...scoreText,
@@ -1941,7 +1954,7 @@ textShadow: `0 0 10px ${getClassColor(char.class)}55`,
                 fontWeight: 700,
               }}
             >
-              {char.progress || "0/9M"}
+              {char.progress || "0/8"}
             </div>
           </div>
         </div>
@@ -2422,7 +2435,7 @@ style={{
             color: "#f0abfc",
           }}
         >
-          {selectedCharacter.progress || "0/9"}
+          {selectedCharacter.progress || "0/8"}
         </div>
       </div>
     </div>
@@ -3745,7 +3758,7 @@ const experienceLabel: React.CSSProperties = {
 };
 
 const experienceValue: React.CSSProperties = {
-  fontSize: 24,
+  fontSize: 34,
   color: "#f0abfc",
   fontWeight: 900,
   lineHeight: 1,
