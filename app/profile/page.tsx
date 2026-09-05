@@ -904,12 +904,7 @@ const totalExperience = useMemo(() => {
     ...characters.map((c) => Number(c.heroic_kills || 0))
   );
 
-  if (bestM > 0 && bestH > 0)
-    return `${bestM}/${RAID_BOSS_COUNT}M · ${bestH}/${RAID_BOSS_COUNT}H`;
-  if (bestM > 0) return `${bestM}/${RAID_BOSS_COUNT}M`;
-  if (bestH > 0) return `${bestH}/${RAID_BOSS_COUNT}H`;
-
-  return `0/${RAID_BOSS_COUNT}`;
+  return `${bestM}/${RAID_BOSS_COUNT}M`;
 }, [characters]);
 const approvedRank =
   profile?.site_role === "Dreadlord" || profile?.site_role === "admin"
@@ -1410,11 +1405,7 @@ justifyContent: isOwnProfile ? "unset" : "center",
 
   <div style={miniStat}>
     <span style={miniStatLabel}>Raid EXP</span>
-    <b style={experienceValue}>
-      {totalExperience.split(" · ").map((part) => (
-        <div key={part}>{part}</div>
-      ))}
-    </b>
+    <b style={experienceValue}>{totalExperience}</b>
   </div>
 
   <div style={miniStat}>
@@ -3758,7 +3749,7 @@ const experienceLabel: React.CSSProperties = {
 };
 
 const experienceValue: React.CSSProperties = {
-  fontSize: 34,
+  fontSize: 42,
   color: "#f0abfc",
   fontWeight: 900,
   lineHeight: 1,
