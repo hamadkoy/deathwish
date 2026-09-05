@@ -40,12 +40,15 @@ async function openRunPopup(run: any) {
   setRunPopup(run);
   setRunPopupSignups([]);
 
-  const { data } = await supabase
-    .from("signups")
-    .select("*")
-    .eq("run_id", run.id);
+  const [rosterRes, runRes] = await Promise.all([
+    supabase.from("signups").select("*").eq("run_id", run.id),
+    // The list query is trimmed; the card needs limits and the theme.
+    supabase.from("runs").select("*").eq("id", run.id).single(),
+  ]);
 
-  setRunPopupSignups(data || []);
+  setRunPopupSignups(rosterRes.data || []);
+
+  if (runRes.data) setRunPopup(runRes.data);
 }
 const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
   useEffect(() => {
@@ -529,84 +532,253 @@ return (
       </main>
     </div>
 
-    {runPopup && (
-      <div style={runOverlay} onClick={() => setRunPopup(null)}>
-        <div style={runPanel} onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => setRunPopup(null)} style={runClose}>
-            ✕
-          </button>
+    {runPopup && (() => {
+      const theme = getRunTheme(runPopup);
+      const limits = getLimits(runPopup);
 
-          <div style={runPanelHead}>
-            <h2 style={runPanelTitle}>{runPopup.title}</h2>
+      const boosters = runPopupSignups.filter(
+        (s) => s.role !== "Bench" && s.role !== "Loot Body"
+      ).length;
 
-            <div style={runPanelMeta}>
-              <span style={{ opacity: .6 }}>#{runPopup.id}</span>
-              <span style={{ opacity: .4, margin: "0 8px" }}>•</span>
-              <b style={{ color: "#fff" }}>{runPopup.day}</b>
-              <span style={{ opacity: .4, margin: "0 8px" }}>•</span>
-              <b style={{ color: "#facc15" }}>{runPopup.time}</b>
+      return (
+        <div style={runOverlay} onClick={() => setRunPopup(null)}>
+          <div
+            style={{
+              ...runPanel,
+              boxShadow: `0 0 40px ${theme.glow}, inset 0 0 18px ${theme.glow}`,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button onClick={() => setRunPopup(null)} style={runClose}>
+              ✕
+            </button>
+
+            <div
+              style={{
+                ...runPanelHead,
+                background: `linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.5)), url(${theme.bg}) center/cover`,
+              }}
+            >
+              <img src={theme.emblem} alt="" style={runEmblem} />
+
+              <div style={runBoosters}>
+                <span style={{ color: "#c084fc", fontSize: 12, fontWeight: 900 }}>
+                  BOOSTERS
+                </span>
+                <span style={{ fontSize: 16, fontWeight: 900 }}>{boosters}</span>
+              </div>
+
+              <h2 style={{ ...runPanelTitle, color: theme.title }}>
+                {runPopup.title}
+              </h2>
+
+              <div style={runPanelMeta}>
+                <span style={{ opacity: .6, fontSize: 17 }}>#{runPopup.id}</span>
+                <span style={{ opacity: .45, margin: "0 8px" }}>•</span>
+                <b style={{ color: "#fff" }}>{runPopup.day}</b>
+                <span style={{ opacity: .45, margin: "0 8px" }}>•</span>
+                <b style={{ color: "#facc15" }}>{runPopup.time}</b>
+              </div>
+
+              {runPopup.notes && (
+                <div style={runPanelNotes}>{runPopup.notes}</div>
+              )}
+
+              {runPopup.ilvl_required && (
+                <div style={runPanelIlvl}>
+                  Required ilvl: {runPopup.ilvl_required}+
+                </div>
+              )}
             </div>
 
-            {runPopup.notes && <div style={runPanelNotes}>{runPopup.notes}</div>}
+            <div style={runRoleGrid}>
+              {["Tank", "Healer", "DPS", "Bench", "Loot Body"].map((role) => {
+                const rows = runPopupSignups.filter((s) => s.role === role);
+                const color = roleColor(role);
+                const limit = limits[role];
 
-            {runPopup.ilvl_required && (
-              <div style={runPanelIlvl}>
-                Required ilvl: {runPopup.ilvl_required}+
-              </div>
-            )}
-          </div>
-
-          <div style={runRoleGrid}>
-            {["Tank", "Healer", "DPS", "Bench", "Loot Body"].map((role) => {
-              const rows = runPopupSignups.filter((s) => s.role === role);
-              const color = roleColor(role);
-
-              return (
-                <div key={role} style={runRoleBox}>
-                  <div
-                    style={{
-                      ...runRoleTitle,
-                      color,
-                      textShadow: `0 0 16px ${color}`,
-                    }}
-                  >
-                    {role === "Loot Body" ? "LB" : role.toUpperCase()}{" "}
-                    <span style={{ fontSize: 13, opacity: .8 }}>
-                      {rows.length}
-                    </span>
-                  </div>
-
-                  {rows.length === 0 && <div style={runRoleEmpty}>—</div>}
-
-                  {rows.map((s) => {
-                    const mine = signups.some((own) => own.id === s.id);
-
-                    return (
-                      <div
-                        key={s.id}
+                return (
+                  <div key={role} style={runRoleBox}>
+                    <div
+                      style={{
+                        ...runRoleTitle,
+                        color,
+                        textShadow: `0 0 16px ${color}`,
+                      }}
+                    >
+                      {roleIcon(role)}{" "}
+                      {role === "Loot Body" ? "LB" : role.toUpperCase()}{" "}
+                      <span
                         style={{
-                          ...runPill,
-                          borderColor: mine ? "#facc15" : `${color}55`,
-                          background: mine
-                            ? "rgba(70,50,0,.55)"
-                            : "rgba(20,16,10,.9)",
+                          fontSize: 13,
+                          color: countColor(rows.length, limit),
+                          textShadow: `0 0 10px ${countColor(rows.length, limit)}`,
                         }}
                       >
-                        {(s.player || "").split(" - ")[0]}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+                        {rows.length}/{limit}
+                      </span>
+                    </div>
+
+                    {rows.map((s) => {
+                      const mine = signups.some((own) => own.id === s.id);
+                      const icon = specIconPath(s.player);
+
+                      return (
+                        <div
+                          key={s.id}
+                          style={{
+                            ...runPill,
+                            borderColor: mine ? "#facc15" : `${color}55`,
+                            background: mine
+                              ? "rgba(70,50,0,.55)"
+                              : "rgba(20,16,10,.92)",
+                          }}
+                        >
+                          {icon && <img src={icon} alt="" style={runPillIcon} />}
+
+                          <span style={runPillName}>
+                            {(s.player || "").split(" - ")[0]}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
-    )}
+      );
+    })()}
   </div>
 );
 }
+function getRunTheme(run: any) {
+  if (run?.background_key === "mythic-purple") {
+    return {
+      bg: "/mythic-purple-bg.png",
+      glow: "rgba(168,85,247,.9)",
+      title: "#e9d5ff",
+      emblem: "/mythic-emblem.png",
+    };
+  }
 
+  if (run?.background_key === "hc-gold") {
+    return {
+      bg: "/hc-bg.png",
+      glow: "rgba(59,130,246,.95)",
+      title: "#bfdbfe",
+      emblem: "/hc-emblem.png",
+    };
+  }
+
+  if (run?.background_key === "void") {
+    return {
+      bg: "/nightfall.png",
+      glow: "rgba(59,130,246,.95)",
+      title: "#bfdbfe",
+      emblem: "/hc-emblem1.png",
+    };
+  }
+
+  return {
+    bg: "/mythic-red-bg.png",
+    glow: "rgba(239,68,68,.9)",
+    title: "#fecaca",
+    emblem: "/mythic-red-emblem.png",
+  };
+}
+
+/** Same seat maths as the runs page. */
+function getLimits(run: any) {
+  const isHC = (run?.title || "").toLowerCase().includes("hc");
+
+  return {
+    Tank: 2,
+    Healer: run?.healer_limit || (isHC ? 3 : 4),
+    DPS: run?.dps_limit || (isHC ? 10 : 13),
+    Bench: 8,
+    "Loot Body": 5,
+  } as Record<string, number>;
+}
+
+function countColor(current: number, max: number) {
+  if (!max) return "#ffffff";
+
+  const pct = (current / max) * 100;
+
+  if (pct >= 100) return "#ef4444";
+  if (pct >= 61) return "#facc15";
+  return "#22c55e";
+}
+
+function roleIcon(role: string) {
+  if (role === "Tank") return "♢";
+  if (role === "Healer") return "✚";
+  if (role === "DPS") return "⚔";
+  if (role === "Bench") return "♣";
+  return "💰";
+}
+
+/** 'Xkoy - Guardian Druid' -> /icons/druid-guardian.png */
+function specIconPath(player: string) {
+  const parts = (player || "").split(" - ");
+  if (parts.length < 2) return null;
+
+  const key = parts[1]
+    .toLowerCase()
+    .trim()
+    .replace("demonhunter", "demon hunter")
+    .replace(/\s+/g, " ");
+
+  const fixes: Record<string, string> = {
+    "guardian druid": "druid-guardian",
+    "balance druid": "druid-balance",
+    "restoration druid": "druid-restoration",
+    "feral druid": "druid-feral",
+    "vengeance demon hunter": "demonhunter-vengeance",
+    "havoc demon hunter": "demonhunter-havoc",
+    "devourer demon hunter": "demonhunter-devourer",
+    "blood death knight": "deathknight-blood",
+    "frost death knight": "deathknight-frost",
+    "unholy death knight": "deathknight-unholy",
+    "elemental shaman": "shaman-elemental",
+    "enhancement shaman": "shaman-enhancement",
+    "restoration shaman": "shaman-restoration",
+    "holy paladin": "paladin-holy",
+    "protection paladin": "paladin-protection",
+    "retribution paladin": "paladin-retribution",
+    "holy priest": "priest-holy",
+    "discipline priest": "priest-discipline",
+    "shadow priest": "priest-shadow",
+    "frost mage": "mage-frost",
+    "fire mage": "mage-fire",
+    "arcane mage": "mage-arcane",
+    "mistweaver monk": "monk-mistweaver",
+    "windwalker monk": "monk-windwalker",
+    "brewmaster monk": "monk-brewmaster",
+    "arms warrior": "warrior-arms",
+    "fury warrior": "warrior-fury",
+    "protection warrior": "warrior-protection",
+    "affliction warlock": "warlock-affliction",
+    "demonology warlock": "warlock-demonology",
+    "destruction warlock": "warlock-destruction",
+    "assassination rogue": "rogue-assassination",
+    "outlaw rogue": "rogue-outlaw",
+    "subtlety rogue": "rogue-subtlety",
+    "beast mastery hunter": "hunter-beastmastery",
+    "marksman hunter": "hunter-marksmanship",
+    "marksmanship hunter": "hunter-marksmanship",
+    "survival hunter": "hunter-survival",
+    "devastation evoker": "evoker-devastation",
+    "preservation evoker": "evoker-preservation",
+    "augmentation evoker": "evoker-augmentation",
+  };
+
+  const file = fixes[key];
+
+  return file ? `/icons/${file}.png` : null;
+}
 function roleColor(role: string) {
   if (role === "Tank") return "#1d8cff";
   if (role === "Healer") return "#22c55e";
@@ -1070,14 +1242,12 @@ const runOverlay: React.CSSProperties = {
 
 const runPanel: React.CSSProperties = {
   position: "relative",
-  width: "min(1150px, 95vw)",
-  maxHeight: "90vh",
+  width: "min(1200px, 96vw)",
+  maxHeight: "92vh",
   overflowY: "auto",
-  borderRadius: 22,
-  background:
-    "linear-gradient(180deg, rgba(10,4,22,.98), rgba(3,0,10,.98))",
-  border: "1px solid rgba(168,85,247,.5)",
-  boxShadow: "0 0 55px rgba(168,85,247,.35)",
+  borderRadius: 16,
+  background: "rgba(0,0,0,.75)",
+  border: "none",
 };
 
 const runClose: React.CSSProperties = {
@@ -1093,79 +1263,122 @@ const runClose: React.CSSProperties = {
   fontSize: 16,
   fontWeight: 900,
   cursor: "pointer",
-  zIndex: 2,
+  zIndex: 3,
 };
 
 const runPanelHead: React.CSSProperties = {
-  padding: "30px 30px 22px",
-  borderBottom: "1px solid rgba(168,85,247,.25)",
-  background: "linear-gradient(180deg, rgba(168,85,247,.14), transparent)",
+  position: "relative",
+  padding: "30px 30px 24px",
+  minHeight: 170,
+};
+
+const runEmblem: React.CSSProperties = {
+  position: "absolute",
+  top: -10,
+  right: 78,
+  width: 74,
+  height: 112,
+  objectFit: "contain",
+  pointerEvents: "none",
+};
+
+const runBoosters: React.CSSProperties = {
+  position: "absolute",
+  top: 26,
+  right: 170,
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "6px 14px",
+  borderRadius: 999,
+  background:
+    "linear-gradient(90deg, rgba(168,85,247,.22), rgba(124,58,237,.12))",
+  border: "1px solid rgba(168,85,247,.4)",
+  boxShadow: "0 0 18px rgba(168,85,247,.35)",
+  backdropFilter: "blur(8px)",
 };
 
 const runPanelTitle: React.CSSProperties = {
   margin: 0,
-  fontSize: 38,
+  maxWidth: "70%",
+  fontSize: 40,
   fontWeight: 900,
+  lineHeight: 1.12,
   fontFamily: "Georgia, serif",
-  color: "#e9d5ff",
-  textShadow: "0 0 18px rgba(168,85,247,.6)",
+  textShadow: "0 0 14px rgba(255,255,255,.22)",
 };
 
 const runPanelMeta: React.CSSProperties = {
   marginTop: 10,
-  fontSize: 20,
+  fontSize: 22,
   fontWeight: 800,
   color: "#f0e6d2",
+  textShadow: "0 2px 6px rgba(0,0,0,.95), 0 0 14px rgba(0,0,0,.85)",
 };
 
 const runPanelNotes: React.CSSProperties = {
-  marginTop: 10,
+  marginTop: 8,
   color: "#d8b4fe",
   fontSize: 15,
   fontWeight: 800,
+  textShadow: "0 0 8px rgba(168,85,247,.65)",
 };
 
 const runPanelIlvl: React.CSSProperties = {
-  marginTop: 8,
+  marginTop: 6,
   color: "#facc15",
   fontWeight: 900,
-  textShadow: "0 0 10px rgba(250,204,21,.6)",
+  textShadow: "0 0 10px rgba(250,204,21,.7)",
 };
 
 const runRoleGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(5, minmax(0,1fr))",
-  gap: 1,
-  background: "rgba(255,255,255,.06)",
 };
 
 const runRoleBox: React.CSSProperties = {
-  padding: 14,
-  minHeight: 260,
-  background: "rgba(4,2,10,.95)",
+  padding: 10,
+  minHeight: 300,
+  background: "rgba(0,0,0,.28)",
+  border: "1px solid rgba(255,255,255,.10)",
+  display: "flex",
+  flexDirection: "column",
+  gap: 5,
+  overflow: "hidden",
 };
 
 const runRoleTitle: React.CSSProperties = {
   textAlign: "center",
   fontWeight: 900,
-  fontSize: 19,
+  fontSize: 22,
   letterSpacing: 1,
-  marginBottom: 12,
-};
-
-const runRoleEmpty: React.CSSProperties = {
-  textAlign: "center",
-  color: "#4b5563",
-  fontSize: 20,
-  marginTop: 10,
+  paddingTop: 6,
+  marginBottom: 6,
+  whiteSpace: "nowrap",
 };
 
 const runPill: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
   border: "1px solid",
-  borderRadius: 6,
-  padding: "7px 10px",
-  marginBottom: 6,
-  fontSize: 14,
+  borderRadius: 4,
+  padding: "5px 8px",
+  fontSize: 15,
+  minWidth: 0,
+  overflow: "hidden",
+};
+
+const runPillIcon: React.CSSProperties = {
+  width: 23,
+  height: 23,
+  borderRadius: 4,
+  flexShrink: 0,
+};
+
+const runPillName: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
   fontWeight: 700,
   color: "#fff",
   overflow: "hidden",
