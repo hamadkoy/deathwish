@@ -545,6 +545,8 @@ return (
           <div
             style={{
               ...runPanel,
+              // The art spans the whole card; role boxes sit over it.
+              background: `linear-gradient(rgba(0,0,0,.18), rgba(0,0,0,.28)), url(${theme.bg}) center/cover`,
               boxShadow: `0 0 40px ${theme.glow}, inset 0 0 18px ${theme.glow}`,
             }}
             onClick={(e) => e.stopPropagation()}
@@ -552,11 +554,11 @@ return (
             <button onClick={() => setRunPopup(null)} style={runClose}>
               ✕
             </button>
-
             <div
               style={{
                 ...runPanelHead,
-                background: `linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.5)), url(${theme.bg}) center/cover`,
+                background:
+                  "linear-gradient(90deg, rgba(0,0,0,.25), rgba(0,0,0,.05), rgba(0,0,0,.35))",
               }}
             >
               <img src={theme.emblem} alt="" style={runEmblem} />
@@ -1246,8 +1248,8 @@ const runPanel: React.CSSProperties = {
   maxHeight: "92vh",
   overflowY: "auto",
   borderRadius: 16,
-  background: "rgba(0,0,0,.75)",
   border: "none",
+  overflowX: "hidden",
 };
 
 const runClose: React.CSSProperties = {
