@@ -23,6 +23,9 @@ type Character = {
   avatar_url?: string;
   is_main?: boolean;
   gear?: any;
+  mythic_kills?: number;
+  heroic_kills?: number;
+  last_updated?: string;
 };
 
 type Profile = {
@@ -31,6 +34,21 @@ type Profile = {
   avatar_url?: string;
   site_role?: string;
 };
+
+const CURRENT_RAID_SLUG = "the-venomous-abyss";
+const RAID_BOSS_COUNT = 8;
+const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+
+function getCurrentRaid(data: any) {
+  const raids = data?.raid_progression || {};
+  return (
+    raids[CURRENT_RAID_SLUG] ||
+    Object.entries(raids).find(([k]) =>
+      k.toLowerCase().includes("venomous")
+    )?.[1] ||
+    null
+  );
+}
 
 export default function ProfilePage() {
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -275,7 +293,10 @@ const { data, error } = await supabase
     mythic_plus_score,
     mythic_plus_color,
     avatar_url,
-    is_main
+    is_main,
+    mythic_kills,
+    heroic_kills,
+    last_updated
   `)
   .eq("user_id", targetUserId)
   .order("class", { ascending: true });
@@ -289,6 +310,10 @@ const { data, error } = await supabase
 
 setCharacters(chars);
 loadSavedStatus(chars);
+
+if (targetUserId === authData.user.id) {
+  autoRefreshStale(chars);
+}
 }
 async function loadCharacterGear(characterId: number) {
   const char = characters.find((c) => c.id === characterId);
@@ -519,28 +544,19 @@ async function loadBalance(discordId: string) {
     });
 }
   function getRaidProgress(data: any) {
-    const raids = data.raid_progression || {};
-    const raidValues = Object.values(raids) as any[];
+    const raid: any = getCurrentRaid(data);
+    if (!raid) return `0/${RAID_BOSS_COUNT}`;
 
-    let bestMythic = 0;
-    let bestHeroic = 0;
+    const m = raid.mythic_bosses_killed || 0;
+    const h = raid.heroic_bosses_killed || 0;
 
-    for (const raid of raidValues) {
-      if (raid?.mythic_bosses_killed > bestMythic) {
-        bestMythic = raid.mythic_bosses_killed;
-      }
+    if (m > 0 && h > 0)
+      return `${m}/${RAID_BOSS_COUNT}M · ${h}/${RAID_BOSS_COUNT}H`;
+    if (m > 0) return `${m}/${RAID_BOSS_COUNT}M`;
+    if (h > 0) return `${h}/${RAID_BOSS_COUNT}H`;
 
-      if (raid?.heroic_bosses_killed > bestHeroic) {
-        bestHeroic = raid.heroic_bosses_killed;
-      }
-    }
-
-    if (bestMythic > 0) return `${bestMythic}/9M`;
-    if (bestHeroic > 0) return `${bestHeroic}/9HC`;
-
-    return "0/9";
+    return `0/${RAID_BOSS_COUNT}`;
   }
-
 async function addCharacter() {
   if (!name.trim()) {
     setPopup({
@@ -578,23 +594,15 @@ if (existingCharacter) {
   });
   return;
 }
-const mythicBosses: string[] = [];
+const currentRaid: any = getCurrentRaid(data);
 
-const raids = Object.values(data.raid_progression || {}) as any[];
+const mythicKills = currentRaid?.mythic_bosses_killed || 0;
+const heroicKills = currentRaid?.heroic_bosses_killed || 0;
 
-raids.forEach((raid: any) => {
-const bosses = raid.bosses || [];
+const mythicBosses: string[] = (currentRaid?.bosses || [])
+  .filter((b: any) => b.mythic?.first_kill || b.mythic?.count > 0)
+  .map((b: any) => b.name);
 
-bosses.forEach((boss: any) => {
-  if (
-    boss.mythic?.first_kill ||
-    boss.mythic?.count > 0 ||
-    boss.mythic?.rank
-  ) {
-    mythicBosses.push(boss.name);
-  }
-});
-});
       if (data.statusCode) {
         alert("Character not found on Raider.IO");
         return;
@@ -644,6 +652,10 @@ bosses.forEach((boss: any) => {
           mythic_plus_score: mythicPlusScore,
           mythic_plus_color: mythicPlusColor,
           mythic_bosses: mythicBosses,
+          mythic_kills: mythicKills,
+          heroic_kills: heroicKills,
+          raid_slug: CURRENT_RAID_SLUG,
+          last_updated: new Date().toISOString(),
           avatar_url: data.thumbnail_url || "",
         },
       ]);
@@ -661,33 +673,24 @@ await loadCharacters();
       alert("Failed to fetch Raider.IO");
     }
   }
-async function updateCharacter(char: Character) {
+async function updateCharacter(char: Character, silent = false) {
   try {
-    setUpdatingId(char.id);
+    if (!silent) setUpdatingId(char.id);
 
 const response = await fetch(
   `https://raider.io/api/v1/characters/profile?region=eu&realm=${char.realm}&name=${char.name}&fields=gear,raid_progression,mythic_plus_best_runs,mythic_plus_scores_by_season_current`
 );
 
     const data = await response.json();
-    console.log("RAIDER DATA:", data.raid_progression);
-const mythicBosses: string[] = [];
+    const currentRaid: any = getCurrentRaid(data);
 
-const raids = Object.values(data.raid_progression || {}) as any[];
+    const mythicKills = currentRaid?.mythic_bosses_killed || 0;
+    const heroicKills = currentRaid?.heroic_bosses_killed || 0;
 
-raids.forEach((raid: any) => {
-const bosses = raid.bosses || [];
+    const mythicBosses: string[] = (currentRaid?.bosses || [])
+      .filter((b: any) => b.mythic?.first_kill || b.mythic?.count > 0)
+      .map((b: any) => b.name);
 
-bosses.forEach((boss: any) => {
-  if (
-    boss.mythic?.first_kill ||
-    boss.mythic?.count > 0 ||
-    boss.mythic?.rank
-  ) {
-    mythicBosses.push(boss.name);
-  }
-});
-});
     if (data.statusCode) {
       alert("Character not found on Raider.IO");
       return;
@@ -730,6 +733,10 @@ bosses.forEach((boss: any) => {
         mythic_plus_score: mythicPlusScore,
         mythic_plus_color: mythicPlusColor,
         mythic_bosses: mythicBosses,
+        mythic_kills: mythicKills,
+        heroic_kills: heroicKills,
+        raid_slug: CURRENT_RAID_SLUG,
+        last_updated: new Date().toISOString(),
         avatar_url: data.thumbnail_url || char.avatar_url || "",
       })
       .eq("id", char.id);
@@ -739,13 +746,30 @@ bosses.forEach((boss: any) => {
       return;
     }
 
-    await loadCharacters();
+    if (!silent) await loadCharacters();
   } catch (err) {
     console.error(err);
-    alert("Failed to update character.");
+    if (!silent) alert("Failed to update character.");
   } finally {
-    setUpdatingId(null);
+    if (!silent) setUpdatingId(null);
   }
+}
+
+async function autoRefreshStale(chars: Character[]) {
+  const stale = chars.filter(
+    (c) =>
+      !c.last_updated ||
+      Date.now() - new Date(c.last_updated).getTime() > THREE_DAYS
+  );
+
+  if (stale.length === 0) return;
+
+  for (const c of stale) {
+    await updateCharacter(c, true);
+    await new Promise((r) => setTimeout(r, 700));
+  }
+
+  await loadCharacters();
 }
 async function updateAllCharacters() {
   if (characters.length === 0) return;
@@ -770,6 +794,8 @@ async function updateAllCharacters() {
   }
 }
 async function setMainCharacter(id: number) {
+  if (!isOwnProfile) return;
+
   const { data: authData } = await supabase.auth.getUser();
 
   if (!authData.user) return;
@@ -787,6 +813,7 @@ async function setMainCharacter(id: number) {
   loadCharacters();
 }
 async function updateCharacterSpec() {
+  if (!isOwnProfile) return;
   if (!specPopup || !selectedSpec) return;
 
   const newPlayerName = `${specPopup.name} - ${selectedSpec} ${specPopup.class}`;
@@ -821,6 +848,8 @@ async function updateCharacterSpec() {
   await loadCharacters();
 }
   async function deleteCharacter(id: number) {
+    if (!isOwnProfile) return;
+
     const { error } = await supabase.from("characters").delete().eq("id", id);
 
     if (error) {
@@ -856,31 +885,22 @@ const highestRioScore = useMemo(() => {
   );
 }, [characters]);
 const totalExperience = useMemo(() => {
-  const uniqueBosses = new Set<string>();
-
-  characters.forEach((char) => {
-    (char.mythic_bosses || []).forEach((boss) => {
-      uniqueBosses.add(boss.toLowerCase().trim());
-    });
-  });
-
-  if (uniqueBosses.size > 0) {
-    return `${uniqueBosses.size}/9M`;
-  }
-
-  const bestMythicProgress = Math.max(
+  const bestM = Math.max(
     0,
-    ...characters.map((char) => {
-      const progress = (char.progress || "0/9").toLowerCase();
-
-      if (progress.includes("hc")) return 0;
-      if (!progress.includes("m")) return 0;
-
-      return Number(progress.split("/")[0]) || 0;
-    })
+    ...characters.map((c) => Number(c.mythic_kills || 0))
   );
 
-  return `${bestMythicProgress}/9M`;
+  const bestH = Math.max(
+    0,
+    ...characters.map((c) => Number(c.heroic_kills || 0))
+  );
+
+  if (bestM > 0 && bestH > 0)
+    return `${bestM}/${RAID_BOSS_COUNT}M · ${bestH}/${RAID_BOSS_COUNT}H`;
+  if (bestM > 0) return `${bestM}/${RAID_BOSS_COUNT}M`;
+  if (bestH > 0) return `${bestH}/${RAID_BOSS_COUNT}H`;
+
+  return `0/${RAID_BOSS_COUNT}`;
 }, [characters]);
 const approvedRank =
   profile?.site_role === "Dreadlord" || profile?.site_role === "admin"
@@ -1706,8 +1726,10 @@ background:
                   </div>
                 </div>
  <button
-  onClick={() => setMainCharacter(char.id)}
+  onClick={() => isOwnProfile && setMainCharacter(char.id)}
+  disabled={!isOwnProfile}
   style={{
+    cursor: isOwnProfile ? "pointer" : "default",
     width: 70,
     height: 36,
     borderRadius: 9,
@@ -1719,7 +1741,6 @@ background:
       : "rgba(147,51,234,0.22)",
     color: "white",
     fontWeight: 900,
-    cursor: "pointer",
     boxShadow: char.is_main
       ? "0 0 18px rgba(250,204,21,.55)"
       : "0 0 12px rgba(168,85,247,.25)",
@@ -1740,6 +1761,7 @@ background:
     transition: ".2s",
   }}
   onClick={() => {
+    if (!isOwnProfile) return;
     setSpecPopup(char);
     setSelectedSpec(char.spec);
   }}
@@ -1900,7 +1922,7 @@ textShadow: `0 0 10px ${getClassColor(char.class)}55`,
               {char.name}
               <div
   style={{
-    color: "#e879f9",
+    color: getIlvlColor(char.ilvl),
     fontSize: 12,
     fontWeight: 900,
     marginTop: 2,
@@ -1947,7 +1969,7 @@ textShadow: `0 0 10px ${getClassColor(char.class)}55`,
     </div>
     <div
   style={{
-    color: "#e879f9",
+    color: getIlvlColor(selectedCharacter.ilvl),
     fontSize: 28,
     fontWeight: 900,
     marginTop: 6,
@@ -3039,9 +3061,11 @@ function getClassColor(className: string) {
 }
 
 function getIlvlColor(ilvl: number) {
-  if (ilvl >= 280) return "#c026d3";
-  if (ilvl >= 275) return "#0ea5e9";
-  return "#9ca3af";
+  if (ilvl >= 316) return "#ff8000";
+  if (ilvl >= 301) return "#a335ee";
+  if (ilvl >= 286) return "#0070dd";
+  if (ilvl >= 271) return "#1eff00";
+  return "#ffffff";
 }
 function getSpecsByClass(className: string) {
   const specs: Record<string, string[]> = {
@@ -3721,7 +3745,7 @@ const experienceLabel: React.CSSProperties = {
 };
 
 const experienceValue: React.CSSProperties = {
-  fontSize: 42,
+  fontSize: 24,
   color: "#f0abfc",
   fontWeight: 900,
   lineHeight: 1,
