@@ -17,7 +17,7 @@ import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
 
 /* ============================================================
-   1. SETTINGS — fallbacks when a week has no row in week_settings.
+   1. SETTINGS — fallbacks when a week has no week_settings row.
 ============================================================ */
 
 /** Runs they must be signed to, or everything is cleared. */
@@ -227,10 +227,13 @@ function EarlyStyles() {
   return (
     <style>{`
       @keyframes eaPulse {
-        0%, 100% { box-shadow: 0 0 14px rgba(250,204,21,.55),
-                               inset 0 0 10px rgba(250,204,21,.20); }
-        50%      { box-shadow: 0 0 26px rgba(250,204,21,.95),
-                               inset 0 0 16px rgba(250,204,21,.35); }
+        0%, 100% { box-shadow: 0 0 16px rgba(250,204,21,.55); }
+        50%      { box-shadow: 0 0 30px rgba(250,204,21,.95); }
+      }
+      @keyframes eaSheen {
+        0%   { transform: translateX(-120%); }
+        55%  { transform: translateX(220%); }
+        100% { transform: translateX(220%); }
       }
       @keyframes eaShake {
         0%   { transform: translate(0,0) rotate(0deg); opacity: 1; }
@@ -266,8 +269,32 @@ function EarlyStyles() {
         40%  { transform: scale(1.14); opacity: 1; }
         100% { transform: scale(.6); opacity: 0; }
       }
-      .ea-btn { animation: eaPulse 2.4s ease-in-out infinite; }
+
+      .ea-btn {
+        animation: eaPulse 2.4s ease-in-out infinite;
+        overflow: hidden;
+      }
+      .ea-btn:hover { transform: translateY(-2px) scale(1.04); }
+      /* Light sweeps across the gold every few seconds. */
+      .ea-btn::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 40%;
+        height: 100%;
+        background: linear-gradient(
+          100deg,
+          transparent,
+          rgba(255,255,255,.55),
+          transparent
+        );
+        animation: eaSheen 3.6s ease-in-out infinite;
+        pointer-events: none;
+      }
       .ea-btn.going { animation: eaShake .85s ease-in-out forwards; }
+      .ea-btn.going::after { display: none; }
+
       .ea-box.unlocking {
         animation: eaRattle .32s linear infinite, eaGlow .7s ease-in-out infinite;
       }
@@ -358,7 +385,8 @@ export function EarlyAccessButton({
         onClick={() => !going && setConfirming(true)}
         style={ea.button}
       >
-        🔓 Unlock Early Access
+        <span style={ea.buttonIcon}>🔓</span>
+        <span>Unlock Early Access</span>
       </button>
 
       <ConfirmPopup
@@ -496,18 +524,30 @@ function ConfirmPopup({
 ============================================================ */
 const ea: Record<string, React.CSSProperties> = {
   button: {
-    padding: "14px 22px",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 9,
+    padding: "13px 26px",
     borderRadius: 40,
-    border: "1px solid #facc15",
+    border: "1px solid rgba(250,204,21,.8)",
     background:
-      "linear-gradient(180deg, rgba(95,60,8,.95), rgba(20,8,0,.98))",
-    color: "#fff7cc",
+      "linear-gradient(180deg, #f7dc8a 0%, #d3a13a 46%, #8a5a12 100%)",
+    color: "#1a0f02",
     fontWeight: 900,
-    fontSize: 16,
+    fontSize: 15,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    textShadow: "0 1px 0 rgba(255,255,255,.4)",
     cursor: "pointer",
     whiteSpace: "nowrap",
     position: "relative",
     zIndex: 5,
+    transition: "transform .18s ease",
+  },
+  buttonIcon: {
+    fontSize: 17,
+    lineHeight: 1,
+    filter: "drop-shadow(0 1px 1px rgba(0,0,0,.35))",
   },
 
   overlay: {
