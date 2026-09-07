@@ -5,10 +5,10 @@
    Put this at: app/components/EarlyAccess.tsx
 
    A player can unlock signups 24h early, but it's a bet:
-   sign at least MIN_RUNS runs that week, or every signup they
+   sign at least minRuns runs that week, or every signup they
    made gets wiped an hour before signups open for everyone else.
 
-   Requires REQUIRED_CHARACTERS characters in their garrison
+   Requires requiredCharacters characters in their garrison
    before they're even allowed to take the bet.
 ============================================================ */
 
@@ -17,7 +17,7 @@ import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
 
 /* ============================================================
-   1. SETTINGS — the only numbers you should need to change.
+   1. SETTINGS — fallbacks when a week has no row in week_settings.
 ============================================================ */
 
 /** Runs they must be signed to, or everything is cleared. */
@@ -157,18 +157,21 @@ export function useEarlyAccess(discordId?: string | null) {
 
   /**
    * Settle the bet. Anyone who unlocked this week, is past the
-   * deadline, and is short of MIN_RUNS loses every signup they made.
+   * deadline, and is short of the required runs loses every signup.
    * Safe to call repeatedly — the cleared flag stops repeats.
    */
   async function enforce(input: {
     week: number;
     deadlineMs: number;
+    minRuns?: number;
     /** How many runs this player is signed to that week. */
     countSignups: (key: string) => number;
     /** Delete every signup this player has that week. */
     clearSignups: (key: string) => Promise<void>;
   }) {
     if (!input.deadlineMs || Date.now() < input.deadlineMs) return;
+
+    const required = input.minRuns ?? MIN_RUNS;
 
     const due = rows.filter(
       (r) => Number(r.week) === Number(input.week) && !r.cleared
@@ -181,7 +184,7 @@ export function useEarlyAccess(discordId?: string | null) {
     for (const row of due) {
       const signed = input.countSignups(row.player_key);
 
-      if (signed >= MIN_RUNS) {
+      if (signed >= required) {
         // Kept their end of it. Mark settled so we stop checking.
         await supabase
           .from("early_access")
@@ -278,6 +281,8 @@ export function EarlyAccessButton({
   discordId,
   playerName,
   characterCount,
+  minRuns = MIN_RUNS,
+  requiredCharacters = REQUIRED_CHARACTERS,
   alreadyUnlocked,
   onUnlock,
 }: {
@@ -285,6 +290,8 @@ export function EarlyAccessButton({
   discordId?: string | null;
   playerName?: string | null;
   characterCount: number;
+  minRuns?: number;
+  requiredCharacters?: number;
   alreadyUnlocked: boolean;
   onUnlock: (input: {
     week: number;
@@ -310,7 +317,7 @@ export function EarlyAccessButton({
     setError("");
   }, [week]);
 
-  const eligible = characterCount >= REQUIRED_CHARACTERS;
+  const eligible = characterCount >= requiredCharacters;
 
   async function confirm() {
     if (!eligible || busy) return;
@@ -359,6 +366,8 @@ export function EarlyAccessButton({
         week={week}
         eligible={eligible}
         characterCount={characterCount}
+        minRuns={minRuns}
+        requiredCharacters={requiredCharacters}
         busy={busy}
         opened={opened}
         error={error}
@@ -375,6 +384,8 @@ function ConfirmPopup({
   week,
   eligible,
   characterCount,
+  minRuns,
+  requiredCharacters,
   busy,
   opened,
   error,
@@ -385,6 +396,8 @@ function ConfirmPopup({
   week: number;
   eligible: boolean;
   characterCount: number;
+  minRuns: number;
+  requiredCharacters: number;
   busy: boolean;
   opened: boolean;
   error: string;
@@ -420,7 +433,7 @@ function ConfirmPopup({
             </div>
 
             <div style={ea.warning}>
-              You must be signed to at least <b>{MIN_RUNS} runs</b> before the
+              You must be signed to at least <b>{minRuns} runs</b> before the
               countdown ends.
               <br />
               <br />
@@ -429,7 +442,7 @@ function ConfirmPopup({
             </div>
 
             <div style={ea.meta}>
-              Garrison: {characterCount} / {REQUIRED_CHARACTERS} characters ✔
+              Garrison: {characterCount} / {requiredCharacters} characters ✔
             </div>
           </>
         ) : (
@@ -437,14 +450,14 @@ function ConfirmPopup({
             <div style={ea.text}>
               Early access needs{" "}
               <b style={{ color: "#facc15" }}>
-                {REQUIRED_CHARACTERS} characters
+                {requiredCharacters} characters
               </b>{" "}
               in your garrison.
             </div>
 
             <div style={ea.warningRed}>
               You have <b>{characterCount}</b>. Add{" "}
-              <b>{Math.max(0, REQUIRED_CHARACTERS - characterCount)}</b> more to
+              <b>{Math.max(0, requiredCharacters - characterCount)}</b> more to
               your garrison, then come back.
             </div>
           </>
@@ -461,7 +474,7 @@ function ConfirmPopup({
             onClick={onConfirm}
             disabled={!eligible || busy}
             title={
-              eligible ? "Take the bet" : `Needs ${REQUIRED_CHARACTERS} characters`
+              eligible ? "Take the bet" : `Needs ${requiredCharacters} characters`
             }
             style={{
               ...(eligible ? ea.confirm : ea.confirmBlocked),
@@ -564,7 +577,7 @@ const ea: Record<string, React.CSSProperties> = {
     fontSize: 17,
     fontWeight: 800,
   },
-   error: {
+  error: {
     marginTop: 16,
     padding: "14px 18px",
     borderRadius: 10,
