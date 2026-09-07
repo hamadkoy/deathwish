@@ -545,9 +545,15 @@ const ea: Record<string, React.CSSProperties> = {
     transition: "transform .18s ease",
   },
   buttonIcon: {
-    fontSize: 17,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 24,
+    height: 24,
+    borderRadius: "50%",
+    background: "rgba(26,15,2,.85)",
+    fontSize: 13,
     lineHeight: 1,
-    filter: "drop-shadow(0 1px 1px rgba(0,0,0,.35))",
   },
 
   overlay: {

@@ -1743,53 +1743,6 @@ const nextWeek =
 >
         + Add Week
       </button>
-
-      <div style={{ marginTop: 10, textAlign: "center" }}>
-        <div style={{ ...controlLabel, marginBottom: 4 }}>Runs Required</div>
-
-        <input
-          type="number"
-          min={1}
-          value={configuredMinRuns}
-          onChange={(e) => {
-            const value = Number(e.target.value) || 1;
-            const chars = weekSettings[selectedWeek]?.required_characters ?? REQUIRED_CHARACTERS;
-
-            setWeekSettings((prev) => ({
-              ...prev,
-              [selectedWeek]: { min_runs: value, required_characters: chars },
-            }));
-          }}
-          onBlur={async (e) => {
-            const value = Number(e.target.value) || 1;
-            const chars = weekSettings[selectedWeek]?.required_characters ?? REQUIRED_CHARACTERS;
-
-            const { error } = await supabase.from("week_settings").upsert(
-              { week: selectedWeek, min_runs: value, required_characters: chars },
-              { onConflict: "week" }
-            );
-
-            if (error) alert(error.message);
-          }}
-          style={{
-            width: 90,
-            height: 40,
-            textAlign: "center",
-            borderRadius: 10,
-            border: "1px solid rgba(250,204,21,.55)",
-            background: "rgba(15,0,35,.9)",
-            color: "#fff7cc",
-            fontWeight: 900,
-            fontSize: 16,
-          }}
-        />
-
-        {effectiveMinRuns < configuredMinRuns && (
-          <div style={{ marginTop: 4, color: "#facc15", fontSize: 11, fontWeight: 800, maxWidth: 150 }}>
-            Only {runs.length} runs — using {effectiveMinRuns}
-          </div>
-        )}
-      </div>
     </div>
   )}
 
@@ -1969,6 +1922,48 @@ onClick={deleteSelectedWeek}
 </div>
 
 <div style={weekButtons}>
+  {isAdmin && (
+    <div style={runsRequiredBox}>
+      <span style={runsRequiredLabel}>RUNS REQUIRED</span>
+
+      <input
+        type="number"
+        min={1}
+        value={configuredMinRuns}
+        onChange={(e) => {
+          const value = Number(e.target.value) || 1;
+          const chars = weekSettings[selectedWeek]?.required_characters ?? REQUIRED_CHARACTERS;
+
+          setWeekSettings((prev) => ({
+            ...prev,
+            [selectedWeek]: { min_runs: value, required_characters: chars },
+          }));
+        }}
+        onBlur={async (e) => {
+          const value = Number(e.target.value) || 1;
+          const chars = weekSettings[selectedWeek]?.required_characters ?? REQUIRED_CHARACTERS;
+
+          const { error } = await supabase.from("week_settings").upsert(
+            { week: selectedWeek, min_runs: value, required_characters: chars },
+            { onConflict: "week" }
+          );
+
+          if (error) alert(error.message);
+        }}
+        style={runsRequiredInput}
+        title={
+          effectiveMinRuns < configuredMinRuns
+            ? `Only ${runs.length} runs this week — using ${effectiveMinRuns}`
+            : "Runs required for early access"
+        }
+      />
+
+      {effectiveMinRuns < configuredMinRuns && (
+        <span style={runsRequiredWarn}>using {effectiveMinRuns}</span>
+      )}
+    </div>
+  )}
+
   <EarlyAccessButton
     week={selectedWeek}
     discordId={discordId}
@@ -4498,7 +4493,44 @@ const weekButtons: React.CSSProperties = {
 
   margin: "0 auto 4px",
 };
+const runsRequiredBox: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "8px 16px",
+  borderRadius: 40,
+  border: "1px solid rgba(250,204,21,.45)",
+  background: "linear-gradient(180deg, rgba(35,22,4,.95), rgba(10,5,0,.98))",
+  boxShadow: "0 0 14px rgba(250,204,21,.25), inset 0 0 10px rgba(250,204,21,.10)",
+};
 
+const runsRequiredLabel: React.CSSProperties = {
+  color: "#d8b4fe",
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: 1,
+  whiteSpace: "nowrap",
+};
+
+const runsRequiredInput: React.CSSProperties = {
+  width: 58,
+  height: 34,
+  textAlign: "center",
+  borderRadius: 10,
+  border: "1px solid rgba(250,204,21,.5)",
+  background: "rgba(10,4,0,.9)",
+  color: "#fff7cc",
+  fontWeight: 900,
+  fontSize: 16,
+  outline: "none",
+};
+
+const runsRequiredWarn: React.CSSProperties = {
+  color: "#facc15",
+  fontSize: 11,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+};
 const weekButton: React.CSSProperties = {
   padding: "12px 18px",
   borderRadius: 40,
