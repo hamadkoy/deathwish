@@ -15,7 +15,7 @@ import {
   FREE_ROLES,
   isFreeToUnsign,
 } from "../components/HeartsSystem";
-import { useEarlyAccess, EarlyAccessButton } from "../components/EarlyAccess";
+import { useEarlyAccess, EarlyAccessButton, MIN_RUNS, REQUIRED_CHARACTERS } from "../components/EarlyAccess";
 
 import { supabase } from "@/lib/supabase";
 import { queueRunCancellation } from "@/lib/queueRunCancellation";
@@ -268,7 +268,32 @@ useEffect(() => {
   selectedWeekRef.current = selectedWeek;
 }, [selectedWeek]);
 const [weeks, setWeeks] = useState<number[]>([]);
+type WeekSetting = { min_runs: number; required_characters: number };
 
+const [weekSettings, setWeekSettings] = useState({} as Record<number, WeekSetting>);
+
+useEffect(() => {
+  async function loadWeekSettings() {
+    const { data } = await supabase
+      .from("week_settings")
+      .select("week, min_runs, required_characters");
+
+    if (!data) return;
+
+    const map = {} as Record<number, WeekSetting>;
+
+    data.forEach((r) => {
+      map[r.week] = {
+        min_runs: r.min_runs,
+        required_characters: r.required_characters,
+      };
+    });
+
+    setWeekSettings(map);
+  }
+
+  loadWeekSettings();
+}, []);
 useEffect(() => {
   async function loadWeeks() {
     const { data, error } = await supabase
@@ -1262,7 +1287,12 @@ async function markAttendance(signupId: number, status: "present" | "missing") {
 
     moveSignup(signupId, newRunId, newRole);
   }
+const weekSetting = weekSettings[selectedWeek];
 
+const configuredMinRuns = weekSetting?.min_runs ?? MIN_RUNS;
+
+// runs only holds the selected week, so this is the real ceiling.
+const effectiveMinRuns = Math.min(configuredMinRuns, Math.max(runs.length, 1));
 const filteredRuns = runs.filter((run) => {
   const title = run.title.toLowerCase();
 
@@ -1713,6 +1743,53 @@ const nextWeek =
 >
         + Add Week
       </button>
+
+      <div style={{ marginTop: 10, textAlign: "center" }}>
+        <div style={{ ...controlLabel, marginBottom: 4 }}>Runs Required</div>
+
+        <input
+          type="number"
+          min={1}
+          value={configuredMinRuns}
+          onChange={(e) => {
+            const value = Number(e.target.value) || 1;
+            const chars = weekSettings[selectedWeek]?.required_characters ?? REQUIRED_CHARACTERS;
+
+            setWeekSettings((prev) => ({
+              ...prev,
+              [selectedWeek]: { min_runs: value, required_characters: chars },
+            }));
+          }}
+          onBlur={async (e) => {
+            const value = Number(e.target.value) || 1;
+            const chars = weekSettings[selectedWeek]?.required_characters ?? REQUIRED_CHARACTERS;
+
+            const { error } = await supabase.from("week_settings").upsert(
+              { week: selectedWeek, min_runs: value, required_characters: chars },
+              { onConflict: "week" }
+            );
+
+            if (error) alert(error.message);
+          }}
+          style={{
+            width: 90,
+            height: 40,
+            textAlign: "center",
+            borderRadius: 10,
+            border: "1px solid rgba(250,204,21,.55)",
+            background: "rgba(15,0,35,.9)",
+            color: "#fff7cc",
+            fontWeight: 900,
+            fontSize: 16,
+          }}
+        />
+
+        {effectiveMinRuns < configuredMinRuns && (
+          <div style={{ marginTop: 4, color: "#facc15", fontSize: 11, fontWeight: 800, maxWidth: 150 }}>
+            Only {runs.length} runs — using {effectiveMinRuns}
+          </div>
+        )}
+      </div>
     </div>
   )}
 
@@ -1897,6 +1974,8 @@ onClick={deleteSelectedWeek}
     discordId={discordId}
     playerName={selectedCharacter?.name}
     characterCount={characters.length}
+    minRuns={effectiveMinRuns}
+    requiredCharacters={weekSetting?.required_characters ?? REQUIRED_CHARACTERS}
     alreadyUnlocked={early.hasUnlocked(selectedWeek)}
     onUnlock={early.unlock}
   />
