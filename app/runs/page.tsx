@@ -1021,6 +1021,12 @@ async function finishRun(run: Run) {
     setEditRunDate(run.run_date || "");
     setEditRunNotes(run.notes || "");
     setEditRunBackground(run.background_key || "mythic-red");
+
+    // Without these, saving an untouched run wipes its ilvl and limits.
+    setEditRunIlvl(String(run.ilvl_required || ""));
+    setEditRunHealers(String(run.healer_limit || 3));
+    setEditRunDps(String(run.dps_limit || 10));
+    setEditRunSignupOpenAt(toDatetimeLocal(run.signup_open_at));
   }
 
   async function saveEditRun() {
