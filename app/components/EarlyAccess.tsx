@@ -24,7 +24,7 @@ import { supabase } from "@/lib/supabase";
 export const MIN_RUNS = 10;
 
 /** Characters they must have before they can take the bet. */
-export const REQUIRED_CHARACTERS = 10;
+export const REQUIRED_CHARACTERS = 4;
 
 /** How long before signups open that the check runs. */
 export const CLEAR_BEFORE_HOURS = 1;
