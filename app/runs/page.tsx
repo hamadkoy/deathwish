@@ -1293,6 +1293,7 @@ const configuredMinRuns = weekSetting?.min_runs ?? MIN_RUNS;
 
 // runs only holds the selected week, so this is the real ceiling.
 const effectiveMinRuns = Math.min(configuredMinRuns, Math.max(runs.length, 1));
+console.log("DEBUG", { runsLength: runs.length, configuredMinRuns, effectiveMinRuns });
 const filteredRuns = runs.filter((run) => {
   const title = run.title.toLowerCase();
 
