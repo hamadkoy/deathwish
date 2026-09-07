@@ -397,11 +397,12 @@ const EARLY_ACCESS_MS = 24 * 60 * 60 * 1000;
 function getEffectiveSignupOpen(run: Run) {
   if (!run.signup_open_at) return null;
 
-  const openAt = new Date(run.signup_open_at).getTime();
+  const unlocked = hasEarlyAccess || early.hasUnlocked(run.week);
 
-    const unlocked = hasEarlyAccess || early.hasUnlocked(run.week);
+  // Early access now opens signups outright instead of shifting them 24h.
+  if (unlocked) return null;
 
-  return unlocked ? openAt - EARLY_ACCESS_MS : openAt;
+  return new Date(run.signup_open_at).getTime();
 }
 
 const canMarkAttendance =
