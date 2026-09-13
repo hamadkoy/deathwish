@@ -4621,7 +4621,10 @@ const runCard: React.CSSProperties = {
 
 const runBanner: React.CSSProperties = {
   position: "relative",
-  height: 180,
+  // Fixed height clipped cards with an ilvl line or early-access badge.
+  minHeight: 180,
+  paddingTop: 10,
+  paddingBottom: 14,
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
