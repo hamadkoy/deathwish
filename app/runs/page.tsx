@@ -726,7 +726,7 @@ function getLimits(run: Run) {
 /** The real signup, run against whichever character was picked. */
 async function signWithCharacter(char: Character, runId: number, role: string) {
   const run = runs.find((r) => r.id === runId);
-
+  console.log("SIGN", { char: char.name, runId, role, run: !!run });
   if (
     role !== "Loot Body" &&
     run?.ilvl_required &&
@@ -743,11 +743,8 @@ async function signWithCharacter(char: Character, runId: number, role: string) {
   if (role !== "Loot Body" && run) {
     const requiredExp = getRequiredBossExp(run);
 
-    const characterExp =
-      characters
-        .map((c) => getCharacterBossExp(c.progress))
-        .sort((a, b) => b.bosses - a.bosses)[0] ||
-      getCharacterBossExp(char.progress);
+    // Check the character being signed, not whichever alt has the best progress.
+    const characterExp = getCharacterBossExp(char.progress);
 
     if (requiredExp && characterExp.bosses < requiredExp.bosses) {
       setPopup({
