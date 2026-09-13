@@ -445,9 +445,30 @@ async function loadRuns(weekToLoad = selectedWeek) {
   setRuns(data || []);
 }
 
-  async function loadSignups() {
-    const { data, error } = await supabase.from("signups").select("*");
+  async function loadSignups(weekToLoad = selectedWeek) {
+    // Unbounded selects cap at 1000 rows, so newer signups silently vanish.
+    // Only this week's runs are ever rendered, so scope the query to them.
+    const { data: weekRuns, error: runsError } = await supabase
+      .from("runs")
+      .select("id")
+      .eq("week", weekToLoad);
+
+    if (runsError) return alert(runsError.message);
+
+    const runIds = (weekRuns || []).map((r) => r.id);
+
+    if (runIds.length === 0) {
+      setSignups([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("signups")
+      .select("*")
+      .in("run_id", runIds);
+
     if (error) return alert(error.message);
+
     setSignups(data || []);
   }
 async function loadLogs() {
@@ -538,7 +559,7 @@ const channel = supabase
   .on(
     "postgres_changes",
     { event: "*", schema: "public", table: "signups" },
-    () => loadSignups()
+    () => loadSignups(selectedWeekRef.current)
   )
   .on(
     "postgres_changes",
@@ -3853,7 +3874,7 @@ setPlayerPopup: (signup: Signup) => void;
   user: any;
 }) {
   const roleSignups = signups.filter(
-    (s) => s.run_id === runId && s.role === role
+    (s) => s.run_id === runId && (s.role || "").trim() === role
   );
   
 
