@@ -940,7 +940,18 @@ async function adminAddSignup(runId: number, role: string, playerName: string) {
   if (!isAdmin) return;
 
   if (!playerName.trim()) return;
+  const duplicate = signups.find(
+    (s) => s.run_id === runId && s.player === playerName.trim()
+  );
 
+  if (duplicate) {
+    setPopup({
+      title: "Already Signed",
+      message: `${playerName.trim()} is already in this run.`,
+      type: "error",
+    });
+    return;
+  }
   const { error } = await supabase.from("signups").insert({
     player: playerName.trim(),
     role,
