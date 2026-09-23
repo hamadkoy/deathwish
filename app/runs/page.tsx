@@ -2470,6 +2470,7 @@ style={{
     roster={hearts.roster()}
     isAdmin={isAdmin}
     onGiveHeart={hearts.giveHeartTo}
+        onTakeHeart={hearts.takeHeartFrom}
     onClearPlayer={hearts.clearPlayer}
   />
 )}
@@ -3250,7 +3251,7 @@ setAdminAddSpec={setAdminAddSpec}
   canRemove={isAdmin || isOfficer}
   onRemove={(log) => hearts.giveHeartBack(log)}
   canClaim={(log) =>
-    !!discordId && log.discord_id === discordId && log.kind !== "no_show"
+    !!discordId && log.discord_id === discordId && log.kind !== "no_show" && log.kind !== "admin"
   }
   onClaim={async (log) => {
     const res = await hearts.claimHeart(log);

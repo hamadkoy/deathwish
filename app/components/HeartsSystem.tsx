@@ -185,7 +185,7 @@ function heartsLostFor(key: string, logs: BanishLog[]) {
 
 /** No-shows are a penalty, not a change of mind — nothing to claim. */
 export function isClaimable(log: BanishLog) {
-  return log.kind !== "no_show" && !log.claimed;
+  return log.kind !== "no_show" && log.kind !== "admin" && !log.claimed;
 }
 
 function heartsFor(key: string, logs: BanishLog[]) {
@@ -250,6 +250,7 @@ export function useHearts(discordId?: string | null) {
   function logsForRun(runId: number, week?: number | null) {
     return logs.filter(
       (log) =>
+        log.kind !== "admin" &&
         log.run_id === runId &&
         (week === undefined || week === null || Number(log.week) === Number(week))
     );
@@ -381,7 +382,7 @@ export function useHearts(discordId?: string | null) {
    * goes away when they sign into the run again.
    */
   async function claimHeart(log: BanishLog) {
-    if (log.claimed || log.kind === "no_show") return { ok: false as const };
+    if (log.claimed || log.kind === "no_show" || log.kind === "admin") return { ok: false as const };
     const { data, error } = await supabase
       .from("banish_logs")
       .update({ claimed: true })
@@ -472,7 +473,7 @@ export function useHearts(discordId?: string | null) {
       .from("banish_logs")
       .delete()
       .eq("run_id", input.runId)
-      .neq("kind", "no_show");
+        .or("kind.is.null,kind.not.in.(no_show,admin)");
 
     if (input.discordId) query = query.eq("discord_id", input.discordId);
     else if (input.characterName)
@@ -516,7 +517,28 @@ export function useHearts(discordId?: string | null) {
 
     await reload();
   }
+  /** Admin: take one heart from a player (manual penalty). */
+  async function takeHeartFrom(key: string) {
+    if (heartsFor(key, logs) <= 0) return;
 
+    const latest = logs
+      .filter((l) => playerKey(l) === key)
+      .sort(
+        (a, b) =>
+          new Date(b.unsigned_at).getTime() - new Date(a.unsigned_at).getTime()
+      )[0];
+
+    if (!latest) return;
+
+    return takeHeart({
+      player: latest.player,
+      discordId: latest.discord_id,
+      runId: latest.run_id,
+      runTitle: "Admin penalty",
+      week: latest.week,
+      kind: "admin",
+    });
+  }
   /** Admin: wipe a player off the list — all hearts back, ban lifted. */
   async function clearPlayer(key: string) {
     const month = monthKey();
@@ -560,6 +582,7 @@ export function useHearts(discordId?: string | null) {
     clearRunUnsign,
     liftBan,
     giveHeartTo,
+    takeHeartFrom,
     clearPlayer,
     reload,
   };
@@ -742,11 +765,13 @@ export function HeartsRosterButton({
   roster = [],
   isAdmin = false,
   onGiveHeart,
+  onTakeHeart,
   onClearPlayer,
 }: {
   roster?: { key: string; name: string; hearts: number; ban: SignupBan | null }[];
   isAdmin?: boolean;
   onGiveHeart?: (key: string) => void;
+    onTakeHeart?: (key: string) => void;
   onClearPlayer?: (key: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -826,6 +851,15 @@ export function HeartsRosterButton({
 
                 {isAdmin && (
                   <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onClick={() => onTakeHeart?.(row.key)}
+                      title="Take one heart away"
+                      style={{ ...hb.takeBtn, opacity: row.hearts <= 0 ? 0.35 : 1 }}
+                      disabled={row.hearts <= 0}
+                    >
+                      −
+                    </button>
+
                     <button
                       onClick={() => onGiveHeart?.(row.key)}
                       title="Give one heart back"
@@ -1754,6 +1788,18 @@ const hb: Record<string, React.CSSProperties> = {
     textAlign: "center",
     padding: 14,
     fontSize: 14,
+  },
+    takeBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    border: "1px solid rgba(250,204,21,.6)",
+    background: "rgba(40,30,0,.8)",
+    color: "#fde68a",
+    fontWeight: 900,
+    fontSize: 15,
+    lineHeight: 1,
+    cursor: "pointer",
   },
   giveBtn: {
     width: 26,
