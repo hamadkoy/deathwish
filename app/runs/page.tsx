@@ -1424,7 +1424,60 @@ paddingRight: 80,
     <SideNav active="My Runs" />
   </div>
 )}
+<div style={topLeftTools}>
+  {isAdmin && (
+    <div style={runsRequiredBox}>
+      <span style={runsRequiredLabel}>RUNS REQUIRED</span>
 
+      <input
+        type="number"
+        min={1}
+        value={configuredMinRuns}
+        onChange={(e) => {
+          const value = Number(e.target.value) || 1;
+          const chars = weekSettings[selectedWeek]?.required_characters ?? REQUIRED_CHARACTERS;
+
+          setWeekSettings((prev) => ({
+            ...prev,
+            [selectedWeek]: { min_runs: value, required_characters: chars },
+          }));
+        }}
+        onBlur={async (e) => {
+          const value = Number(e.target.value) || 1;
+          const chars = weekSettings[selectedWeek]?.required_characters ?? REQUIRED_CHARACTERS;
+
+          const { error } = await supabase.from("week_settings").upsert(
+            { week: selectedWeek, min_runs: value, required_characters: chars },
+            { onConflict: "week" }
+          );
+
+          if (error) alert(error.message);
+        }}
+        style={runsRequiredInput}
+        title={
+          effectiveMinRuns < configuredMinRuns
+            ? `Only ${runs.length} runs this week — using ${effectiveMinRuns}`
+            : "Runs required for early access"
+        }
+      />
+
+      {effectiveMinRuns < configuredMinRuns && (
+        <span style={runsRequiredWarn}>using {effectiveMinRuns}</span>
+      )}
+    </div>
+  )}
+
+  <EarlyAccessButton
+    week={selectedWeek}
+    discordId={discordId}
+    playerName={selectedCharacter?.name}
+    characterCount={characters.length}
+    minRuns={effectiveMinRuns}
+    requiredCharacters={weekSetting?.required_characters ?? REQUIRED_CHARACTERS}
+    alreadyUnlocked={early.hasUnlocked(selectedWeek)}
+    onUnlock={early.unlock}
+  />
+</div>
   <div>
       <div style={magicFog} />
       <div style={magicFog2} />
@@ -1958,59 +2011,7 @@ onClick={deleteSelectedWeek}
 </div>
 
 <div style={weekButtons}>
-  {isAdmin && (
-    <div style={runsRequiredBox}>
-      <span style={runsRequiredLabel}>RUNS REQUIRED</span>
-
-      <input
-        type="number"
-        min={1}
-        value={configuredMinRuns}
-        onChange={(e) => {
-          const value = Number(e.target.value) || 1;
-          const chars = weekSettings[selectedWeek]?.required_characters ?? REQUIRED_CHARACTERS;
-
-          setWeekSettings((prev) => ({
-            ...prev,
-            [selectedWeek]: { min_runs: value, required_characters: chars },
-          }));
-        }}
-        onBlur={async (e) => {
-          const value = Number(e.target.value) || 1;
-          const chars = weekSettings[selectedWeek]?.required_characters ?? REQUIRED_CHARACTERS;
-
-          const { error } = await supabase.from("week_settings").upsert(
-            { week: selectedWeek, min_runs: value, required_characters: chars },
-            { onConflict: "week" }
-          );
-
-          if (error) alert(error.message);
-        }}
-        style={runsRequiredInput}
-        title={
-          effectiveMinRuns < configuredMinRuns
-            ? `Only ${runs.length} runs this week — using ${effectiveMinRuns}`
-            : "Runs required for early access"
-        }
-      />
-
-      {effectiveMinRuns < configuredMinRuns && (
-        <span style={runsRequiredWarn}>using {effectiveMinRuns}</span>
-      )}
-    </div>
-  )}
-
-  <EarlyAccessButton
-    week={selectedWeek}
-    discordId={discordId}
-    playerName={selectedCharacter?.name}
-    characterCount={characters.length}
-    minRuns={effectiveMinRuns}
-    requiredCharacters={weekSetting?.required_characters ?? REQUIRED_CHARACTERS}
-    alreadyUnlocked={early.hasUnlocked(selectedWeek)}
-    onUnlock={early.unlock}
-  />
-
+  
   {weeks
 .filter((week) =>
   isPhone
@@ -4519,11 +4520,11 @@ letterSpacing: 1,
 };
 
 const weekButtons: React.CSSProperties = {
-  display: "flex",
+  display: "grid",
+  gridTemplateColumns: "repeat(10, auto)",
   justifyContent: "center",
   alignItems: "center",
   gap: 8,
-  flexWrap: "wrap",
 
   width: "100%",
   maxWidth: 1380,
@@ -5382,6 +5383,16 @@ const runsLayout: React.CSSProperties = {
   width: "100%",
   position: "relative",
   zIndex: 2,
+};
+const topLeftTools: React.CSSProperties = {
+  position: "absolute",
+  top: 24,
+  left: 300, // just right of the 260px navigation
+  zIndex: 20,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  gap: 10,
 };
 const sideNavFixed: React.CSSProperties = {
   position: "absolute",
