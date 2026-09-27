@@ -376,6 +376,7 @@ const [adminAddSpec, setAdminAddSpec] = useState("Guardian");
   const [pendingUnsign, setPendingUnsign] = useState<Signup | null>(null);
   const [bannedUntil, setBannedUntil] = useState<string | null>(null);
   const [breakOpen, setBreakOpen] = useState(false);
+    const [printMode, setPrintMode] = useState<"all" | "mine" | null>(null);
 const fixedRole = normalizeRole(profile?.site_role);
 
 const isAdmin =
@@ -1350,7 +1351,23 @@ const filteredBanishLogs = hearts.logs.filter(
   (log) => Number(log.week) === Number(selectedWeek)
 );
 
+const sortedWeekRuns = [...runs].sort((a, b) =>
+  `${a.run_date || ""} ${a.time || ""}`.localeCompare(
+    `${b.run_date || ""} ${b.time || ""}`
+  )
+);
 
+const myRunIds = new Set(
+  signups
+    .filter((s) => !!discordId && s.discord_id === discordId)
+    .map((s) => s.run_id)
+);
+
+const printLines = (
+  printMode === "mine"
+    ? sortedWeekRuns.filter((r) => myRunIds.has(r.id))
+    : sortedWeekRuns
+).map(formatRunLine);
 const playerStats = [...buildPlayerStats(signups, runs)].sort((a, b) => {
   const diff = b[statsSort] - a[statsSort];
   return statsSortDesc ? diff : -diff;
@@ -1424,6 +1441,37 @@ paddingRight: 80,
     <SideNav active="My Runs" />
   </div>
 )}
+<div style={topRightTools}>
+  <button
+    onClick={() => setPrintMode("all")}
+    style={printButton}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = "translateY(-2px) scale(1.04)";
+      e.currentTarget.style.boxShadow = "0 0 26px rgba(168,85,247,.9)";
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = "translateY(0) scale(1)";
+      e.currentTarget.style.boxShadow = "0 0 14px rgba(168,85,247,.45)";
+    }}
+  >
+    🖨 Print All Runs
+  </button>
+
+  <button
+    onClick={() => setPrintMode("mine")}
+    style={{ ...printButton, border: "1px solid rgba(250,204,21,.7)", color: "#fff7cc" }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = "translateY(-2px) scale(1.04)";
+      e.currentTarget.style.boxShadow = "0 0 26px rgba(250,204,21,.8)";
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = "translateY(0) scale(1)";
+      e.currentTarget.style.boxShadow = "0 0 14px rgba(168,85,247,.45)";
+    }}
+  >
+    🖨 Print My Runs
+  </button>
+</div>
 <div style={topLeftTools}>
   {isAdmin && (
     <div style={runsRequiredBox}>
@@ -1716,6 +1764,17 @@ paddingRight: 80,
 />
 
 <HeartBreak open={breakOpen} onDone={() => setBreakOpen(false)} />
+<PrintRunsPopup
+  open={!!printMode}
+  title={printMode === "mine" ? `My Runs — Week ${selectedWeek}` : `All Runs — Week ${selectedWeek}`}
+  lines={printLines}
+  emptyText={
+    printMode === "mine"
+      ? "You're not signed for any runs this week."
+      : "No runs this week."
+  }
+  onClose={() => setPrintMode(null)}
+/>
       {popup && (
         <div style={popupOverlay}>
           <div style={popupBox}>
@@ -3789,6 +3848,114 @@ function CharacterPicker({
     </div>
   );
 }
+function ordinal(n: number) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/** "Wednesday 23rd 14:00 ST Boost run 2/8M" */
+function formatRunLine(run: Run) {
+  let dayName = run.day || "";
+  let dayNum = "";
+
+  if (run.run_date) {
+    // Read the parts directly so the timezone can't shift the day.
+    const [y, m, d] = run.run_date.slice(0, 10).split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+
+    dayName = date.toLocaleDateString("en-GB", { weekday: "long" });
+    dayNum = ` ${ordinal(d)}`;
+  }
+
+  return `${dayName}${dayNum} ${run.time || ""} ${run.title || ""}`
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function PrintRunsPopup({
+  open,
+  title,
+  lines,
+  emptyText,
+  onClose,
+}: {
+  open: boolean;
+  title: string;
+  lines: string[];
+  emptyText: string;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setCopied(false);
+  }, [open]);
+
+  if (!open) return null;
+
+  const text = lines.join("\n");
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Fallback for browsers that block the clipboard API.
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  }
+
+  return (
+    <div style={popupOverlay} onClick={onClose}>
+      <div style={printPanel} onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} style={pickerClose}>
+          ✕
+        </button>
+
+        <div style={printTitle}>{title}</div>
+        <div style={printSub}>
+          {lines.length} run{lines.length === 1 ? "" : "s"}
+        </div>
+
+        {lines.length === 0 ? (
+          <div style={{ color: "#9ca3af", textAlign: "center", padding: 24 }}>
+            {emptyText}
+          </div>
+        ) : (
+          <div style={printList}>
+            {lines.map((line, i) => (
+              <div key={i} style={printLine}>
+                {line}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={copy}
+          disabled={lines.length === 0}
+          style={{
+            ...printCopyButton,
+            opacity: lines.length === 0 ? 0.4 : 1,
+            background: copied
+              ? "linear-gradient(90deg,#16a34a,#22c55e)"
+              : "linear-gradient(90deg,#9333ea,#d946ef)",
+          }}
+        >
+          {copied ? "✓ Copied!" : "📋 Copy"}
+        </button>
+      </div>
+    </div>
+  );
+}
 function FilterButton({
   label,
   active,
@@ -5383,6 +5550,98 @@ const runsLayout: React.CSSProperties = {
   width: "100%",
   position: "relative",
   zIndex: 2,
+};
+const topRightTools: React.CSSProperties = {
+  position: "absolute",
+  top: 24,
+  right: 24,
+  zIndex: 20,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-end",
+  gap: 10,
+};
+
+const printButton: React.CSSProperties = {
+  padding: "10px 18px",
+  borderRadius: 40,
+  border: "1px solid rgba(168,85,247,.7)",
+  background: "linear-gradient(180deg, rgba(35,8,65,.95), rgba(8,0,20,.98))",
+  color: "#e9d5ff",
+  fontWeight: 900,
+  fontSize: 15,
+  cursor: "pointer",
+  boxShadow: "0 0 14px rgba(168,85,247,.45)",
+  transition: "all .18s ease",
+  whiteSpace: "nowrap",
+};
+
+const printPanel: React.CSSProperties = {
+  position: "relative",
+  width: 560,
+  maxWidth: "94vw",
+  maxHeight: "85vh",
+  display: "flex",
+  flexDirection: "column",
+  padding: "30px 28px 24px",
+  borderRadius: 22,
+  background: "linear-gradient(180deg, rgba(10,4,24,.98), rgba(4,0,12,.98))",
+  border: "1px solid rgba(168,85,247,.55)",
+  boxShadow: "0 0 50px rgba(168,85,247,.35)",
+};
+
+const printTitle: React.CSSProperties = {
+  textAlign: "center",
+  color: "#e9d5ff",
+  fontSize: 26,
+  fontWeight: 900,
+  fontFamily: "Georgia, serif",
+  letterSpacing: 1,
+  textShadow: "0 0 18px rgba(168,85,247,.7)",
+};
+
+const printSub: React.CSSProperties = {
+  textAlign: "center",
+  color: "#c084fc",
+  fontSize: 13,
+  fontWeight: 800,
+  marginTop: 4,
+  marginBottom: 18,
+};
+
+const printList: React.CSSProperties = {
+  overflowY: "auto",
+  minHeight: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+  padding: 12,
+  borderRadius: 14,
+  background: "rgba(0,0,0,.45)",
+  border: "1px solid rgba(168,85,247,.25)",
+  userSelect: "text",
+};
+
+const printLine: React.CSSProperties = {
+  color: "white",
+  fontSize: 16,
+  fontWeight: 700,
+  padding: "6px 10px",
+  borderRadius: 8,
+  background: "rgba(168,85,247,.08)",
+};
+
+const printCopyButton: React.CSSProperties = {
+  marginTop: 18,
+  height: 50,
+  borderRadius: 12,
+  border: "none",
+  color: "white",
+  fontWeight: 900,
+  fontSize: 17,
+  cursor: "pointer",
+  boxShadow: "0 0 18px rgba(217,70,239,.5)",
+  transition: "background .2s ease",
 };
 const topLeftTools: React.CSSProperties = {
   position: "absolute",
