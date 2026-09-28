@@ -1368,7 +1368,9 @@ const printLines: PrintLine[] = (
     ? sortedWeekRuns.filter((r) => myRunIds.has(r.id))
     : sortedWeekRuns
 ).map((run) => ({
-  text: formatRunLine(run),
+  ...runParts(run),
+  diff: runDifficulty(run.title),
+  sortKey: `${run.run_date || ""} ${run.time || ""}`,
   chars:
     printMode === "mine"
       ? signups
@@ -1783,13 +1785,9 @@ paddingRight: 80,
 <HeartBreak open={breakOpen} onDone={() => setBreakOpen(false)} />
 <PrintRunsPopup
   open={!!printMode}
-  title={printMode === "mine" ? `My Runs — Week ${selectedWeek}` : `All Runs — Week ${selectedWeek}`}
+  mine={printMode === "mine"}
+  week={selectedWeek}
   lines={printLines}
-  emptyText={
-    printMode === "mine"
-      ? "You're not signed for any runs this week."
-      : "No runs this week."
-  }
   onClose={() => setPrintMode(null)}
 />
       {popup && (
@@ -3865,34 +3863,27 @@ function CharacterPicker({
     </div>
   );
 }
-function ordinal(n: number) {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
-
-/** "Wednesday 23rd 14:00 ST Boost run 2/8M" */
-function formatRunLine(run: Run) {
-  let dayName = run.day || "";
-  let dayNum = "";
-
-  if (run.run_date) {
-    // Read the parts directly so the timezone can't shift the day.
-    const [y, m, d] = run.run_date.slice(0, 10).split("-").map(Number);
-    const date = new Date(y, m - 1, d);
-
-    dayName = date.toLocaleDateString("en-GB", { weekday: "long" });
-    dayNum = ` ${ordinal(d)}`;
-  }
-
-  return `${dayName}${dayNum} ${run.time || ""} ${run.title || ""}`
-    .replace(/\s+/g, " ")
-    .trim();
-}
+type Difficulty = "HC" | "Mythic" | "Other";
 
 type PrintLine = {
-  text: string;
+  day: string;
+  time: string;
+  title: string;
+  diff: Difficulty;
+  sortKey: string;
   chars: { name: string; color: string }[];
+};
+
+const DIFF_LABEL: Record<Difficulty, string> = {
+  HC: "HC Runs",
+  Mythic: "Mythic Runs",
+  Other: "Other Runs",
+};
+
+const DIFF_COLOR: Record<Difficulty, string> = {
+  HC: "#60a5fa",
+  Mythic: "#f87171",
+  Other: "#9ca3af",
 };
 
 const CLASS_NAMES = [
@@ -3906,34 +3897,101 @@ function classFromPlayer(player: string) {
   return CLASS_NAMES.find((c) => rest.endsWith(c.toLowerCase())) || "";
 }
 
+function ordinal(n: number) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/** Splits a run into "Wednesday 30th", "11:00 ST", "2/8M Mythic VIP". */
+function runParts(run: Run) {
+  let day = run.day || "";
+
+  if (run.run_date) {
+    // Read the parts directly so the timezone can't shift the day.
+    const [y, m, d] = run.run_date.slice(0, 10).split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+
+    day = `${date.toLocaleDateString("en-GB", { weekday: "long" })} ${ordinal(d)}`;
+  }
+
+  return {
+    day,
+    time: (run.time || "").trim(),
+    title: (run.title || "").replace(/\s+/g, " ").trim(),
+  };
+}
+
+/** "9/9 HC" or "Heroic" -> HC, "Mythic" or "2/8M" -> Mythic. */
+function runDifficulty(title?: string): Difficulty {
+  const t = (title || "").toLowerCase();
+
+  if (/hc|heroic/.test(t)) return "HC";
+  if (/mythic|\d+\s*\/\s*\d+\s*m\b/.test(t)) return "Mythic";
+
+  return "Other";
+}
+
+function lineText(l: PrintLine, withChars: boolean) {
+  const base = `${l.day} ${l.time} ${l.title}`;
+
+  return withChars && l.chars.length
+    ? `${base} — ${l.chars.map((c) => c.name).join(", ")}`
+    : base;
+}
+
 function PrintRunsPopup({
   open,
-  title,
+  mine,
+  week,
   lines,
-  emptyText,
   onClose,
 }: {
   open: boolean;
-  title: string;
+  mine: boolean;
+  week: number;
   lines: PrintLine[];
-  emptyText: string;
   onClose: () => void;
 }) {
+  const [sortMode, setSortMode] = useState<"time" | "hc" | "mythic">("time");
+  const [withChars, setWithChars] = useState(true);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setCopied(false);
-  }, [open]);
+  }, [open, sortMode, withChars]);
 
   if (!open) return null;
 
-  const text = lines
-    .map((l) =>
-      l.chars.length
-        ? `${l.text} — ${l.chars.map((c) => c.name).join(", ")}`
-        : l.text
-    )
-    .join("\n");
+  const byTime = [...lines].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+  const groups =
+    sortMode === "time"
+      ? [{ label: "", diff: null as Difficulty | null, items: byTime }]
+      : ((sortMode === "hc"
+          ? ["HC", "Mythic", "Other"]
+          : ["Mythic", "HC", "Other"]) as Difficulty[])
+          .map((d) => ({
+            label: DIFF_LABEL[d],
+            diff: d as Difficulty | null,
+            items: byTime.filter((l) => l.diff === d),
+          }))
+          .filter((g) => g.items.length > 0);
+
+  const heading = mine
+    ? `This is my runs for Week ${week}`
+    : `All runs for Week ${week}`;
+
+  const text = [
+    `## ${heading}`,
+    ...groups.flatMap((g, i) => [
+      ...(g.label ? [`${i > 0 ? "\n" : ""}### ${g.label}`] : []),
+      ...g.items.map((l) => `- ${lineText(l, mine && withChars)}`),
+    ]),
+  ].join("\n");
+
+  const hcCount = lines.filter((l) => l.diff === "HC").length;
+  const mythicCount = lines.filter((l) => l.diff === "Mythic").length;
 
   async function copy() {
     try {
@@ -3951,44 +4009,124 @@ function PrintRunsPopup({
     setTimeout(() => setCopied(false), 1800);
   }
 
+  const sortBtn = (mode: "time" | "hc" | "mythic", label: string) => (
+    <button
+      onClick={() => setSortMode(mode)}
+      style={{
+        ...prSortBtn,
+        ...(sortMode === mode ? prSortBtnActive : {}),
+      }}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <div style={popupOverlay} onClick={onClose}>
-      <div style={printPanel} onClick={(e) => e.stopPropagation()}>
+      <div style={prPanel} onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} style={pickerClose}>
           ✕
         </button>
 
-        <div style={printTitle}>{title}</div>
-        <div style={printSub}>
-          {lines.length} run{lines.length === 1 ? "" : "s"}
+        <div style={prTitle}>
+          {mine ? "My Runs" : "All Runs"}{" "}
+          <span style={{ color: "#facc15" }}>— Week {week}</span>
+        </div>
+
+        <div style={prCounts}>
+          <span style={prCountPill}>{lines.length} runs</span>
+          <span style={{ ...prCountPill, color: DIFF_COLOR.HC, borderColor: "rgba(96,165,250,.5)" }}>
+            {hcCount} HC
+          </span>
+          <span style={{ ...prCountPill, color: DIFF_COLOR.Mythic, borderColor: "rgba(248,113,113,.5)" }}>
+            {mythicCount} Mythic
+          </span>
+        </div>
+
+        <div style={prToolbar}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {sortBtn("time", "🕒 By Time")}
+            {sortBtn("hc", "🔷 HC first")}
+            {sortBtn("mythic", "🔥 Mythic first")}
+          </div>
+
+          {mine && (
+            <label style={prToggle}>
+              <input
+                type="checkbox"
+                checked={withChars}
+                onChange={(e) => setWithChars(e.target.checked)}
+                style={{ width: 18, height: 18, accentColor: "#a855f7", cursor: "pointer" }}
+              />
+              Character in copy
+            </label>
+          )}
         </div>
 
         {lines.length === 0 ? (
-          <div style={{ color: "#9ca3af", textAlign: "center", padding: 30, fontSize: 18 }}>
-            {emptyText}
+          <div style={prEmpty}>
+            {mine ? "You're not signed for any runs this week." : "No runs this week."}
           </div>
         ) : (
-          <div style={printList}>
-            {lines.map((line, i) => (
-              <div key={i} style={printLine}>
-                <span>{line.text}</span>
-
-                {line.chars.length > 0 && (
-                  <span style={printChars}>
-                    {line.chars.map((c, j) => (
-                      <b
-                        key={j}
-                        style={{
-                          color: c.color,
-                          textShadow: `0 0 12px ${c.color}88`,
-                        }}
-                      >
-                        {c.name}
-                        {j < line.chars.length - 1 ? ", " : ""}
-                      </b>
-                    ))}
-                  </span>
+          <div style={prList}>
+            {groups.map((g, gi) => (
+              <div key={gi}>
+                {g.label && g.diff && (
+                  <div
+                    style={{
+                      ...prGroupHead,
+                      color: DIFF_COLOR[g.diff],
+                      borderColor: DIFF_COLOR[g.diff],
+                    }}
+                  >
+                    {g.label}
+                    <span style={{ opacity: 0.6, marginLeft: 8 }}>({g.items.length})</span>
+                  </div>
                 )}
+
+                {g.items.map((l, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      ...prRow,
+                      borderLeft: `4px solid ${DIFF_COLOR[l.diff]}`,
+                    }}
+                  >
+                    <span style={prDay}>{l.day}</span>
+                    <span style={prTime}>{l.time}</span>
+
+                    <span
+                      style={{
+                        ...prTag,
+                        color: DIFF_COLOR[l.diff],
+                        borderColor: DIFF_COLOR[l.diff],
+                        background: `${DIFF_COLOR[l.diff]}1f`,
+                      }}
+                    >
+                      {l.diff === "Other" ? "—" : l.diff}
+                    </span>
+
+                    <span style={prRunTitle} title={l.title}>
+                      {l.title}
+                    </span>
+
+                    {l.chars.length > 0 ? (
+                      <span style={prChars}>
+                        {l.chars.map((c, j) => (
+                          <b
+                            key={j}
+                            style={{ color: c.color, textShadow: `0 0 12px ${c.color}99` }}
+                          >
+                            {c.name}
+                            {j < l.chars.length - 1 ? ", " : ""}
+                          </b>
+                        ))}
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                  </div>
+                ))}
               </div>
             ))}
           </div>
@@ -3998,14 +4136,14 @@ function PrintRunsPopup({
           onClick={copy}
           disabled={lines.length === 0}
           style={{
-            ...printCopyButton,
+            ...prCopy,
             opacity: lines.length === 0 ? 0.4 : 1,
             background: copied
               ? "linear-gradient(90deg,#16a34a,#22c55e)"
               : "linear-gradient(90deg,#9333ea,#d946ef)",
           }}
         >
-          {copied ? "✓ Copied!" : "📋 Copy"}
+          {copied ? "✓ Copied — paste it in Discord" : "📋 Copy for Discord"}
         </button>
       </div>
     </div>
@@ -5607,6 +5745,182 @@ const runsLayout: React.CSSProperties = {
   position: "relative",
   zIndex: 2,
 };
+const prPanel: React.CSSProperties = {
+  position: "relative",
+  width: 1150,
+  maxWidth: "96vw",
+  maxHeight: "92vh",
+  display: "flex",
+  flexDirection: "column",
+  padding: "38px 38px 30px",
+  borderRadius: 26,
+  background:
+    "radial-gradient(circle at 50% 0%, rgba(168,85,247,.18), transparent 55%), linear-gradient(180deg, rgba(12,4,28,.99), rgba(4,0,12,.99))",
+  border: "1px solid rgba(168,85,247,.6)",
+  boxShadow: "0 0 70px rgba(168,85,247,.4), inset 0 0 30px rgba(168,85,247,.08)",
+};
+
+const prTitle: React.CSSProperties = {
+  textAlign: "center",
+  color: "#f3e8ff",
+  fontSize: 40,
+  fontWeight: 900,
+  fontFamily: "Georgia, serif",
+  letterSpacing: 1,
+  textShadow: "0 0 20px rgba(168,85,247,.8)",
+};
+
+const prCounts: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  gap: 10,
+  marginTop: 12,
+  marginBottom: 20,
+};
+
+const prCountPill: React.CSSProperties = {
+  padding: "5px 14px",
+  borderRadius: 999,
+  border: "1px solid rgba(168,85,247,.5)",
+  background: "rgba(0,0,0,.35)",
+  color: "#d8b4fe",
+  fontSize: 14,
+  fontWeight: 900,
+  letterSpacing: 0.5,
+};
+
+const prToolbar: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 14,
+  flexWrap: "wrap",
+  marginBottom: 14,
+};
+
+const prSortBtn: React.CSSProperties = {
+  padding: "10px 18px",
+  borderRadius: 12,
+  border: "1px solid rgba(168,85,247,.45)",
+  background: "rgba(20,10,35,.9)",
+  color: "#e9d5ff",
+  fontWeight: 900,
+  fontSize: 15,
+  cursor: "pointer",
+  transition: "all .18s ease",
+};
+
+const prSortBtnActive: React.CSSProperties = {
+  border: "1px solid #facc15",
+  background: "linear-gradient(180deg, rgba(95,60,8,.95), rgba(20,8,0,.98))",
+  color: "#fff7cc",
+  boxShadow: "0 0 16px rgba(250,204,21,.55)",
+};
+
+const prToggle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  color: "#d8b4fe",
+  fontWeight: 800,
+  fontSize: 15,
+  cursor: "pointer",
+  userSelect: "none",
+};
+
+const prList: React.CSSProperties = {
+  overflowY: "auto",
+  minHeight: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+  padding: 14,
+  borderRadius: 16,
+  background: "rgba(0,0,0,.4)",
+  border: "1px solid rgba(168,85,247,.25)",
+};
+
+const prGroupHead: React.CSSProperties = {
+  fontSize: 18,
+  fontWeight: 900,
+  letterSpacing: 1.5,
+  textTransform: "uppercase",
+  padding: "10px 4px 8px",
+  margin: "6px 0 8px",
+  borderBottom: "2px solid",
+};
+
+const prRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "200px 110px 84px 1fr auto",
+  alignItems: "center",
+  gap: 16,
+  padding: "14px 18px",
+  marginBottom: 8,
+  borderRadius: 12,
+  background: "linear-gradient(90deg, rgba(168,85,247,.12), rgba(168,85,247,.03))",
+  border: "1px solid rgba(168,85,247,.18)",
+  fontSize: 19,
+  fontWeight: 700,
+};
+
+const prDay: React.CSSProperties = {
+  color: "#e9d5ff",
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+};
+
+const prTime: React.CSSProperties = {
+  color: "#facc15",
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+  textShadow: "0 0 10px rgba(250,204,21,.45)",
+};
+
+const prTag: React.CSSProperties = {
+  textAlign: "center",
+  padding: "4px 0",
+  borderRadius: 8,
+  border: "1px solid",
+  fontSize: 13,
+  fontWeight: 900,
+  letterSpacing: 1,
+};
+
+const prRunTitle: React.CSSProperties = {
+  color: "white",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  minWidth: 0,
+};
+
+const prChars: React.CSSProperties = {
+  fontSize: 20,
+  whiteSpace: "nowrap",
+  paddingLeft: 12,
+};
+
+const prEmpty: React.CSSProperties = {
+  color: "#9ca3af",
+  textAlign: "center",
+  padding: 40,
+  fontSize: 20,
+};
+
+const prCopy: React.CSSProperties = {
+  marginTop: 20,
+  height: 58,
+  borderRadius: 14,
+  border: "none",
+  color: "white",
+  fontWeight: 900,
+  fontSize: 19,
+  letterSpacing: 0.5,
+  cursor: "pointer",
+  boxShadow: "0 0 22px rgba(217,70,239,.55)",
+  transition: "background .2s ease",
+};
 const topRightTools: React.CSSProperties = {
   position: "absolute",
   top: 24,
@@ -5632,77 +5946,6 @@ const printButton: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const printPanel: React.CSSProperties = {
-  position: "relative",
-  width: 560,
-  maxWidth: "94vw",
-  maxHeight: "85vh",
-  display: "flex",
-  flexDirection: "column",
-  padding: "30px 28px 24px",
-  borderRadius: 22,
-  background: "linear-gradient(180deg, rgba(10,4,24,.98), rgba(4,0,12,.98))",
-  border: "1px solid rgba(168,85,247,.55)",
-  boxShadow: "0 0 50px rgba(168,85,247,.35)",
-};
-
-const printTitle: React.CSSProperties = {
-  textAlign: "center",
-  color: "#e9d5ff",
-  fontSize: 26,
-  fontWeight: 900,
-  fontFamily: "Georgia, serif",
-  letterSpacing: 1,
-  textShadow: "0 0 18px rgba(168,85,247,.7)",
-};
-
-const printSub: React.CSSProperties = {
-  textAlign: "center",
-  color: "#c084fc",
-  fontSize: 13,
-  fontWeight: 800,
-  marginTop: 4,
-  marginBottom: 18,
-};
-
-const printList: React.CSSProperties = {
-  overflowY: "auto",
-  minHeight: 0,
-  display: "flex",
-  flexDirection: "column",
-  gap: 6,
-  padding: 12,
-  borderRadius: 14,
-  background: "rgba(0,0,0,.45)",
-  border: "1px solid rgba(168,85,247,.25)",
-  userSelect: "text",
-};
-
-const printLine: React.CSSProperties = {
-  color: "white",
-  fontSize: 16,
-  fontWeight: 700,
-  padding: "6px 10px",
-  borderRadius: 8,
-  background: "rgba(168,85,247,.08)",
-};
-const printChars: React.CSSProperties = {
-  flexShrink: 0,
-  fontSize: 20,
-  whiteSpace: "nowrap",
-};
-const printCopyButton: React.CSSProperties = {
-  marginTop: 18,
-  height: 50,
-  borderRadius: 12,
-  border: "none",
-  color: "white",
-  fontWeight: 900,
-  fontSize: 17,
-  cursor: "pointer",
-  boxShadow: "0 0 18px rgba(217,70,239,.5)",
-  transition: "background .2s ease",
-};
 const topLeftTools: React.CSSProperties = {
   position: "absolute",
   top: 24,
