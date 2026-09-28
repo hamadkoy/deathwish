@@ -1363,11 +1363,28 @@ const myRunIds = new Set(
     .map((s) => s.run_id)
 );
 
-const printLines = (
+const printLines: PrintLine[] = (
   printMode === "mine"
     ? sortedWeekRuns.filter((r) => myRunIds.has(r.id))
     : sortedWeekRuns
-).map(formatRunLine);
+).map((run) => ({
+  text: formatRunLine(run),
+  chars:
+    printMode === "mine"
+      ? signups
+          .filter((s) => s.run_id === run.id && s.discord_id === discordId)
+          .map((s) => {
+            const cls =
+              characters.find((c) => c.id === s.character_id)?.class ||
+              classFromPlayer(s.player);
+
+            return {
+              name: s.player.split(" - ")[0],
+              color: getClassColor(cls),
+            };
+          })
+      : [],
+}));
 const playerStats = [...buildPlayerStats(signups, runs)].sort((a, b) => {
   const diff = b[statsSort] - a[statsSort];
   return statsSortDesc ? diff : -diff;
@@ -3873,6 +3890,22 @@ function formatRunLine(run: Run) {
     .trim();
 }
 
+type PrintLine = {
+  text: string;
+  chars: { name: string; color: string }[];
+};
+
+const CLASS_NAMES = [
+  "Death Knight", "Demon Hunter", "Druid", "Evoker", "Hunter", "Mage",
+  "Monk", "Paladin", "Priest", "Rogue", "Shaman", "Warlock", "Warrior",
+];
+
+/** 'Xkoy - Guardian Druid' -> 'Druid' */
+function classFromPlayer(player: string) {
+  const rest = (player.split(" - ")[1] || "").toLowerCase();
+  return CLASS_NAMES.find((c) => rest.endsWith(c.toLowerCase())) || "";
+}
+
 function PrintRunsPopup({
   open,
   title,
@@ -3882,7 +3915,7 @@ function PrintRunsPopup({
 }: {
   open: boolean;
   title: string;
-  lines: string[];
+  lines: PrintLine[];
   emptyText: string;
   onClose: () => void;
 }) {
@@ -3894,13 +3927,18 @@ function PrintRunsPopup({
 
   if (!open) return null;
 
-  const text = lines.join("\n");
+  const text = lines
+    .map((l) =>
+      l.chars.length
+        ? `${l.text} — ${l.chars.map((c) => c.name).join(", ")}`
+        : l.text
+    )
+    .join("\n");
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(text);
     } catch {
-      // Fallback for browsers that block the clipboard API.
       const ta = document.createElement("textarea");
       ta.value = text;
       document.body.appendChild(ta);
@@ -3926,14 +3964,31 @@ function PrintRunsPopup({
         </div>
 
         {lines.length === 0 ? (
-          <div style={{ color: "#9ca3af", textAlign: "center", padding: 24 }}>
+          <div style={{ color: "#9ca3af", textAlign: "center", padding: 30, fontSize: 18 }}>
             {emptyText}
           </div>
         ) : (
           <div style={printList}>
             {lines.map((line, i) => (
               <div key={i} style={printLine}>
-                {line}
+                <span>{line.text}</span>
+
+                {line.chars.length > 0 && (
+                  <span style={printChars}>
+                    {line.chars.map((c, j) => (
+                      <b
+                        key={j}
+                        style={{
+                          color: c.color,
+                          textShadow: `0 0 12px ${c.color}88`,
+                        }}
+                      >
+                        {c.name}
+                        {j < line.chars.length - 1 ? ", " : ""}
+                      </b>
+                    ))}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -4548,6 +4603,7 @@ function getRunTheme(run: Run, index: number) {
 function getClassColor(className?: string) {
   const colors: Record<string, string> = {
     Druid: "#ff7c0a",
+        Evoker: "#33937f",
     "Death Knight": "#c41e3a",
     "Demon Hunter": "#a330c9",
     Hunter: "#aad372",
@@ -5630,7 +5686,11 @@ const printLine: React.CSSProperties = {
   borderRadius: 8,
   background: "rgba(168,85,247,.08)",
 };
-
+const printChars: React.CSSProperties = {
+  flexShrink: 0,
+  fontSize: 20,
+  whiteSpace: "nowrap",
+};
 const printCopyButton: React.CSSProperties = {
   marginTop: 18,
   height: 50,
