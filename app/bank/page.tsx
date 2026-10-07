@@ -1176,22 +1176,14 @@ function potIcon(name: string) {
       </span>
     </div>
 
-    <div style={charText}>Koyjin-kazzak</div>
+ <div style={charText}>{payoutCharacter}</div>
 
     <div style={{ ...goldText, ...rightCell }}>
       {Number(week.amount || 0).toLocaleString()}g
     </div>
 
 <div style={centerCell}>
-  <span
-    style={
-      index === history.length - 1
-        ? pendingBadge
-        : paidBadge
-    }
-  >
-    {index === history.length - 1 ? "Pending" : "Paid"}
-  </span>
+  <span style={paidBadge}>Paid</span>
 </div>
 
     <div style={{ ...dimText, ...centerCell }}>-</div>
