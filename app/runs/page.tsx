@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import SideNav from "../components/SideNav";
 import CreateRunModal from "../components/CreateRunModal";
+import EditRunModal, { RAID_BOSSES } from "../components/EditRunModal";
 import {
   useHearts,
   HeartsBar,
@@ -669,26 +670,7 @@ useEffect(() => {
     return `${selectedCharacter.name} - ${selectedCharacter.spec} ${selectedCharacter.class}`;
   }
 
-function getRequiredBossExp(run: Run) {
-  if (!run.exp_required) return null;
 
-  const match = run.exp_required.match(/(\d+)\s*\/\s*9\s*(m|hc|nm)?/i);
-  if (!match) return null;
-
-  return {
-    bosses: Number(match[1]),
-    difficulty: match[2]?.toLowerCase().includes("h") ? "HC" : "M",
-  };
-}
-
-function getCharacterBossExp(progress?: string) {
-  const match = (progress || "0/9").match(/(\d+)\s*\/\s*9\s*(m|hc)?/i);
-
-  return {
-    bosses: Number(match?.[1] || 0),
-    difficulty: (match?.[2] || "M").toUpperCase(),
-  };
-}
 function getLimits(run: Run) {
   const isHC = run.title.toLowerCase().includes("hc");
 
@@ -762,20 +744,15 @@ async function signWithCharacter(char: Character, runId: number, role: string) {
     return;
   }
 
-  if (role !== "Loot Body" && run) {
-    const requiredExp = getRequiredBossExp(run);
+  const requiredExp = parseBossExp(run?.exp_required);
 
-    // Check the character being signed, not whichever alt has the best progress.
-    const characterExp = getCharacterBossExp(char.progress);
-
-    if (requiredExp && characterExp.bosses < requiredExp.bosses) {
-      setPopup({
-        title: "Boss Experience Too Low",
-        message: `This run requires ${requiredExp.bosses}/9${requiredExp.difficulty} experience. ${char.name} has ${char.progress || "0/9"}.`,
-        type: "error",
-      });
-      return;
-    }
+  if (role !== "Loot Body" && requiredExp && !meetsBossExp(char.progress, requiredExp)) {
+    setPopup({
+      title: "Boss Experience Too Low",
+      message: `This run requires ${requiredExp.bosses}/${RAID_BOSSES} ${requiredExp.difficulty}. ${char.name} has ${char.progress || `0/${RAID_BOSSES}`}.`,
+      type: "error",
+    });
+    return;
   }
 
   const signupSpec = getSpecForSignupRole(char.class, char.spec, role);
@@ -851,6 +828,17 @@ async function swapSignupCharacter(char: Character, signupId: number) {
     setPopup({
       title: "Item Level Too Low",
       message: `This run requires ${run.ilvl_required}+ ilvl. ${char.name} is ${char.ilvl || 0}.`,
+      type: "error",
+    });
+    return;
+  }
+
+  const swapExp = parseBossExp(run?.exp_required);
+
+  if (signup.role !== "Loot Body" && swapExp && !meetsBossExp(char.progress, swapExp)) {
+    setPopup({
+      title: "Boss Experience Too Low",
+      message: `This run requires ${swapExp.bosses}/${RAID_BOSSES} ${swapExp.difficulty}. ${char.name} has ${char.progress || `0/${RAID_BOSSES}`}.`,
       type: "error",
     });
     return;
@@ -1746,6 +1734,7 @@ paddingRight: 80,
   role={pickerTarget?.role || ""}
   runTitle={runs.find((r) => r.id === pickerTarget?.runId)?.title}
   ilvlRequired={runs.find((r) => r.id === pickerTarget?.runId)?.ilvl_required}
+  expRequired={runs.find((r) => r.id === pickerTarget?.runId)?.exp_required}
   usedIds={signups
     .filter((s) => s.run_id === pickerTarget?.runId)
     .map((s) => s.character_id)
@@ -1992,7 +1981,7 @@ justifyContent: "center",
       textShadow: "0 0 10px #c084fc",
     }}
   >
-    {selectedCharacter?.progress || "0/9"}
+   {selectedCharacter?.progress || `0/${RAID_BOSSES}`}
   </span>
 
 <span
@@ -2565,122 +2554,16 @@ style={{
   }}
 />
 
-    {editingRun && (
-  <div style={modalOverlay}>
-          <div style={createRunPanel}>
-            <div style={createRunTitle}>
-              Edit Run #{editingRun.id}
-            </div>
-<div style={fieldLabel}>Run Title</div>
-            <input
-              value={editRunTitle}
-              onChange={(e) => setEditRunTitle(e.target.value)}
-              style={createInput}
-            />
-            <div style={fieldLabel}>Required iLvl</div>
-<input
-  placeholder="Required ilvl"
-  value={editRunIlvl}
-  onChange={(e) => setEditRunIlvl(e.target.value)}
-  style={createInput}
-/>
-<div style={fieldLabel}>Healer Spots</div>
-<input
-  placeholder="Healer spots"
-  value={editRunHealers}
-  onChange={(e) => setEditRunHealers(e.target.value)}
-  style={createInput}
-/>
-<div style={fieldLabel}>DPS Spots</div>
-<input
-  placeholder="DPS spots"
-  value={editRunDps}
-  onChange={(e) => setEditRunDps(e.target.value)}
-  style={createInput}
-/>
-<div style={fieldLabel}>Signup Opens</div>
-<input
-  type="datetime-local"
-  value={editRunSignupOpenAt}
-  onChange={(e) => setEditRunSignupOpenAt(e.target.value)}
-  style={createInput}
-/>
-<div style={fieldLabel}>Run Day</div>
-<select
-  value={editRunDay}
-  onChange={(e) => {
-    const day = e.target.value;
-
-    setEditRunDay(day);
-
-if (
-  editingRun?.week !== null &&
-  editingRun?.week !== undefined
-) {
-  setEditRunDate(
-    getRunDateFromWeekAndDay(editingRun.week, day)
-  );
-}
+<EditRunModal
+  run={editingRun}
+  dateForDay={getRunDateFromWeekAndDay}
+  onClose={() => setEditingRun(null)}
+  onSaved={async () => {
+    setEditingRun(null);
+    await loadRuns(selectedWeekRef.current);
+    await loadSignups();
   }}
-  style={createInput}
->
-  <option value="Wednesday">Wednesday</option>
-  <option value="Thursday">Thursday</option>
-  <option value="Friday">Friday</option>
-  <option value="Saturday">Saturday</option>
-  <option value="Sunday">Sunday</option>
-  <option value="Monday">Monday</option>
-  <option value="Tuesday">Tuesday</option>
-</select>
-<div style={fieldLabel}>Run Date</div>
-            <input
-              type="date"
-              value={editRunDate}
-              onChange={(e) => setEditRunDate(e.target.value)}
-              style={createInput}
-            />
-<div style={fieldLabel}>Run Time</div>
-            <input
-              value={editRunTime}
-              onChange={(e) => setEditRunTime(e.target.value)}
-              style={createInput}
-            />
-<div style={fieldLabel}>Background</div>
-<select
-  value={editRunBackground}
-  onChange={(e) => setEditRunBackground(e.target.value)}
-  style={createInput}
->
-  <option value="mythic-red">Mythic Red</option>
-  <option value="mythic-purple">Mythic Purple</option>
-  <option value="hc-gold">HC Blue</option>
-  <option value="void">Void Blue</option>
-</select>
-
-<div style={fieldLabel}>Notes</div>
-<input
-  value={editRunNotes}
-  onChange={(e) => setEditRunNotes(e.target.value)}
-  style={createInput}
 />
-
-            <button
-              onClick={saveEditRun}
-              style={createRunConfirm}
-            >
-              Save Changes
-            </button>
-
-            <button
-              onClick={() => setEditingRun(null)}
-              style={cancelEditButton}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}
@@ -3068,11 +2951,7 @@ right: 18,
 
   onClick={(e) => {
     e.stopPropagation();
-    openEditRun(run);
-    setEditRunIlvl(String(run.ilvl_required || ""));
-setEditRunHealers(String(run.healer_limit || 3));
-setEditRunDps(String(run.dps_limit || 10));
-setEditRunSignupOpenAt(toDatetimeLocal(run.signup_open_at));
+    setEditingRun(run);
   }}
         style={editRunButton}
       >
@@ -3744,6 +3623,7 @@ function CharacterPicker({
   role,
   runTitle,
   ilvlRequired,
+  expRequired,
   usedIds,
   onPick,
   onClose,
@@ -3753,6 +3633,7 @@ function CharacterPicker({
   role: string;
   runTitle?: string;
   ilvlRequired?: number;
+  expRequired?: string;
   usedIds: number[];
   onPick: (char: Character) => void;
   onClose: () => void;
@@ -3785,7 +3666,11 @@ function CharacterPicker({
               !!ilvlRequired &&
               (char.ilvl || 0) < ilvlRequired;
 
-            const blocked = used || tooLow;
+            const reqExp = parseBossExp(expRequired);
+            const expTooLow =
+              role !== "Loot Body" && !!reqExp && !meetsBossExp(char.progress, reqExp);
+
+            const blocked = used || tooLow || expTooLow;
             const accent = getClassColor(char.class);
 
             return (
@@ -3848,11 +3733,11 @@ function CharacterPicker({
                   <SpecIcon player={`${char.name} - ${char.spec} ${char.class}`} />
                 </div>
 
-                <div style={pickerProgress}>{char.progress || "0/9"}</div>
+                <div style={pickerProgress}>{char.progress || `0/${RAID_BOSSES}`}</div>
 
                 {blocked && (
                   <div style={pickerBlocked}>
-                    {used ? "ALREADY SIGNED" : "ILVL TOO LOW"}
+{used ? "ALREADY SIGNED" : tooLow ? "ILVL TOO LOW" : "NOT ENOUGH EXP"}
                   </div>
                 )}
               </button>
@@ -6056,3 +5941,24 @@ const applicationInput: React.CSSProperties = {
   fontSize: 16,
   outline: "none",
 };
+type BossExp = { bosses: number; difficulty: "NM" | "HC" | "M" };
+const DIFF_RANK = { NM: 1, HC: 2, M: 3 };
+
+function parseBossExp(text?: string | null): BossExp | null {
+  const m = (text || "").match(/(\d+)\s*\/\s*\d+\s*(hc|nm|m|h|n)?/i);
+  if (!m) return null;
+  const d = (m[2] || "m").toLowerCase();
+  return {
+    bosses: Number(m[1]),
+    difficulty: d.startsWith("h") ? "HC" : d.startsWith("n") ? "NM" : "M",
+  };
+}
+
+/** Higher difficulty always counts; same difficulty compares boss kills. */
+function meetsBossExp(progress: string | undefined, required: BossExp) {
+  const have = parseBossExp(progress) || { bosses: 0, difficulty: "M" as const };
+  if (DIFF_RANK[have.difficulty] !== DIFF_RANK[required.difficulty]) {
+    return DIFF_RANK[have.difficulty] > DIFF_RANK[required.difficulty];
+  }
+  return have.bosses >= required.bosses;
+}
