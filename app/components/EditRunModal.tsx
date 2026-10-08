@@ -351,7 +351,7 @@ export default function EditRunModal({
               value={notes}
               placeholder="Shown on the run card"
               onChange={(e) => setNotes(e.target.value)}
-              style={{ ...input, height: 96, padding: "10px 12px", resize: "vertical" }}
+              style={{ ...input, height: 150, padding: "14px 16px", resize: "vertical" }}
             />
           </div>
         </div>
@@ -420,8 +420,9 @@ const overlay: React.CSSProperties = {
 };
 
 const panel: React.CSSProperties = {
-  width: "min(1700px, 96vw)",
-  maxHeight: "92vh",
+  width: "min(1900px, 97vw)",
+  minHeight: "60vh",
+  maxHeight: "94vh",
   display: "flex",
   flexDirection: "column",
   borderRadius: 18,
@@ -435,28 +436,29 @@ const header: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  padding: "18px 24px",
+  padding: "26px 36px",
   borderBottom: "1px solid rgba(168,85,247,.2)",
 };
 
 const headerTitle: React.CSSProperties = {
   color: "white",
-  fontSize: 26,
+  fontSize: 38,
   fontWeight: 900,
   fontFamily: "Georgia, serif",
 };
 
 const headerSub: React.CSSProperties = {
   color: "#c084fc",
-  fontSize: 14,
+  fontSize: 19,
   fontWeight: 800,
-  marginTop: 4,
+  marginTop: 6,
 };
 
 const closeBtn: React.CSSProperties = {
-  width: 34,
-  height: 34,
-  borderRadius: 8,
+  width: 46,
+  height: 46,
+  fontSize: 18,
+  borderRadius: 10,
   border: "1px solid rgba(239,68,68,.6)",
   background: "linear-gradient(180deg,#991b1b,#450a0a)",
   color: "white",
@@ -466,40 +468,40 @@ const closeBtn: React.CSSProperties = {
 
 const body: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-  gap: 28,
-  padding: 24,
+  gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
+  gap: 40,
+  padding: "32px 36px",
   overflowY: "auto",
 };
 
 const sectionTitle: React.CSSProperties = {
   color: "#c084fc",
-  fontSize: 14,
+  fontSize: 20,
   fontWeight: 900,
-  letterSpacing: 1.5,
+  letterSpacing: 2,
   textTransform: "uppercase",
-  marginBottom: 10,
+  marginBottom: 14,
 };
 
 const fieldLabel: React.CSSProperties = {
   color: "#a1a1aa",
-  fontSize: 11,
+  fontSize: 14,
   fontWeight: 900,
-  letterSpacing: 1,
+  letterSpacing: 1.2,
   textTransform: "uppercase",
-  margin: "12px 0 6px",
+  margin: "20px 0 8px",
 };
 
 const input: React.CSSProperties = {
   width: "100%",
-  height: 40,
-  padding: "0 12px",
-  borderRadius: 8,
+  height: 56,
+  padding: "0 16px",
+  borderRadius: 10,
   border: "1px solid rgba(168,85,247,.35)",
   background: "rgba(15,0,35,.9)",
   color: "white",
   fontWeight: 700,
-  fontSize: 14,
+  fontSize: 18,
   outline: "none",
   boxSizing: "border-box",
 };
@@ -507,19 +509,19 @@ const input: React.CSSProperties = {
 const twoCol: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 12,
+  gap: 16,
 };
 
 const stepBtn: React.CSSProperties = {
-  width: 34,
-  height: 34,
+  width: 48,
+  height: 48,
   flexShrink: 0,
-  borderRadius: 8,
+  borderRadius: 10,
   border: "1px solid rgba(168,85,247,.35)",
   background: "rgba(20,10,35,.9)",
   color: "white",
   fontWeight: 900,
-  fontSize: 16,
+  fontSize: 22,
   cursor: "pointer",
 };
 
@@ -532,15 +534,15 @@ const bgGrid: React.CSSProperties = {
 const bgButton: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 8,
-  height: 38,
-  padding: "0 12px",
-  borderRadius: 8,
+  gap: 10,
+  height: 54,
+  padding: "0 16px",
+  borderRadius: 10,
   border: "1px solid rgba(168,85,247,.3)",
   background: "rgba(20,10,35,.9)",
   color: "white",
   fontWeight: 900,
-  fontSize: 14,
+  fontSize: 18,
   cursor: "pointer",
 };
 
@@ -551,16 +553,16 @@ const bgButtonActive: React.CSSProperties = {
 };
 
 const dot: React.CSSProperties = {
-  width: 10,
-  height: 10,
+  width: 13,
+  height: 13,
   borderRadius: "50%",
   flexShrink: 0,
 };
 
 const hint: React.CSSProperties = {
-  marginTop: 6,
+  marginTop: 8,
   color: "#facc15",
-  fontSize: 12,
+  fontSize: 15,
   fontWeight: 800,
 };
 
@@ -569,7 +571,8 @@ const footer: React.CSSProperties = {
   justifyContent: "space-between",
   alignItems: "center",
   gap: 12,
-  padding: "14px 24px",
+  padding: "20px 36px",
+  marginTop: "auto",
   borderTop: "1px solid rgba(168,85,247,.2)",
   background: "rgba(0,0,0,.35)",
 };
@@ -577,13 +580,14 @@ const footer: React.CSSProperties = {
 const errorText: React.CSSProperties = {
   color: "#f87171",
   fontWeight: 800,
-  fontSize: 14,
+  fontSize: 17,
 };
 
 const cancelBtn: React.CSSProperties = {
-  height: 42,
-  padding: "0 22px",
-  borderRadius: 10,
+  height: 56,
+  padding: "0 32px",
+  fontSize: 18,
+  borderRadius: 12,
   border: "1px solid rgba(255,255,255,.25)",
   background: "rgba(0,0,0,.5)",
   color: "white",
@@ -592,13 +596,13 @@ const cancelBtn: React.CSSProperties = {
 };
 
 const saveBtn: React.CSSProperties = {
-  height: 42,
-  padding: "0 28px",
-  borderRadius: 10,
+  height: 56,
+  padding: "0 40px",
+  borderRadius: 12,
   border: "1px solid rgba(250,204,21,.4)",
   background: "linear-gradient(180deg,#f5d27a,#a66a1f)",
   color: "#160b02",
   fontWeight: 900,
-  fontSize: 15,
+  fontSize: 19,
   cursor: "pointer",
 };

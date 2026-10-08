@@ -746,10 +746,10 @@ async function signWithCharacter(char: Character, runId: number, role: string) {
 
   const requiredExp = parseBossExp(run?.exp_required);
 
-  if (role !== "Loot Body" && requiredExp && !meetsBossExp(char.progress, requiredExp)) {
+  if (role !== "Loot Body" && requiredExp && !accountMeetsExp(characters, requiredExp)) {
     setPopup({
       title: "Boss Experience Too Low",
-      message: `This run requires ${requiredExp.bosses}/${RAID_BOSSES} ${requiredExp.difficulty}. ${char.name} has ${char.progress || `0/${RAID_BOSSES}`}.`,
+      message: `This run requires ${requiredExp.bosses}/${RAID_BOSSES} ${requiredExp.difficulty}. None of your characters has that experience yet.`,
       type: "error",
     });
     return;
@@ -835,10 +835,10 @@ async function swapSignupCharacter(char: Character, signupId: number) {
 
   const swapExp = parseBossExp(run?.exp_required);
 
-  if (signup.role !== "Loot Body" && swapExp && !meetsBossExp(char.progress, swapExp)) {
+  if (signup.role !== "Loot Body" && swapExp && !accountMeetsExp(characters, swapExp)) {
     setPopup({
       title: "Boss Experience Too Low",
-      message: `This run requires ${swapExp.bosses}/${RAID_BOSSES} ${swapExp.difficulty}. ${char.name} has ${char.progress || `0/${RAID_BOSSES}`}.`,
+      message: `This run requires ${swapExp.bosses}/${RAID_BOSSES} ${swapExp.difficulty}. None of your characters has that experience yet.`,
       type: "error",
     });
     return;
@@ -3668,7 +3668,7 @@ function CharacterPicker({
 
             const reqExp = parseBossExp(expRequired);
             const expTooLow =
-              role !== "Loot Body" && !!reqExp && !meetsBossExp(char.progress, reqExp);
+                  role !== "Loot Body" && !!reqExp && !accountMeetsExp(characters, reqExp);
 
             const blocked = used || tooLow || expTooLow;
             const accent = getClassColor(char.class);
@@ -5944,21 +5944,33 @@ const applicationInput: React.CSSProperties = {
 type BossExp = { bosses: number; difficulty: "NM" | "HC" | "M" };
 const DIFF_RANK = { NM: 1, HC: 2, M: 3 };
 
+function toDiff(letter?: string): BossExp["difficulty"] {
+  const d = (letter || "m").toLowerCase();
+  return d.startsWith("h") ? "HC" : d.startsWith("n") ? "NM" : "M";
+}
+
 function parseBossExp(text?: string | null): BossExp | null {
   const m = (text || "").match(/(\d+)\s*\/\s*\d+\s*(hc|nm|m|h|n)?/i);
   if (!m) return null;
-  const d = (m[2] || "m").toLowerCase();
-  return {
-    bosses: Number(m[1]),
-    difficulty: d.startsWith("h") ? "HC" : d.startsWith("n") ? "NM" : "M",
-  };
+  return { bosses: Number(m[1]), difficulty: toDiff(m[2]) };
 }
 
-/** Higher difficulty always counts; same difficulty compares boss kills. */
+/** Reads every part, so "4/8M - 8/8H" counts both the Mythic and Heroic progress. */
 function meetsBossExp(progress: string | undefined, required: BossExp) {
-  const have = parseBossExp(progress) || { bosses: 0, difficulty: "M" as const };
-  if (DIFF_RANK[have.difficulty] !== DIFF_RANK[required.difficulty]) {
-    return DIFF_RANK[have.difficulty] > DIFF_RANK[required.difficulty];
-  }
-  return have.bosses >= required.bosses;
+  const parts = Array.from(
+    (progress || "").matchAll(/(\d+)\s*\/\s*\d+\s*(hc|nm|m|h|n)?/gi)
+  );
+
+  return parts.some((m) => {
+    const diff = toDiff(m[2]);
+    if (DIFF_RANK[diff] !== DIFF_RANK[required.difficulty]) {
+      return DIFF_RANK[diff] > DIFF_RANK[required.difficulty];
+    }
+    return Number(m[1]) >= required.bosses;
+  });
+}
+
+/** One character with the experience is enough for the whole account. */
+function accountMeetsExp(chars: Character[], required: BossExp) {
+  return chars.some((c) => meetsBossExp(c.progress, required));
 }
