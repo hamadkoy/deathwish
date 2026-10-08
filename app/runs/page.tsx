@@ -20,6 +20,7 @@ import { useEarlyAccess, EarlyAccessButton, MIN_RUNS, REQUIRED_CHARACTERS } from
 
 import { supabase } from "@/lib/supabase";
 import { queueRunCancellation } from "@/lib/queueRunCancellation";
+import { getCurrentWeek } from "@/lib/season";
 import {
   DndContext,
   DragEndEvent,
@@ -93,22 +94,7 @@ type Character = {
   avatar_url?: string;
 };
 
-function getCurrentWeek() {
-  const seasonDay = new Date(
-    SEASON_START.getFullYear(),
-    SEASON_START.getMonth(),
-    SEASON_START.getDate()
-  );
 
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  const days = Math.round((today.getTime() - seasonDay.getTime()) / 86400000);
-
-  if (days < 0) return 1;
-
-  return Math.floor(days / 7) + 1;
-}
 
 function getShortWeekRange(week: number) {
   const weekStart = new Date(
@@ -444,12 +430,11 @@ async function loadRuns(weekToLoad = selectedWeek) {
 
   if (error) return alert(error.message);
 
+  if (weekToLoad !== selectedWeekRef.current) return; // user switched weeks
   setRuns(data || []);
 }
 
   async function loadSignups(weekToLoad = selectedWeek) {
-    // Unbounded selects cap at 1000 rows, so newer signups silently vanish.
-    // Only this week's runs are ever rendered, so scope the query to them.
     const { data: weekRuns, error: runsError } = await supabase
       .from("runs")
       .select("id")
@@ -460,7 +445,7 @@ async function loadRuns(weekToLoad = selectedWeek) {
     const runIds = (weekRuns || []).map((r) => r.id);
 
     if (runIds.length === 0) {
-      setSignups([]);
+      if (weekToLoad === selectedWeekRef.current) setSignups([]);
       return;
     }
 
@@ -471,8 +456,10 @@ async function loadRuns(weekToLoad = selectedWeek) {
 
     if (error) return alert(error.message);
 
+    if (weekToLoad !== selectedWeekRef.current) return; // user switched weeks
     setSignups(data || []);
   }
+
 async function loadLogs() {
   const { data, error } = await supabase
     .from("raid_logs")
@@ -568,7 +555,7 @@ const channel = supabase
     { event: "*", schema: "public", table: "runs" },
 () => {
   loadRuns(selectedWeekRef.current);
-  loadSignups();
+  loadSignups(selectedWeekRef.current);
 }
   )
   .subscribe();
@@ -683,6 +670,31 @@ function getLimits(run: Run) {
   };
 }
 
+/** Characters signed into ANOTHER run of the same difficulty in the same week. */
+function getLockedCharacters(targetRunId?: number) {
+  const locked: Record<number, string> = {};
+  if (!targetRunId) return locked;
+
+  const target = runs.find((r) => r.id === targetRunId);
+  if (!target) return locked;
+
+  const diff = runDifficulty(target.title);
+
+  signups.forEach((s) => {
+    if (!s.character_id) return;
+    if (s.run_id === targetRunId) return;
+    if (s.role === "Bench") return;
+
+    const run = runs.find((r) => r.id === s.run_id);
+    if (!run) return;
+    if (run.week !== target.week) return;
+    if (runDifficulty(run.title) !== diff) return;
+
+    locked[s.character_id] = `${run.day.slice(0, 3)} ${run.time}`;
+  });
+
+  return locked;
+}
  async function addSignup(runId: number, role: string) {
   if (!user) {
     router.push("/login");
@@ -750,6 +762,17 @@ async function signWithCharacter(char: Character, runId: number, role: string) {
     setPopup({
       title: "Boss Experience Too Low",
       message: `This run requires ${requiredExp.bosses}/${RAID_BOSSES} ${requiredExp.difficulty}. None of your characters has that experience yet.`,
+      type: "error",
+    });
+    return;
+  }
+
+  const lockedIn = getLockedCharacters(runId)[char.id];
+
+  if (lockedIn) {
+    setPopup({
+      title: "Character Locked",
+      message: `${char.name} is already signed for another ${runDifficulty(run?.title)} run this week (${lockedIn}).`,
       type: "error",
     });
     return;
@@ -839,6 +862,17 @@ async function swapSignupCharacter(char: Character, signupId: number) {
     setPopup({
       title: "Boss Experience Too Low",
       message: `This run requires ${swapExp.bosses}/${RAID_BOSSES} ${swapExp.difficulty}. None of your characters has that experience yet.`,
+      type: "error",
+    });
+    return;
+  }
+
+  const lockedIn = getLockedCharacters(signup.run_id)[char.id];
+
+  if (lockedIn) {
+    setPopup({
+      title: "Character Locked",
+      message: `${char.name} is already signed for another ${runDifficulty(run?.title)} run this week (${lockedIn}).`,
       type: "error",
     });
     return;
@@ -1322,9 +1356,7 @@ const filteredRuns = runs.filter((run) => {
   const title = run.title.toLowerCase();
 
   const matchesRaid =
-    raidFilter === "All" ||
-    (raidFilter === "HC" && title.includes("hc")) ||
-    (raidFilter === "Mythic" && title.includes("mythic"));
+    raidFilter === "All" || runDifficulty(run.title) === raidFilter;
 
   const matchesDay =
     dayFilter === "All" || run.day === dayFilter;
@@ -1734,6 +1766,8 @@ paddingRight: 80,
   role={pickerTarget?.role || ""}
   runTitle={runs.find((r) => r.id === pickerTarget?.runId)?.title}
   ilvlRequired={runs.find((r) => r.id === pickerTarget?.runId)?.ilvl_required}
+  difficulty={runDifficulty(runs.find((r) => r.id === pickerTarget?.runId)?.title)}
+  locked={getLockedCharacters(pickerTarget?.runId)}
   expRequired={runs.find((r) => r.id === pickerTarget?.runId)?.exp_required}
   usedIds={signups
     .filter((s) => s.run_id === pickerTarget?.runId)
@@ -3623,6 +3657,8 @@ function CharacterPicker({
   role,
   runTitle,
   ilvlRequired,
+  difficulty,
+  locked,
   expRequired,
   usedIds,
   onPick,
@@ -3633,6 +3669,8 @@ function CharacterPicker({
   role: string;
   runTitle?: string;
   ilvlRequired?: number;
+  difficulty: Difficulty;
+  locked: Record<number, string>;
   expRequired?: string;
   usedIds: number[];
   onPick: (char: Character) => void;
@@ -3640,7 +3678,13 @@ function CharacterPicker({
 }) {
   if (!open) return null;
 
-  const sorted = [...characters].sort((a, b) => (b.ilvl || 0) - (a.ilvl || 0));
+  // Available characters first, then highest ilvl
+  const sorted = [...characters].sort((a, b) => {
+    const la = locked[a.id] || usedIds.includes(a.id) ? 1 : 0;
+    const lb = locked[b.id] || usedIds.includes(b.id) ? 1 : 0;
+    if (la !== lb) return la - lb;
+    return (b.ilvl || 0) - (a.ilvl || 0);
+  });
 
   return (
     <div style={popupOverlay} onClick={onClose}>
@@ -3665,12 +3709,13 @@ function CharacterPicker({
               role !== "Loot Body" &&
               !!ilvlRequired &&
               (char.ilvl || 0) < ilvlRequired;
-
             const reqExp = parseBossExp(expRequired);
             const expTooLow =
-                  role !== "Loot Body" && !!reqExp && !accountMeetsExp(characters, reqExp);
+              role !== "Loot Body" && !!reqExp && !accountMeetsExp(characters, reqExp);
 
-            const blocked = used || tooLow || expTooLow;
+            const lockedIn = locked[char.id];
+
+            const blocked = used || !!lockedIn || tooLow || expTooLow;
             const accent = getClassColor(char.class);
 
             return (
@@ -3737,8 +3782,18 @@ function CharacterPicker({
 
                 {blocked && (
                   <div style={pickerBlocked}>
-{used ? "ALREADY SIGNED" : tooLow ? "ILVL TOO LOW" : "NOT ENOUGH EXP"}
+                    {used
+                      ? "ALREADY SIGNED"
+                      : lockedIn
+                      ? `🔒 ${difficulty === "Other" ? "" : difficulty + " "}LOCKED`
+                      : tooLow
+                      ? "ILVL TOO LOW"
+                      : "NOT ENOUGH EXP"}
                   </div>
+                )}
+
+                {!used && lockedIn && (
+                  <div style={pickerLockedRun}>{lockedIn}</div>
                 )}
               </button>
             );
@@ -5086,6 +5141,14 @@ const pickerProgress: React.CSSProperties = {
   color: "#d8b4fe",
   fontSize: 13,
   fontWeight: 900,
+};
+
+const pickerLockedRun: React.CSSProperties = {
+  marginTop: 4,
+  color: "#9ca3af",
+  fontSize: 10,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
 };
 
 const pickerBlocked: React.CSSProperties = {
