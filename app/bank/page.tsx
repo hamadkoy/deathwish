@@ -318,13 +318,43 @@ async function loadProfiles() {
 }
 
 useEffect(() => {
-  loadBalance();
+  let interval: ReturnType<typeof setInterval> | null = null;
+  let lastLoad = 0;
 
-  const interval = setInterval(() => {
+  const refresh = () => {
+    lastLoad = Date.now();
     loadBalance();
-  }, 60000);
+  };
 
-  return () => clearInterval(interval);
+  const start = () => {
+    if (!interval) interval = setInterval(refresh, 60000);
+  };
+
+  const stop = () => {
+    if (interval) clearInterval(interval);
+    interval = null;
+  };
+
+  // Pause while the tab is hidden; refresh when the user comes back.
+  const onVisibility = () => {
+    if (document.hidden) {
+      stop();
+      return;
+    }
+
+    if (Date.now() - lastLoad > 30000) refresh();
+    start();
+  };
+
+  refresh();
+  if (!document.hidden) start();
+
+  document.addEventListener("visibilitychange", onVisibility);
+
+  return () => {
+    stop();
+    document.removeEventListener("visibilitychange", onVisibility);
+  };
 }, []);
 
 async function loadBalance() {

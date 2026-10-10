@@ -167,7 +167,7 @@ export default function LeaderboardPage() {
   }
 
   async function loadData() {
-    const res = await fetch("/api/leaderboard", { cache: "no-store" });
+    const res = await fetch("/api/leaderboard");
     const data = await res.json();
 
     const leaderboard = data.leaderboard || [];

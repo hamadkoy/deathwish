@@ -117,6 +117,7 @@ const [selectedTheme, setSelectedTheme] =
 const currentTheme = themes[selectedTheme] || themes.midnight;
 const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 const refreshingRef = useRef(false);
+const lastBalanceId = useRef<string | null>(null);
 useEffect(() => {
   loadUserAndProfile();
 }, []);
@@ -530,6 +531,10 @@ if (balance < requiredGold[role]) {
   });
 }
 async function loadBalance(discordId: string) {
+  // Same person already loaded on this visit: skip the duplicate call.
+  if (lastBalanceId.current === discordId) return;
+  lastBalanceId.current = discordId;
+
   fetch(`/api/bank?discordId=${discordId}`)
     .then((res) => res.json())
     .then((data) => {

@@ -677,5 +677,11 @@ export async function GET(req: Request) {
     cuts,
     history,
     seasons,
+  }, {
+    headers: {
+      // Per-user data: kept only in this person's browser, never shared.
+      "Cache-Control": "private, max-age=30",
+      Vary: "Authorization",
+    },
   });
 }

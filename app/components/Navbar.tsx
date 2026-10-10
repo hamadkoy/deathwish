@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { usePathname } from "next/navigation";
@@ -44,9 +45,17 @@ const [acceptedApplication, setAcceptedApplication] = useState(false);
   useEffect(() => {
     loadUser();
 
-    supabase.auth.onAuthStateChange(() => {
+    // Unsubscribed on unmount so listeners don't pile up. Token refreshes
+    // don't change the profile, and INITIAL_SESSION is already covered by
+    // the loadUser() call above, so those two are skipped.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
       loadUser();
     });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   async function loadUser() {
@@ -89,7 +98,7 @@ const [acceptedApplication, setAcceptedApplication] = useState(false);
 
   return (
     <nav className="navbar">
-      <a href="/" className="brand">
+      <Link href="/" prefetch={false} className="brand">
         <img src="/websitelogo.png" alt="" />
 
         <div className="brandText">
@@ -102,7 +111,7 @@ const [acceptedApplication, setAcceptedApplication] = useState(false);
             <span />
           </div>
         </div>
-      </a>
+      </Link>
 
       <div className="rightSide">
         {isGuildSection ? (
@@ -236,7 +245,7 @@ const [acceptedApplication, setAcceptedApplication] = useState(false);
           backdrop-filter: blur(10px);
         }
 
-        .brand {
+        :global(.brand) {
           display: flex;
           align-items: center;
           gap: 14px;
@@ -245,7 +254,7 @@ const [acceptedApplication, setAcceptedApplication] = useState(false);
           flex-shrink: 0;
         }
 
-        .brand img {
+        :global(.brand) img {
           width: ${isMobile ? "70px" : "95px"};
           height: ${isMobile ? "70px" : "95px"};
           object-fit: contain;
@@ -365,25 +374,48 @@ function NavButton({
   children: React.ReactNode;
   style: React.CSSProperties;
 }) {
+  const onMouseEnter = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.currentTarget.style.transform = "scale(1.06)";
+    e.currentTarget.style.background =
+      "linear-gradient(90deg,#9333ea,#e879f9)";
+    e.currentTarget.style.boxShadow = "0 0 22px rgba(217,70,239,0.9)";
+  };
+
+  const onMouseLeave = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.currentTarget.style.transform = "scale(1)";
+    e.currentTarget.style.background =
+      "linear-gradient(90deg,#6d28d9,#c026d3)";
+    e.currentTarget.style.boxShadow = "0 0 14px rgba(168,85,247,0.45)";
+  };
+
+  // Links with a query string (e.g. /runs?apply=true) keep a full page
+  // load, in case the target page only reads the URL when it first mounts.
+  if (href.includes("?")) {
+    return (
+      <a
+        href={href}
+        style={style}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+      >
+        {children}
+      </a>
+    );
+  }
+
+  // Client-side navigation: no full page reload, so the browser doesn't
+  // re-request the page, background images and logo on every click, and
+  // the sidebar isn't rebuilt from scratch.
   return (
-    <a
+    <Link
       href={href}
+      prefetch={false}
       style={style}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "scale(1.06)";
-        e.currentTarget.style.background =
-          "linear-gradient(90deg,#9333ea,#e879f9)";
-        e.currentTarget.style.boxShadow = "0 0 22px rgba(217,70,239,0.9)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "scale(1)";
-        e.currentTarget.style.background =
-          "linear-gradient(90deg,#6d28d9,#c026d3)";
-        e.currentTarget.style.boxShadow = "0 0 14px rgba(168,85,247,0.45)";
-      }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       {children}
-    </a>
+    </Link>
   );
 }
 

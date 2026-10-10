@@ -31,25 +31,46 @@ function parseNumber(value: any) {
   return Number.isNaN(num) ? 0 : num;
 }
 
+// Built once per server instance instead of on every request.
+let sheetsClient: any = null;
+
+async function getSheets() {
+  if (sheetsClient) return sheetsClient;
+
+  const auth = new google.auth.GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_CLIENT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    },
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  });
+
+  sheetsClient = google.sheets({
+    version: "v4",
+    auth: (await auth.getClient()) as any,
+  });
+
+  return sheetsClient;
+}
+
 export async function GET() {
   try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_CLIENT_EMAIL,
-        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-      },
-      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-    });
+    const sheets = await getSheets();
 
-    const authClient = await auth.getClient();
-    const sheets = google.sheets({ version: "v4", auth: authClient as any });
-
-    const totalRes = await sheets.spreadsheets.values.get({
+    // One batchGet for Total + all season tabs, instead of 13 sequential
+    // requests. Results come back in the same order as `ranges`, so the
+    // leaderboard logic below behaves exactly as before.
+    const res = await sheets.spreadsheets.values.batchGet({
       spreadsheetId: SPREADSHEET_ID,
-      range: "'Total'!A2:D500",
+      ranges: [
+        "'Total'!A2:D500",
+        ...SEASONS.map((season) => `'${season}'!A1:ZZ1000`),
+      ],
     });
 
-    const totalRows = totalRes.data.values || [];
+    const valueRanges = res.data.valueRanges || [];
+
+    const totalRows: any[][] = valueRanges[0]?.values || [];
 
     const allPlayers = totalRows
       .map((row) => ({
@@ -76,13 +97,9 @@ export async function GET() {
 
     const highestWeekByPlayer: Record<string, any> = {};
 
-    for (const season of SEASONS) {
-      const res = await sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `'${season}'!A1:ZZ1000`,
-      });
-
-      const rows = res.data.values || [];
+    for (let s = 0; s < SEASONS.length; s++) {
+      const season = SEASONS[s];
+      const rows: any[][] = valueRanges[s + 1]?.values || [];
       if (!rows.length) continue;
 
       const headerIndex = rows.findIndex((row) =>
@@ -158,11 +175,18 @@ export async function GET() {
       },
       {
         headers: {
-          "Cache-Control": "no-store",
+          // Same data for everyone. Browser reuses it for 60s (no request
+          // at all), Vercel's CDN serves it for 5 min without running the
+          // function, and refreshes in the background after that.
+          "Cache-Control":
+            "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
         },
       }
     );
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
+    );
   }
 }
