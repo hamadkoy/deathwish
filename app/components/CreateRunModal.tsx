@@ -14,11 +14,9 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
    Keep raid names SHORT so run cards stay on one line.
 ============================== */
 const RAIDS = [
+  "The Unbinding of Kith'ix",
   "Venomous Abyss",
   "Venomous & Tidebound",
-  "Manaforge Omega",
-  "Undermine",
-  "Nerub-ar Palace",
 ];
 
 const DIFFICULTIES = ["Normal", "Heroic", "Mythic"] as const;
@@ -34,6 +32,7 @@ const THEMES = [
   { key: "mythic-purple", label: "Purple", dot: "#a855f7" },
   { key: "hc-gold", label: "HC Blue", dot: "#3b82f6" },
   { key: "void", label: "Void", dot: "#60a5fa" },
+  { key: "kithix", label: "Purple", dot: "#f97316" },
 ];
 
 // Countdown is measured from the moment you press Create.
