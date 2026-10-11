@@ -4670,7 +4670,14 @@ function getRunTheme(run: Run, index: number) {
       emblem: "/hc-emblem1.png",
     };
   }
-
+  if (run.background_key === "kithix") {
+    return {
+      bg: "/kithix-bg.png",
+      glow: "rgba(249,115,22,.9)",
+      title: "#fed7aa",
+      emblem: "/mythic-red-emblem.png",
+    };
+  }
   return {
     bg: "/mythic-purple-bg.png",
     glow: "rgba(168,85,247,.9)",
