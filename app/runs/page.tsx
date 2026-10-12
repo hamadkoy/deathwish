@@ -677,8 +677,7 @@ function getLockedCharacters(targetRunId?: number) {
 
   const target = runs.find((r) => r.id === targetRunId);
   if (!target) return locked;
-
-  const diff = runDifficulty(target.title);
+  const group = runLockGroup(target);
 
   signups.forEach((s) => {
     if (!s.character_id) return;
@@ -688,12 +687,23 @@ function getLockedCharacters(targetRunId?: number) {
     const run = runs.find((r) => r.id === s.run_id);
     if (!run) return;
     if (run.week !== target.week) return;
-    if (runDifficulty(run.title) !== diff) return;
+    if (runLockGroup(run) !== group) return;
 
     locked[s.character_id] = `${run.day.slice(0, 3)} ${run.time}`;
   });
 
   return locked;
+}
+/** Kith'ix-themed runs are a separate raid, so they lock on their own. */
+function runLockGroup(run?: Run) {
+  const raid = run?.background_key === "kithix" ? "kithix" : "main";
+  return `${raid}-${runDifficulty(run?.title)}`;
+}
+
+function runLockLabel(run?: Run) {
+  const diff = runDifficulty(run?.title);
+  const d = diff === "Other" ? "" : diff;
+  return run?.background_key === "kithix" ? `Kith'ix ${d}`.trim() : d;
 }
  async function addSignup(runId: number, role: string) {
   if (!user) {
@@ -772,7 +782,7 @@ async function signWithCharacter(char: Character, runId: number, role: string) {
   if (lockedIn) {
     setPopup({
       title: "Character Locked",
-      message: `${char.name} is already signed for another ${runDifficulty(run?.title)} run this week (${lockedIn}).`,
+      message: `${char.name} is already signed for another ${runLockLabel(run)} run this week (${lockedIn}).`,
       type: "error",
     });
     return;
@@ -872,7 +882,7 @@ async function swapSignupCharacter(char: Character, signupId: number) {
   if (lockedIn) {
     setPopup({
       title: "Character Locked",
-      message: `${char.name} is already signed for another ${runDifficulty(run?.title)} run this week (${lockedIn}).`,
+      message: `${char.name} is already signed for another ${runLockLabel(run)} run this week (${lockedIn}).`,
       type: "error",
     });
     return;
@@ -1766,7 +1776,7 @@ paddingRight: 80,
   role={pickerTarget?.role || ""}
   runTitle={runs.find((r) => r.id === pickerTarget?.runId)?.title}
   ilvlRequired={runs.find((r) => r.id === pickerTarget?.runId)?.ilvl_required}
-  difficulty={runDifficulty(runs.find((r) => r.id === pickerTarget?.runId)?.title)}
+    difficulty={runLockLabel(runs.find((r) => r.id === pickerTarget?.runId))}
   locked={getLockedCharacters(pickerTarget?.runId)}
   expRequired={runs.find((r) => r.id === pickerTarget?.runId)?.exp_required}
   usedIds={signups
@@ -3669,7 +3679,7 @@ function CharacterPicker({
   role: string;
   runTitle?: string;
   ilvlRequired?: number;
-  difficulty: Difficulty;
+    difficulty: string;
   locked: Record<number, string>;
   expRequired?: string;
   usedIds: number[];
@@ -3785,7 +3795,7 @@ function CharacterPicker({
                     {used
                       ? "ALREADY SIGNED"
                       : lockedIn
-                      ? `🔒 ${difficulty === "Other" ? "" : difficulty + " "}LOCKED`
+                           ? `🔒 ${difficulty ? difficulty + " " : ""}LOCKED`
                       : tooLow
                       ? "ILVL TOO LOW"
                       : "NOT ENOUGH EXP"}

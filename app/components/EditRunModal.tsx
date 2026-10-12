@@ -38,7 +38,7 @@ const BACKGROUNDS = [
   { key: "mythic-purple", label: "Purple", dot: "#a855f7" },
   { key: "hc-gold", label: "HC Blue", dot: "#3b82f6" },
   { key: "void", label: "Void", dot: "#60a5fa" },
-  { key: "kithix", label: "Purple", dot: "#f97316" },
+    { key: "kithix", label: "Kith'ix", dot: "#f97316" },
 ];
 
 function bossRange() {

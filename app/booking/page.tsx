@@ -292,6 +292,7 @@ const isMythic =
 
                   <Link
                     href={`/booking/${run.id}?week=${selectedWeek}`}
+                      prefetch={false}
                     style={bookBtn}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = "translateY(-2px) scale(1.06)";
