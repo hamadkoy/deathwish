@@ -364,85 +364,73 @@ export default function RaidLogsPage() {
     const locked = !log && !open && !closed;
     const uploading = uploadingRunId === run.id;
     const start = getRunStart(run);
+    const opensAt = start !== null ? formatServerTime(start + UPLOAD_OPENS_AFTER_MS) : null;
 
-    const info = (
-      <div style={{ minWidth: 0 }}>
-        <div className="wl-run-id">Run #{run.id}</div>
-        <div className="wl-run-when">
-          {formatYmd(run.run_date)}, {formatTime(run.time)}
-        </div>
-        {run.title && (
-          <div className="wl-run-title" title={run.title}>
-            {run.title}
-          </div>
-        )}
-      </div>
-    );
+    let status: React.ReactNode;
 
-    const lockBox = (
-      <div
-        className="wl-lock"
-        title={start ? `Opens at ${formatServerTime(start + UPLOAD_OPENS_AFTER_MS)} ST` : undefined}
-      >
-        <span className="wl-lock-icon">🔒</span>
-        <span>
-          Opens 15 min
-          <br />
-          after the run start
+    if (log) {
+      status = (
+        <span className="wl-pill ok">
+          <span className="wl-dot">✓</span> Uploaded
         </span>
-      </div>
-    );
+      );
+    } else if (open) {
+      status = (
+        <span className="wl-pill warn">
+          <span className="wl-dot">!</span> Missing
+        </span>
+      );
+    } else if (closed) {
+      status = (
+        <span className="wl-pill done">
+          <span className="wl-dot">✓</span> Finished
+        </span>
+      );
+    } else {
+      status = (
+        <span className="wl-pill lock" title="Logs open 15 minutes after the run start">
+          🔒 {opensAt ? `Opens ${opensAt} ST` : "Locked"}
+        </span>
+      );
+    }
 
-    const uploadButton = (
-      <button className="wl-btn primary" onClick={() => (uploading ? setUploadingRunId(null) : openUpload(run))}>
-        {uploading ? "Cancel" : "Upload Logs"}
-      </button>
-    );
+    let action: React.ReactNode = null;
+
+    if (log) {
+      action = <span className="wl-reward">+{REWARD_PER_LOG.toLocaleString()} 🟡</span>;
+    } else if (open || isAdmin) {
+      action = (
+        <button
+          className="wl-btn primary"
+          onClick={() => (uploading ? setUploadingRunId(null) : openUpload(run))}
+        >
+          {uploading ? "Cancel" : "Upload Logs"}
+        </button>
+      );
+    } else if (closed) {
+      action = (
+        <button className="wl-btn ghost" onClick={() => openUpload(run)} title="Upload window closed">
+          Closed
+        </button>
+      );
+    }
 
     return (
-      <div key={run.id} className="wl-run">
-        {locked && !isAdmin ? (
-          <div className="wl-run-main is-locked">
-            {info}
-            {lockBox}
+      <div key={run.id} className={`wl-run${locked ? " is-locked" : ""}`}>
+        <div className="wl-run-row">
+          <div className="wl-run-head">
+            <span className="wl-run-id">Run #{run.id}</span>
+            <span className="wl-run-time">{formatTime(run.time)}</span>
           </div>
-        ) : (
-          <div className="wl-run-main">
-            {info}
+          {status}
+        </div>
 
-            {log ? (
-              <span className="wl-pill ok">
-                <span className="wl-dot">✓</span> Uploaded
-              </span>
-            ) : open ? (
-              <span className="wl-pill warn">
-                <span className="wl-dot">!</span> Missing
-              </span>
-            ) : closed ? (
-              <span className="wl-pill ok">
-                <span className="wl-dot">✓</span> Finished Run
-              </span>
-            ) : (
-              lockBox
-            )}
-
-            {log ? (
-              <span className="wl-reward">
-                <span className="wl-coin">🟡</span> +{REWARD_PER_LOG.toLocaleString()}
-              </span>
-            ) : open || isAdmin ? (
-              uploadButton
-            ) : (
-              <button
-                className="wl-btn ghost"
-                onClick={() => openUpload(run)}
-                title="Upload window closed"
-              >
-                Closed
-              </button>
-            )}
+        <div className="wl-run-row" style={{ marginTop: 8 }}>
+          <div className="wl-run-title" title={run.title}>
+            {run.title || "—"}
           </div>
-        )}
+          {action}
+        </div>
 
         {log && (
           <>
@@ -604,7 +592,8 @@ export default function RaidLogsPage() {
           </div>
         </aside>
 
-        <main style={{ minWidth: 0 }}>
+        <main className="wl-main">
+          <section style={{ minWidth: 0 }}>
           <header className="wl-header">
             <img src="/Logs2.png" alt="" className="wl-header-icon" />
             <div>
@@ -652,24 +641,20 @@ export default function RaidLogsPage() {
           </div>
 
           {weeksToShow.map(renderWeek)}
+          </section>
 
-          <section className="wl-champs">
-            <div className="wl-champs-head">
-              <div>
-                <h2>🏆 Logs Champions</h2>
-                <p>All-time Warcraft Logs rewards</p>
-              </div>
-              <div className="wl-champs-total">
-                Total Paid <b>{totalReward.toLocaleString()} 🟡</b>
-              </div>
-            </div>
+          <aside className="wl-right">
+          <div className="wl-champs">
+            <div className="wl-champs-glow">✦</div>
+            <h2 className="wl-champs-title">🏆 Logs Champions</h2>
+            <p className="wl-champs-sub">All-time Warcraft Logs rewards</p>
 
             {uploaderRewards.length === 0 ? (
               <div className="wl-empty">
                 <b>No logs uploaded yet.</b>
               </div>
             ) : (
-              <div className="wl-champs-grid">
+              <div className="wl-champs-list">
                 {uploaderRewards.map((u, index) => (
                   <div key={u.key} className={`wl-champ${index < 3 ? ` top${index + 1}` : ""}`}>
                     <div className="wl-rank">#{index + 1}</div>
@@ -689,7 +674,13 @@ export default function RaidLogsPage() {
                 ))}
               </div>
             )}
-          </section>
+
+            <div className="wl-champs-total">
+              <span>Total Paid</span>
+              <b>{totalReward.toLocaleString()} 🟡</b>
+            </div>
+          </div>
+          </aside>
         </main>
       </div>
 
@@ -1091,11 +1082,37 @@ const CSS = `
   text-shadow: 0 0 12px rgba(168,85,247,.6);
 }
 
-.wl-grid {
+.wl-main {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 18px;
   align-items: start;
+}
+
+.wl-right {
+  position: sticky;
+  top: 24px;
+  margin-top: 118px;
+}
+
+@media (max-width: 1300px) {
+  .wl-main { grid-template-columns: minmax(0, 1fr); }
+  .wl-right { position: static; margin-top: 10px; }
+}
+
+.wl-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 1700px) {
+  .wl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1000px) {
+  .wl-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 .wl-day {
@@ -1151,24 +1168,38 @@ const CSS = `
   border-radius: 10px;
   background: rgba(14,12,30,.88);
   border: 1px solid rgba(255,255,255,.07);
+  border-left: 3px solid var(--accent-soft);
+  transition: border-color .18s ease, background .18s ease;
 }
 
-.wl-run-main {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+.wl-run:hover { background: rgba(22,18,44,.92); border-color: var(--accent-soft); }
+
+.wl-run.is-locked { border-left-color: rgba(239,68,68,.55); }
+
+.wl-run-row {
+  display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
 }
 
-.wl-run-main.is-locked { grid-template-columns: minmax(0, 1fr) auto; }
+.wl-run-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  white-space: nowrap;
+}
 
 .wl-run-id { font-weight: 900; font-size: 16px; }
-.wl-run-when { margin-top: 3px; color: #cbd5e1; font-size: 13px; }
+.wl-run-time { color: #facc15; font-weight: 800; font-size: 14px; }
 
 .wl-run-title {
-  margin-top: 3px;
+  min-width: 0;
   color: #c4b5fd;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1177,54 +1208,46 @@ const CSS = `
 .wl-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 14px;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
   border-radius: 8px;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 13px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .wl-pill.ok   { color: #4ade80; border: 1px solid rgba(34,197,94,.7);  background: rgba(5,46,22,.55); }
 .wl-pill.warn { color: #facc15; border: 1px solid rgba(250,204,21,.7); background: rgba(66,52,4,.45); }
+.wl-pill.done { color: #a7f3d0; border: 1px solid rgba(110,231,183,.35); background: rgba(6,40,30,.4); }
+.wl-pill.lock {
+  color: #fecaca;
+  border: 1px solid rgba(239,68,68,.7);
+  background: rgba(60,6,6,.55);
+  box-shadow: 0 0 10px rgba(239,68,68,.18);
+}
 
 .wl-dot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
 }
 .wl-pill.ok .wl-dot   { background: #22c55e; color: #04150a; }
 .wl-pill.warn .wl-dot { background: #facc15; color: #2a1d00; }
+.wl-pill.done .wl-dot { background: rgba(110,231,183,.8); color: #04150a; }
 
-.wl-lock {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 14px;
-  border-radius: 8px;
-  border: 1px solid rgba(239,68,68,.75);
-  background: rgba(60,6,6,.55);
-  color: #fecaca;
-  font-weight: 800;
-  font-size: 13px;
-  line-height: 1.3;
-  white-space: nowrap;
-  box-shadow: 0 0 12px rgba(239,68,68,.2);
-}
-.wl-lock-icon { font-size: 18px; }
-
-.wl-reward { color: #fff; font-weight: 900; white-space: nowrap; }
-.wl-coin { font-size: 13px; }
+.wl-reward { color: #facc15; font-weight: 900; white-space: nowrap; flex-shrink: 0; }
 
 .wl-btn {
-  height: 36px;
-  padding: 0 16px;
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 14px;
   border-radius: 8px;
   font-weight: 800;
   font-size: 14px;
@@ -1322,7 +1345,8 @@ const CSS = `
 
 /* ---------- Champions ---------- */
 .wl-champs {
-  margin-top: 28px;
+  position: relative;
+  overflow: hidden;
   padding: 20px;
   border-radius: 18px;
   border: 1px solid rgba(168,85,247,.45);
@@ -1332,24 +1356,36 @@ const CSS = `
   box-shadow: 0 0 35px rgba(168,85,247,.22), inset 0 0 25px rgba(168,85,247,.08);
 }
 
-.wl-champs-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
+.wl-champs-glow {
+  position: absolute;
+  top: 10px;
+  right: 18px;
+  color: #f0abfc;
+  font-size: 32px;
+  opacity: .55;
+  text-shadow: 0 0 20px rgba(217,70,239,.9);
 }
-.wl-champs-head h2 { margin: 0 0 4px; font-size: 26px; font-weight: 900; }
-.wl-champs-head p { margin: 0; color: #c4b5fd; font-weight: 800; }
-.wl-champs-total { color: #e5e7eb; font-weight: 900; }
-.wl-champs-total b { color: #facc15; margin-left: 6px; }
 
-.wl-champs-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+.wl-champs-title { margin: 0 0 4px; font-size: 26px; font-weight: 900; }
+.wl-champs-sub { margin: 0 0 18px; color: #c4b5fd; font-weight: 800; }
+
+.wl-champs-list {
+  display: flex;
+  flex-direction: column;
   gap: 14px;
+  padding-top: 6px;
 }
+
+.wl-champs-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  color: #e5e7eb;
+  font-weight: 900;
+}
+.wl-champs-total b { color: #facc15; }
 
 .wl-champ {
   position: relative;
