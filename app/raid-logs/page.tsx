@@ -512,15 +512,12 @@ export default function RaidLogsPage() {
                     "--accent": theme.accent,
                     "--accent-soft": `rgba(${theme.rgb},.55)`,
                     "--accent-faint": `rgba(${theme.rgb},.22)`,
+                    // Art covers the whole card; darker toward the bottom so rows stay readable
+                    background: `linear-gradient(180deg, rgba(6,4,18,.25) 0%, rgba(6,4,18,.55) 35%, rgba(6,4,18,.82) 100%), linear-gradient(90deg, rgba(6,4,18,.5) 0%, rgba(${theme.rgb},.14) 100%), url(${theme.bg}) center/cover no-repeat`,
                   } as React.CSSProperties
                 }
               >
-                <div
-                  className="wl-day-head"
-                  style={{
-                    background: `linear-gradient(90deg, rgba(6,4,18,.96) 0%, rgba(6,4,18,.72) 45%, rgba(${theme.rgb},.22) 100%), url(${theme.bg}) center/cover`,
-                  }}
-                >
+                <div className="wl-day-head">
                   <DayEmblem color={theme.accent} />
                   <div>
                     <div className="wl-day-name">
@@ -1134,6 +1131,7 @@ const CSS = `
   gap: 14px;
   min-height: 80px;
   padding: 14px 18px;
+  background: linear-gradient(90deg, rgba(6,4,18,.65) 0%, rgba(6,4,18,.15) 70%, transparent 100%);
   border-bottom: 1px solid var(--accent-faint);
 }
 
@@ -1166,13 +1164,15 @@ const CSS = `
 .wl-run {
   padding: 12px 14px;
   border-radius: 10px;
-  background: rgba(14,12,30,.88);
-  border: 1px solid rgba(255,255,255,.07);
+  background: rgba(10,8,24,.62);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,.08);
   border-left: 3px solid var(--accent-soft);
   transition: border-color .18s ease, background .18s ease;
 }
 
-.wl-run:hover { background: rgba(22,18,44,.92); border-color: var(--accent-soft); }
+.wl-run:hover { background: rgba(18,14,40,.78); border-color: var(--accent-soft); }
 
 .wl-run.is-locked { border-left-color: rgba(239,68,68,.55); }
 
