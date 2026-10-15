@@ -89,6 +89,10 @@ export default function RaidLogsPage() {
   const [popup, setPopup] = useState<Popup | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
+  // Current name/avatar per user, so old saved Discord avatar links don't break
+  const [profileMap, setProfileMap] = useState<
+    Record<string, { name?: string; avatar?: string }>
+  >({});
 
   useEffect(() => {
     loadRuns();
@@ -124,6 +128,24 @@ export default function RaidLogsPage() {
     }
 
     setLogs(data || []);
+    loadUploaderProfiles(data || []);
+  }
+
+  async function loadUploaderProfiles(list: RaidLog[]) {
+    const ids = Array.from(new Set(list.map((l) => l.user_id).filter(Boolean)));
+    if (ids.length === 0) return;
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("user_id, discord_name, avatar_url")
+      .in("user_id", ids);
+
+    const map: Record<string, { name?: string; avatar?: string }> = {};
+    (data || []).forEach((p: any) => {
+      map[p.user_id] = { name: p.discord_name || undefined, avatar: p.avatar_url || undefined };
+    });
+
+    setProfileMap(map);
   }
 
   async function getLoggedUser() {
@@ -208,8 +230,8 @@ export default function RaidLogsPage() {
       if (!map[key]) {
         map[key] = {
           key,
-          name: log.uploader_name || "Unknown",
-          avatar: log.uploader_avatar,
+          name: profileMap[key]?.name || log.uploader_name || "Unknown",
+          avatar: profileMap[key]?.avatar || log.uploader_avatar,
           count: 0,
           reward: 0,
         };
@@ -220,7 +242,7 @@ export default function RaidLogsPage() {
     });
 
     return Object.values(map).sort((a, b) => b.reward - a.reward);
-  }, [validLogs]);
+  }, [validLogs, profileMap]);
 
   const weekLogCount = useMemo(() => {
     if (selectedWeek === "All") return validLogs.length;
@@ -452,8 +474,8 @@ export default function RaidLogsPage() {
             </div>
 
             <div className="wl-uploader">
-              {log.uploader_avatar && <img src={log.uploader_avatar} alt="" />}
-              Uploaded by <b>{log.uploader_name || "Unknown"}</b>
+              <Avatar src={profileMap[log.user_id]?.avatar || log.uploader_avatar} />
+              Uploaded by <b>{profileMap[log.user_id]?.name || log.uploader_name || "Unknown"}</b>
             </div>
           </>
         )}
@@ -578,6 +600,7 @@ export default function RaidLogsPage() {
               Earn <b>{REWARD_PER_LOG.toLocaleString()} 🟡</b> for each uploaded Warcraft Logs link.
             </p>
             <p>Logs can be deleted only within 2 hours.</p>
+            <p>Rewards are paid at the end of the season.</p>
             <div className="wl-stat">
               <span>{selectedWeek === "All" ? "All weeks" : `Week ${selectedWeek}`}</span>
               <b>{weekLogCount} logs</b>
@@ -656,11 +679,7 @@ export default function RaidLogsPage() {
                   <div key={u.key} className={`wl-champ${index < 3 ? ` top${index + 1}` : ""}`}>
                     <div className="wl-rank">#{index + 1}</div>
                     <div className="wl-champ-left">
-                      {u.avatar ? (
-                        <img src={u.avatar} alt="" />
-                      ) : (
-                        <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="" />
-                      )}
+                      <Avatar src={u.avatar} />
                       <div style={{ minWidth: 0 }}>
                         <div className="wl-champ-name">{u.name}</div>
                         <div className="wl-champ-count">Uploaded: {u.count}</div>
@@ -673,8 +692,12 @@ export default function RaidLogsPage() {
             )}
 
             <div className="wl-champs-total">
-              <span>Total Paid</span>
+              <span>Total Earned</span>
               <b>{totalReward.toLocaleString()} 🟡</b>
+            </div>
+
+            <div className="wl-champs-payout">
+              💰 Rewards are paid at the end of the season
             </div>
           </div>
           </aside>
@@ -709,6 +732,25 @@ export default function RaidLogsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// ==============================
+// Avatar with fallback (old Discord links die when users change their picture)
+// ==============================
+const DEFAULT_AVATAR = "https://cdn.discordapp.com/embed/avatars/0.png";
+
+function Avatar({ src }: { src?: string }) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => setFailed(false), [src]);
+
+  return (
+    <img
+      src={!src || failed ? DEFAULT_AVATAR : src}
+      alt=""
+      onError={() => setFailed(true)}
+    />
   );
 }
 
@@ -1386,6 +1428,18 @@ const CSS = `
   font-weight: 900;
 }
 .wl-champs-total b { color: #facc15; }
+
+.wl-champs-payout {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(250,204,21,.4);
+  background: rgba(66,52,4,.35);
+  color: #fde68a;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
 
 .wl-champ {
   position: relative;
