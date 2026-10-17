@@ -4838,11 +4838,11 @@ letterSpacing: 1,
 };
 
 const weekButtons: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(10, auto)",
+  display: "flex",
+  flexWrap: "wrap",
   justifyContent: "center",
   alignItems: "center",
-  gap: 8,
+  gap: 10,
 
   width: "100%",
   maxWidth: 1380,
@@ -4888,15 +4888,23 @@ const runsRequiredWarn: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 const weekButton: React.CSSProperties = {
-  padding: "12px 18px",
+  // Fixed size so every week box is identical, whatever its dates are
+  width: 128,
+  height: 72,
+  flex: "0 0 128px",
+  padding: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  whiteSpace: "nowrap",
+  lineHeight: 1.15,
   borderRadius: 40,
   border: "1px solid #7e22ce",
   background:
     "linear-gradient(180deg, rgba(35,8,65,.95), rgba(8,0,20,.98))",
   color: "#ffffff",
-  fontWeight: 1500,
-  fontSize: 25,
-  minWidth: 100,
+  fontWeight: 900,
+  fontSize: 22,
   cursor: "pointer",
   textShadow: "0 0 8px rgba(255,255,255,.7)",
   boxShadow:
@@ -4914,8 +4922,9 @@ const weekButtonActive: React.CSSProperties = {
 };
 
 const weekDateText: React.CSSProperties = {
-  marginTop: 2,
-  fontSize: 15,
+  marginTop: 3,
+  fontSize: 13,
+  whiteSpace: "nowrap",
   color: "#d8b4fe",
   fontWeight: 900,
 };
