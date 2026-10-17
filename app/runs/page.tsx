@@ -3906,10 +3906,29 @@ function PrintRunsPopup({
   const [sortMode, setSortMode] = useState<"time" | "hc" | "mythic">("time");
   const [withChars, setWithChars] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [size, setSize] = useState({ w: 1150, h: 800 });
 
   useEffect(() => {
     setCopied(false);
   }, [open, sortMode, withChars]);
+
+  // Fill ~96% x 94% of the screen. The page is zoomed (body zoom 0.8),
+  // so divide by the zoom to get the real on-screen size.
+  useEffect(() => {
+    if (!open) return;
+
+    function measure() {
+      const zoom = Number((document.body.style as any).zoom) || 1;
+      setSize({
+        w: Math.round((window.innerWidth * 0.96) / zoom),
+        h: Math.round((window.innerHeight * 0.94) / zoom),
+      });
+    }
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [open]);
 
   if (!open) return null;
 
@@ -3973,7 +3992,10 @@ function PrintRunsPopup({
 
   return (
     <div style={popupOverlay} onClick={onClose}>
-      <div style={prPanel} onClick={(e) => e.stopPropagation()}>
+      <div
+        style={{ ...prPanel, width: size.w, height: size.h, maxHeight: size.h }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <button onClick={onClose} style={pickerClose}>
           ✕
         </button>
@@ -4838,11 +4860,11 @@ letterSpacing: 1,
 };
 
 const weekButtons: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(10, auto)",
+  display: "flex",
+  flexWrap: "wrap",
   justifyContent: "center",
   alignItems: "center",
-  gap: 8,
+  gap: 10,
 
   width: "100%",
   maxWidth: 1380,
@@ -4888,15 +4910,23 @@ const runsRequiredWarn: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 const weekButton: React.CSSProperties = {
-  padding: "12px 18px",
+  // Fixed size so every week box is identical, whatever its dates are
+  width: 128,
+  height: 72,
+  flex: "0 0 128px",
+  padding: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  whiteSpace: "nowrap",
+  lineHeight: 1.15,
   borderRadius: 40,
   border: "1px solid #7e22ce",
   background:
     "linear-gradient(180deg, rgba(35,8,65,.95), rgba(8,0,20,.98))",
   color: "#ffffff",
-  fontWeight: 1500,
-  fontSize: 25,
-  minWidth: 100,
+  fontWeight: 900,
+  fontSize: 22,
   cursor: "pointer",
   textShadow: "0 0 8px rgba(255,255,255,.7)",
   boxShadow:
@@ -4914,8 +4944,9 @@ const weekButtonActive: React.CSSProperties = {
 };
 
 const weekDateText: React.CSSProperties = {
-  marginTop: 2,
-  fontSize: 15,
+  marginTop: 3,
+  fontSize: 13,
+  whiteSpace: "nowrap",
   color: "#d8b4fe",
   fontWeight: 900,
 };
@@ -5712,12 +5743,11 @@ const runsLayout: React.CSSProperties = {
 };
 const prPanel: React.CSSProperties = {
   position: "relative",
-  width: 1150,
-  maxWidth: "96vw",
-  maxHeight: "92vh",
+  // width/height are set in PrintRunsPopup from the real window size
+  maxWidth: 1900,
   display: "flex",
   flexDirection: "column",
-  padding: "38px 38px 30px",
+  padding: "28px 34px 24px",
   borderRadius: 26,
   background:
     "radial-gradient(circle at 50% 0%, rgba(168,85,247,.18), transparent 55%), linear-gradient(180deg, rgba(12,4,28,.99), rgba(4,0,12,.99))",
@@ -5794,6 +5824,7 @@ const prToggle: React.CSSProperties = {
 };
 
 const prList: React.CSSProperties = {
+  flex: 1,
   overflowY: "auto",
   minHeight: 0,
   display: "flex",
@@ -5820,8 +5851,8 @@ const prRow: React.CSSProperties = {
   gridTemplateColumns: "200px 110px 84px 1fr auto",
   alignItems: "center",
   gap: 16,
-  padding: "14px 18px",
-  marginBottom: 8,
+  padding: "10px 18px",
+  marginBottom: 6,
   borderRadius: 12,
   background: "linear-gradient(90deg, rgba(168,85,247,.12), rgba(168,85,247,.03))",
   border: "1px solid rgba(168,85,247,.18)",
