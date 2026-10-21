@@ -797,9 +797,10 @@ export function HeartsRosterButton({
       )}
 
       {open && (
-        <div style={hb.rosterBox}>
-          <button onClick={() => setOpen(false)} style={hb.rosterClose}>
-            ×
+        <div style={hb.rosterOverlay} onClick={() => setOpen(false)}>
+        <div style={hb.rosterBox} onClick={(e) => e.stopPropagation()}>
+          <button onClick={() => setOpen(false)} style={hb.rosterClose} aria-label="Close">
+            ✕
           </button>
 
           <div style={hb.rosterTitle}>♥ HEARTS</div>
@@ -820,20 +821,20 @@ export function HeartsRosterButton({
                 style={{
                   ...hb.rosterRow,
                   gridTemplateColumns: isAdmin
-                    ? "1fr auto 46px auto"
-                    : "1fr auto 46px",
+                    ? "1fr auto 70px auto"
+                    : "1fr auto 70px",
                 }}
               >
                 <b style={hb.rosterName} title={row.name}>
                   {row.name}
                 </b>
 
-                <div style={{ display: "flex", gap: 3 }}>
+                <div style={{ display: "flex", gap: 6 }}>
                   {Array.from({ length: MAX_HEARTS }, (_, i) => (
                     <Heart
                       key={i}
                       filled={i >= MAX_HEARTS - row.hearts}
-                      size={15}
+                      size={26}
                     />
                   ))}
                 </div>
@@ -850,7 +851,7 @@ export function HeartsRosterButton({
                 )}
 
                 {isAdmin && (
-                  <div style={{ display: "flex", gap: 6 }}>
+                  <div style={{ display: "flex", gap: 10 }}>
                     <button
                       onClick={() => onTakeHeart?.(row.key)}
                       title="Take one heart away"
@@ -881,6 +882,7 @@ export function HeartsRosterButton({
               </div>
             ))}
           </div>
+        </div>
         </div>
       )}
     </>
@@ -1482,21 +1484,6 @@ export function PlayerPopup({
               />
             )}
 
-            {canChangeCharacter && (
-              <ActionButton
-                icon="🔄"
-                from="#34d399"
-                to="#047857"
-                glow="rgba(52,211,153,"
-                title="Change character"
-                subtitle="Swap which of your characters is signed."
-                onClick={() => {
-                  onChangeCharacter?.(signup);
-                  onClose();
-                }}
-              />
-            )}
-
             {canEditClass && (
               <ActionButton
                 icon="⚔"
@@ -1708,46 +1695,63 @@ const hb: Record<string, React.CSSProperties> = {
     transition: "transform .18s ease",
   },
 
-  rosterBox: {
+  // Dark blurred backdrop; click it to close
+  rosterOverlay: {
     position: "fixed",
-    left: 20,
-    top: 120,
-    width: 400,
-    maxHeight: "72vh",
+    inset: 0,
+    zIndex: 99999,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    background: "rgba(0,0,0,.72)",
+    backdropFilter: "blur(8px)",
+  },
+  // Centred window, same size family as Run Requests / Run Count
+  rosterBox: {
+    position: "relative",
+    width: "min(1000px, 94vw)",
+    maxHeight: "88vh",
+    minHeight: "50vh",
     display: "flex",
     flexDirection: "column",
-    padding: 18,
-    borderRadius: 18,
-    background: "rgba(14,0,10,.94)",
-    border: "1px solid rgba(255,59,107,.45)",
-    boxShadow: "0 0 30px rgba(255,59,107,.35)",
-    backdropFilter: "blur(12px)",
-    zIndex: 999,
+    padding: "28px 32px",
+    borderRadius: 22,
+    background:
+      "radial-gradient(circle at 50% 0%, rgba(255,59,107,.16), transparent 50%), linear-gradient(180deg, rgba(26,4,16,.99), rgba(6,0,14,.99))",
+    border: "1px solid rgba(255,59,107,.55)",
+    boxShadow: "0 0 60px rgba(255,59,107,.35)",
   },
   rosterClose: {
     position: "absolute",
-    top: 10,
-    right: 12,
-    background: "transparent",
-    border: "none",
+    top: 18,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    background: "linear-gradient(180deg,#7f1d1d,#450a0a)",
+    border: "1px solid rgba(239,68,68,.45)",
     color: "white",
-    fontSize: 22,
+    fontSize: 20,
+    fontWeight: 900,
     cursor: "pointer",
   },
   rosterTitle: {
     color: "#ff8fb0",
     fontWeight: 900,
-    fontSize: 22,
+    fontSize: 38,
+    fontFamily: "Georgia, serif",
     textAlign: "center",
-    marginBottom: 4,
-    letterSpacing: 2,
-    textShadow: "0 0 14px rgba(255,59,107,.7)",
+    marginBottom: 6,
+    letterSpacing: 3,
+    textShadow: "0 0 18px rgba(255,59,107,.7)",
   },
   rosterSub: {
-    color: "#9ca3af",
-    fontSize: 12,
+    color: "#c4b5c8",
+    fontSize: 17,
+    fontWeight: 700,
     textAlign: "center",
-    marginBottom: 14,
+    marginBottom: 22,
   },
   rosterScroll: {
     overflowY: "auto",
@@ -1755,18 +1759,18 @@ const hb: Record<string, React.CSSProperties> = {
   },
   rosterRow: {
     display: "grid",
-    gridTemplateColumns: "1fr auto 46px",
+    gridTemplateColumns: "1fr auto 70px",
     alignItems: "center",
-    gap: 10,
-    padding: "9px 10px",
-    marginBottom: 6,
-    borderRadius: 10,
+    gap: 18,
+    padding: "14px 20px",
+    marginBottom: 10,
+    borderRadius: 14,
     background: "rgba(0,0,0,.4)",
     border: "1px solid rgba(255,59,107,.18)",
   },
   rosterName: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 20,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -1774,54 +1778,54 @@ const hb: Record<string, React.CSSProperties> = {
   ok: {
     textAlign: "center",
     color: "#22c55e",
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: 900,
   },
   lockedTag: {
     textAlign: "center",
     color: "#ef4444",
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: 900,
   },
   empty: {
     color: "#9ca3af",
     textAlign: "center",
-    padding: 14,
-    fontSize: 14,
+    padding: "60px 14px",
+    fontSize: 19,
   },
     takeBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 11,
     border: "1px solid rgba(250,204,21,.6)",
     background: "rgba(40,30,0,.8)",
     color: "#fde68a",
     fontWeight: 900,
-    fontSize: 15,
+    fontSize: 22,
     lineHeight: 1,
     cursor: "pointer",
   },
   giveBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 11,
     border: "1px solid rgba(34,197,94,.6)",
     background: "rgba(4,40,20,.8)",
     color: "#86efac",
     fontWeight: 900,
-    fontSize: 15,
+    fontSize: 22,
     lineHeight: 1,
     cursor: "pointer",
   },
   dropBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 11,
     border: "1px solid rgba(239,68,68,.6)",
     background: "rgba(50,0,0,.8)",
     color: "#fecaca",
     fontWeight: 900,
-    fontSize: 13,
+    fontSize: 18,
     lineHeight: 1,
     cursor: "pointer",
   },

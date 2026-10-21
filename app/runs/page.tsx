@@ -57,6 +57,10 @@ type Run = {
   exp_required?: string;
   time_changed_at?: string;
 dps_limit?: number;
+  // who leads the run (set when created / approved)
+  created_by?: string | null;
+  created_by_name?: string | null;
+  created_by_avatar?: string | null;
 };
 
 type Signup = {
@@ -1215,6 +1219,35 @@ async function sendChatMessage() {
 
 const [banishOpen, setBanishOpen] = useState(false);
 const [statsOpen, setStatsOpen] = useState(false);
+
+// Current Discord name + avatar of each run leader (saved links can go stale)
+const [leaderProfiles, setLeaderProfiles] = useState<
+  Record<string, { name?: string; avatar?: string }>
+>({});
+
+useEffect(() => {
+  const ids = Array.from(
+    new Set(runs.map((r) => r.created_by).filter((id): id is string => !!id))
+  ).filter((id) => !leaderProfiles[id]);
+
+  if (ids.length === 0) return;
+
+  supabase
+    .from("profiles")
+    .select("user_id, discord_name, avatar_url")
+    .in("user_id", ids)
+    .then(({ data }) => {
+      if (!data) return;
+      setLeaderProfiles((prev) => {
+        const next = { ...prev };
+        data.forEach((p: any) => {
+          next[p.user_id] = { name: p.discord_name || undefined, avatar: p.avatar_url || undefined };
+        });
+        return next;
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [runs]);
 const [statsSort, setStatsSort] = useState<"total" | "vip" | "saved">("total");
 const [statsSortDesc, setStatsSortDesc] = useState(true);
 
@@ -2923,6 +2956,30 @@ overflow: "visible",
                         </>
                       )}
                     </div>
+
+                    {run.created_by_name && (() => {
+                      const lp = run.created_by ? leaderProfiles[run.created_by] : undefined;
+                      const leaderName = lp?.name || run.created_by_name;
+                      const leaderAvatar =
+                        lp?.avatar || run.created_by_avatar || "https://cdn.discordapp.com/embed/avatars/0.png";
+
+                      return (
+                        <div style={leaderBadge} title={`Run leader: ${leaderName}`}>
+                          <img
+                            src={leaderAvatar}
+                            alt=""
+                            style={leaderAvatarStyle}
+                            onError={(e) => {
+                              e.currentTarget.src = "https://cdn.discordapp.com/embed/avatars/0.png";
+                            }}
+                          />
+                          <span style={{ color: "#fde68a", fontSize: 12, fontWeight: 900, letterSpacing: 1 }}>
+                            👑 LEADER
+                          </span>
+                          <b style={{ color: "#fff", fontSize: 16 }}>{leaderName}</b>
+                        </div>
+                      );
+                    })()}
 
                     {!signupLocked && !run.signup_open_at && isAdmin && (
                       <div
@@ -5365,6 +5422,29 @@ const createRunButton: React.CSSProperties = {
   cursor: "pointer",
   boxShadow: "0 0 18px rgba(250,204,21,.55)",
   transition: "all .18s ease",
+};
+
+const leaderBadge: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 10,
+  marginTop: 8,
+  padding: "4px 14px 4px 4px",
+  borderRadius: 999,
+  background: "linear-gradient(90deg, rgba(250,204,21,.18), rgba(0,0,0,.35))",
+  border: "1px solid rgba(250,204,21,.5)",
+  boxShadow: "0 0 14px rgba(250,204,21,.25)",
+  backdropFilter: "blur(6px)",
+};
+
+const leaderAvatarStyle: React.CSSProperties = {
+  width: 34,
+  height: 34,
+  borderRadius: "50%",
+  objectFit: "cover",
+  border: "2px solid #facc15",
+  boxShadow: "0 0 10px rgba(250,204,21,.6)",
+  flexShrink: 0,
 };
 
 const createRunDivider: React.CSSProperties = {

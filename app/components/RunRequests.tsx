@@ -239,7 +239,14 @@ function RequestCard({
         ? new Date(Date.now() + request.signup_open_hours * 3600 * 1000).toISOString()
         : null;
 
-    const rows = chosen.map((run) => ({ ...run, signup_open_at: openAt }));
+    // The person who asked for the run leads it, not the approver
+    const rows = chosen.map((run) => ({
+      ...run,
+      signup_open_at: openAt,
+      created_by: request.requested_by,
+      created_by_name: request.requester_name,
+      created_by_avatar: request.requester_avatar,
+    }));
 
     const { error: insertError } = await supabase.from("runs").insert(rows);
 

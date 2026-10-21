@@ -320,9 +320,22 @@ export default function CreateRunModal({
         ? new Date(Date.now() + countdownHours * 60 * 60 * 1000).toISOString()
         : null;
 
+    // Whoever creates the run is shown as its leader
+    const { data: auth } = await supabase.auth.getUser();
+    const { data: me } = await supabase
+      .from("profiles")
+      .select("discord_name, avatar_url")
+      .eq("user_id", auth.user?.id || "")
+      .single();
+
     const rows = drafts.map(({ key, ...row }) => ({
       ...row,
       signup_open_at: openAt,
+      created_by: auth.user?.id || null,
+      created_by_name:
+        me?.discord_name || auth.user?.user_metadata?.full_name || null,
+      created_by_avatar:
+        me?.avatar_url || auth.user?.user_metadata?.avatar_url || null,
     }));
 
     const { error: insertError } = await supabase.from("runs").insert(rows);
