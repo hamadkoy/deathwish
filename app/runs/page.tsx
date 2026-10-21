@@ -2283,7 +2283,24 @@ style={{
             })}
           </div>
         )}
-        <div style={dayButtons}>
+        <div style={{ ...dayButtons, alignItems: "center" }}>
+  <button
+    onClick={() => setShowCreateRun(true)}
+    style={createRunButton}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = "translateY(-3px) scale(1.04)";
+      e.currentTarget.style.boxShadow = "0 0 30px rgba(250,204,21,.9)";
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = "translateY(0) scale(1)";
+      e.currentTarget.style.boxShadow = "0 0 18px rgba(250,204,21,.55)";
+    }}
+  >
+    {isAdmin ? "+ Create Run" : canRequestRuns ? "+ Request Run" : "View Run Planner"}
+  </button>
+
+  <span style={createRunDivider} />
+
   {["All", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday"].map((day) => (
 <button
   key={day}
@@ -2587,11 +2604,6 @@ style={{
   />
 )}
 
-<div style={createArea}>
-  <button onClick={() => setShowCreateRun(true)} style={createRunButton}>
-    {isAdmin ? "+ Create Run" : canRequestRuns ? "+ Request Run" : "View Run Planner"}
-  </button>
-</div>
 <CreateRunModal
   open={showCreateRun}
   onClose={() => setShowCreateRun(false)}
@@ -5321,15 +5333,27 @@ const createArea: React.CSSProperties = {
 };
 
 const createRunButton: React.CSSProperties = {
-  padding: "14px 22px",
+  minWidth: 220,
+  padding: "11px 28px",
   borderRadius: 14,
-  border: "1px solid #9333ea",
-  background: "rgba(20,0,40,.95)",
-  color: "white",
+  border: "1px solid #facc15",
+  background: "linear-gradient(180deg, rgba(95,60,8,.95), rgba(30,10,0,.95))",
+  color: "#fff7cc",
   fontWeight: 900,
-  fontSize: 18,
+  fontSize: 17,
+  letterSpacing: 0.5,
+  whiteSpace: "nowrap",
   cursor: "pointer",
-  boxShadow: "0 0 16px rgba(168,85,247,.75)",
+  boxShadow: "0 0 18px rgba(250,204,21,.55)",
+  transition: "all .18s ease",
+};
+
+const createRunDivider: React.CSSProperties = {
+  width: 2,
+  height: 30,
+  margin: "0 6px",
+  borderRadius: 2,
+  background: "linear-gradient(180deg, transparent, rgba(168,85,247,.8), transparent)",
 };
 
 const createRunPanel: React.CSSProperties = {
