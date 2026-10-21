@@ -2896,7 +2896,6 @@ overflow: "visible",
                       return (
                         <div style={leaderBlock} title={`Run leader: ${leaderName}`}>
                           <div style={leaderRing}>
-                            <div style={leaderRingDots} />
                             <img
                               src={leaderAvatar}
                               alt=""
@@ -5447,25 +5446,11 @@ const leaderBlock: React.CSSProperties = {
   zIndex: 6,
 };
 
-// Purple glowing ring around the Discord avatar
+// Plain round Discord avatar
 const leaderRing: React.CSSProperties = {
   position: "relative",
-  width: 92,
-  height: 92,
-  borderRadius: "50%",
-  padding: 5,
-  background: "conic-gradient(from 0deg, #7c3aed, #d946ef, #a855f7, #6d28d9, #c084fc, #7c3aed)",
-  boxShadow:
-    "0 0 18px rgba(168,85,247,.85), 0 0 40px rgba(217,70,239,.45), inset 0 0 10px rgba(0,0,0,.6)",
-};
-
-// Thin dotted rune ring just outside the avatar
-const leaderRingDots: React.CSSProperties = {
-  position: "absolute",
-  inset: -7,
-  borderRadius: "50%",
-  border: "2px dotted rgba(216,180,254,.75)",
-  pointerEvents: "none",
+  width: 88,
+  height: 88,
 };
 
 const leaderAvatarStyle: React.CSSProperties = {
@@ -5474,8 +5459,7 @@ const leaderAvatarStyle: React.CSSProperties = {
   borderRadius: "50%",
   objectFit: "cover",
   display: "block",
-  border: "3px solid #12001f",
-  background: "#12001f",
+  boxShadow: "0 4px 14px rgba(0,0,0,.75)",
 };
 
 const leaderCrown: React.CSSProperties = {
@@ -5497,7 +5481,7 @@ const leaderNameStyle: React.CSSProperties = {
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
-  textShadow: "0 0 10px rgba(168,85,247,.9), 0 2px 4px rgba(0,0,0,.9)",
+  textShadow: "0 2px 6px rgba(0,0,0,.95)",
 };
 
 const leaderLabel: React.CSSProperties = {
