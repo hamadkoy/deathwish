@@ -2877,7 +2877,43 @@ overflow: "visible",
                       "linear-gradient(90deg, rgba(0,0,0,.25), rgba(0,0,0,.05), rgba(0,0,0,.35))",
                   }}
                 >
-                  <div style={{ paddingLeft: 28 }}>
+                  <div
+                    style={{
+                      paddingLeft: 24,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 22,
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    {run.created_by_name && (() => {
+                      const lp = run.created_by ? leaderProfiles[run.created_by] : undefined;
+                      const leaderName = lp?.name || run.created_by_name;
+                      const leaderAvatar =
+                        lp?.avatar || run.created_by_avatar || "https://cdn.discordapp.com/embed/avatars/0.png";
+
+                      return (
+                        <div style={leaderBlock} title={`Run leader: ${leaderName}`}>
+                          <div style={leaderRing}>
+                            <div style={leaderRingDots} />
+                            <img
+                              src={leaderAvatar}
+                              alt=""
+                              style={leaderAvatarStyle}
+                              onError={(e) => {
+                                e.currentTarget.src = "https://cdn.discordapp.com/embed/avatars/0.png";
+                              }}
+                            />
+                            <span style={leaderCrown}>👑</span>
+                          </div>
+                          <div style={leaderNameStyle}>{leaderName}</div>
+                          <div style={leaderLabel}>LEADER</div>
+                        </div>
+                      );
+                    })()}
+
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <h2
                       style={{
                         ...runTitle,
@@ -2893,7 +2929,7 @@ overflow: "visible",
   style={{
     position: "absolute",
     top: 26,
-    right: 110,
+    right: 92,
     display: "flex",
     alignItems: "center",
     gap: 8,
@@ -2957,29 +2993,6 @@ overflow: "visible",
                       )}
                     </div>
 
-                    {run.created_by_name && (() => {
-                      const lp = run.created_by ? leaderProfiles[run.created_by] : undefined;
-                      const leaderName = lp?.name || run.created_by_name;
-                      const leaderAvatar =
-                        lp?.avatar || run.created_by_avatar || "https://cdn.discordapp.com/embed/avatars/0.png";
-
-                      return (
-                        <div style={leaderBadge} title={`Run leader: ${leaderName}`}>
-                          <img
-                            src={leaderAvatar}
-                            alt=""
-                            style={leaderAvatarStyle}
-                            onError={(e) => {
-                              e.currentTarget.src = "https://cdn.discordapp.com/embed/avatars/0.png";
-                            }}
-                          />
-                          <span style={{ color: "#fde68a", fontSize: 12, fontWeight: 900, letterSpacing: 1 }}>
-                            👑 LEADER
-                          </span>
-                          <b style={{ color: "#fff", fontSize: 16 }}>{leaderName}</b>
-                        </div>
-                      );
-                    })()}
 
                     {!signupLocked && !run.signup_open_at && isAdmin && (
                       <div
@@ -3029,6 +3042,7 @@ overflow: "visible",
                         Required ilvl: {run.ilvl_required}+
                       </div>
                     )}
+                  </div>
                   </div>
 <img
   src={theme.emblem}
@@ -5111,7 +5125,7 @@ const runBanner: React.CSSProperties = {
 const cornerFlag: React.CSSProperties = {
   position: "absolute",
   top: -14,
-  right: 45,
+  right: 22,
   width: 80,
   height: 120,
   objectFit: "contain",
@@ -5424,27 +5438,75 @@ const createRunButton: React.CSSProperties = {
   transition: "all .18s ease",
 };
 
-const leaderBadge: React.CSSProperties = {
-  display: "inline-flex",
+const leaderBlock: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
   alignItems: "center",
-  gap: 10,
-  marginTop: 8,
-  padding: "4px 14px 4px 4px",
-  borderRadius: 999,
-  background: "linear-gradient(90deg, rgba(250,204,21,.18), rgba(0,0,0,.35))",
-  border: "1px solid rgba(250,204,21,.5)",
-  boxShadow: "0 0 14px rgba(250,204,21,.25)",
-  backdropFilter: "blur(6px)",
+  width: 112,
+  flexShrink: 0,
+  zIndex: 6,
+};
+
+// Purple glowing ring around the Discord avatar
+const leaderRing: React.CSSProperties = {
+  position: "relative",
+  width: 92,
+  height: 92,
+  borderRadius: "50%",
+  padding: 5,
+  background: "conic-gradient(from 0deg, #7c3aed, #d946ef, #a855f7, #6d28d9, #c084fc, #7c3aed)",
+  boxShadow:
+    "0 0 18px rgba(168,85,247,.85), 0 0 40px rgba(217,70,239,.45), inset 0 0 10px rgba(0,0,0,.6)",
+};
+
+// Thin dotted rune ring just outside the avatar
+const leaderRingDots: React.CSSProperties = {
+  position: "absolute",
+  inset: -7,
+  borderRadius: "50%",
+  border: "2px dotted rgba(216,180,254,.75)",
+  pointerEvents: "none",
 };
 
 const leaderAvatarStyle: React.CSSProperties = {
-  width: 34,
-  height: 34,
+  width: "100%",
+  height: "100%",
   borderRadius: "50%",
   objectFit: "cover",
-  border: "2px solid #facc15",
-  boxShadow: "0 0 10px rgba(250,204,21,.6)",
-  flexShrink: 0,
+  display: "block",
+  border: "3px solid #12001f",
+  background: "#12001f",
+};
+
+const leaderCrown: React.CSSProperties = {
+  position: "absolute",
+  top: -14,
+  left: "50%",
+  transform: "translateX(-50%) rotate(-8deg)",
+  fontSize: 22,
+  filter: "drop-shadow(0 0 6px rgba(250,204,21,.9))",
+};
+
+const leaderNameStyle: React.CSSProperties = {
+  marginTop: 10,
+  maxWidth: 112,
+  color: "#fff",
+  fontSize: 16,
+  fontWeight: 900,
+  textAlign: "center",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  textShadow: "0 0 10px rgba(168,85,247,.9), 0 2px 4px rgba(0,0,0,.9)",
+};
+
+const leaderLabel: React.CSSProperties = {
+  marginTop: 2,
+  color: "#fde68a",
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: 2,
+  textShadow: "0 0 8px rgba(250,204,21,.7), 0 2px 4px rgba(0,0,0,.9)",
 };
 
 const createRunDivider: React.CSSProperties = {
