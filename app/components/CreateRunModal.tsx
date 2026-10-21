@@ -132,12 +132,20 @@ export default function CreateRunModal({
   open,
   onClose,
   onCreated,
+  onRequested,
   canCreate = true,
+  requestOnly = false,
+  requesterRole,
 }: {
   open: boolean;
   onClose: () => void;
   onCreated?: () => void | Promise<void>;
+  // Called after a Reaper/officer request is sent (runs are NOT created yet)
+  onRequested?: (count: number) => void | Promise<void>;
   canCreate?: boolean;
+  // true = send the runs to a Dreadlord for approval instead of creating them
+  requestOnly?: boolean;
+  requesterRole?: string;
 }) {
   /* ---------- run details ---------- */
   const [raid, setRaid] = useState(RAIDS[0]);
@@ -265,6 +273,48 @@ export default function CreateRunModal({
     setSaving(true);
     setError("");
 
+    // Reaper / officer: send everything for approval instead of creating it
+    if (requestOnly) {
+      const { data: auth } = await supabase.auth.getUser();
+
+      if (!auth.user) {
+        setSaving(false);
+        setError("Please login first.");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("discord_name, avatar_url")
+        .eq("user_id", auth.user.id)
+        .single();
+
+      const { error: requestError } = await supabase.from("run_requests").insert({
+        requested_by: auth.user.id,
+        requester_name:
+          profile?.discord_name || auth.user.user_metadata?.full_name || "Unknown",
+        requester_avatar:
+          profile?.avatar_url || auth.user.user_metadata?.avatar_url || "",
+        requester_role: requesterRole || null,
+        runs: drafts.map(({ key, signup_open_at, ...row }) => row),
+        // The countdown starts when a Dreadlord approves it
+        signup_open_hours: countdownHours,
+      });
+
+      setSaving(false);
+
+      if (requestError) {
+        setError(requestError.message);
+        return;
+      }
+
+      const count = drafts.length;
+      setDrafts([]);
+      await onRequested?.(count);
+      onClose();
+      return;
+    }
+
     const openAt =
       countdownHours > 0
         ? new Date(Date.now() + countdownHours * 60 * 60 * 1000).toISOString()
@@ -301,7 +351,11 @@ export default function CreateRunModal({
         <div style={header}>
           <div>
             <div style={headerTitle}>
-              {canCreate ? "Create runs" : "Run planner (view only)"}
+              {!canCreate
+                ? "Run planner (view only)"
+                : requestOnly
+                ? "Request runs"
+                : "Create runs"}
             </div>
             <div style={headerSub}>{runTitle()}</div>
           </div>
@@ -657,7 +711,7 @@ export default function CreateRunModal({
               <div style={{ ...sectionLabel, marginTop: 16 }}>
                 Summary — {drafts.length} run{drafts.length === 1 ? "" : "s"}
                 {countdownHours > 0
-                  ? ` • unlock ${countdownHours}h after Create`
+                  ? ` • unlock ${countdownHours}h after ${requestOnly ? "approval" : "Create"}`
                   : " • unlock immediately"}
               </div>
 
@@ -700,6 +754,12 @@ export default function CreateRunModal({
             </div>
           )}
 
+          {canCreate && requestOnly && (
+            <div style={{ ...viewOnlyNote, color: "#fde68a" }}>
+              ⏳ Your runs go to a Dreadlord for approval before they show on the page.
+            </div>
+          )}
+
           <button onClick={onClose} style={ghostBtn}>
             Cancel
           </button>
@@ -718,7 +778,11 @@ export default function CreateRunModal({
             }}
           >
             {saving
-              ? "Creating…"
+              ? requestOnly
+                ? "Sending…"
+                : "Creating…"
+              : requestOnly
+              ? `Send ${drafts.length} run${drafts.length === 1 ? "" : "s"} for approval`
               : `Create ${drafts.length} run${drafts.length === 1 ? "" : "s"}`}
           </button>
         </div>

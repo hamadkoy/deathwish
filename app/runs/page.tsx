@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import SideNav from "../components/SideNav";
 import CreateRunModal from "../components/CreateRunModal";
+import { RunRequestsButton } from "../components/RunRequests";
 import EditRunModal, { RAID_BOSSES } from "../components/EditRunModal";
 import {
   useHearts,
@@ -375,6 +376,9 @@ const isOfficer =
   fixedRole === "Soulreaper";
 
 const canFinishRun = isAdmin || isOfficer;
+
+// Reaper and above can request runs; only Dreadlords create them directly
+const canRequestRuns = !isAdmin && (isOfficer || fixedRole === "Reaper");
 
 // Soulreaper and above get signups 24h earlier than everyone else
 // (isAdmin covers Dreadlord, isOfficer covers Nightblade + Soulreaper)
@@ -2585,14 +2589,40 @@ style={{
 
 <div style={createArea}>
   <button onClick={() => setShowCreateRun(true)} style={createRunButton}>
-    {isAdmin ? "+ Create Run" : "View Run Planner"}
+    {isAdmin ? "+ Create Run" : canRequestRuns ? "+ Request Run" : "View Run Planner"}
   </button>
 </div>
 <CreateRunModal
   open={showCreateRun}
   onClose={() => setShowCreateRun(false)}
-  canCreate={isAdmin}
+  canCreate={isAdmin || canRequestRuns}
+  requestOnly={canRequestRuns}
+  requesterRole={fixedRole}
   onCreated={async () => {
+    await loadRuns(selectedWeekRef.current);
+    await loadSignups();
+  }}
+  onRequested={(count) => {
+    setPopup({
+      title: "Sent for Approval",
+      message: `Your ${count} run${count === 1 ? "" : "s"} ${count === 1 ? "was" : "were"} sent to a Dreadlord.\nThey will show on the page once approved.`,
+      type: "success",
+    });
+  }}
+/>
+
+{/* Pending run requests — Dreadlords only, sits above 📊 and ❤️ */}
+<RunRequestsButton
+  isAdmin={isAdmin}
+  hidden={isMobile}
+  onApproved={async () => {
+    // A request can add a brand-new week, so refresh the week tabs too
+    const { data } = await supabase.from("runs").select("week");
+    const fromDb = (data || [])
+      .map((r) => r.week)
+      .filter((w): w is number => w !== null && w !== undefined);
+    setWeeks((prev) => Array.from(new Set([...prev, ...fromDb])).sort((a, b) => a - b));
+
     await loadRuns(selectedWeekRef.current);
     await loadSignups();
   }}
