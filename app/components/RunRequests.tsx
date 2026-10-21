@@ -34,6 +34,10 @@ export type RunRequest = {
   runs: RequestedRun[];
   signup_open_hours: number;
   status: "pending" | "approved" | "declined";
+  decline_reason?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  approved_count?: number | null;
 };
 
 const THEME_LABEL: Record<string, { label: string; dot: string }> = {
@@ -51,11 +55,27 @@ const DEFAULT_AVATAR = "https://cdn.discordapp.com/embed/avatars/0.png";
 ============================== */
 export function RunRequestsButton({
   isAdmin,
+  canRequest,
+  userId,
   hidden,
   onApproved,
 }: {
   isAdmin: boolean;
+  // Reaper / officer: sees their own requests and your answers instead
+  canRequest?: boolean;
+  userId?: string | null;
   hidden?: boolean;
+  onApproved?: () => void | Promise<void>;
+}) {
+  if (hidden) return null;
+  if (isAdmin) return <AdminRequestsButton onApproved={onApproved} />;
+  if (canRequest && userId) return <MyRequestsButton userId={userId} />;
+  return null;
+}
+
+function AdminRequestsButton({
+  onApproved,
+}: {
   onApproved?: () => void | Promise<void>;
 }) {
   const [requests, setRequests] = useState<RunRequest[]>([]);
@@ -72,8 +92,6 @@ export function RunRequestsButton({
   }
 
   useEffect(() => {
-    if (!isAdmin) return;
-
     load();
 
     const channel = supabase
@@ -88,9 +106,7 @@ export function RunRequestsButton({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isAdmin]);
-
-  if (!isAdmin || hidden) return null;
+  }, []);
 
   const count = requests.length;
 
@@ -162,7 +178,7 @@ function RunRequestsWindow({
         <div style={body}>
           {requests.length === 0 ? (
             <div style={empty}>
-              <div style={{ fontSize: 44 }}>✨</div>
+              <div style={{ fontSize: 64 }}>✨</div>
               <b>All caught up</b>
               <span>New requests from Reapers and officers will show up here.</span>
             </div>
@@ -357,7 +373,7 @@ function RequestCard({
               onChange={(e) =>
                 setIncluded((prev) => prev.map((v, idx) => (idx === i ? e.target.checked : v)))
               }
-              style={{ width: 18, height: 18, accentColor: "#a855f7", cursor: "pointer" }}
+              style={{ width: 22, height: 22, accentColor: "#a855f7", cursor: "pointer" }}
             />
             <span style={{ color: "#facc15", fontWeight: 900 }}>W{run.week}</span>
             <span>{run.day}</span>
@@ -414,6 +430,237 @@ function Info({ label, value, wide }: { label: string; value: React.ReactNode; w
     <div style={{ gridColumn: wide ? "1 / -1" : undefined }}>
       <div style={infoLabel}>{label}</div>
       <div style={infoValue}>{value}</div>
+    </div>
+  );
+}
+
+/* ==============================
+   Requester view: "My run requests"
+   Badge = answers (approved / declined) they haven't opened yet.
+   "Seen" is remembered per browser.
+============================== */
+const SEEN_KEY = "runRequestsSeenAt";
+
+function readSeen() {
+  try {
+    return Number(localStorage.getItem(SEEN_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeSeen(ms: number) {
+  try {
+    localStorage.setItem(SEEN_KEY, String(ms));
+  } catch {
+    /* private mode: badge just won't remember */
+  }
+}
+
+function MyRequestsButton({ userId }: { userId: string }) {
+  const [requests, setRequests] = useState<RunRequest[]>([]);
+  const [open, setOpen] = useState(false);
+  const [seenAt, setSeenAt] = useState(0);
+  // answers newer than this stay highlighted while the window is open
+  const [highlightSince, setHighlightSince] = useState(0);
+
+  async function load() {
+    const { data, error } = await supabase
+      .from("run_requests")
+      .select("*")
+      .eq("requested_by", userId)
+      .order("created_at", { ascending: false })
+      .limit(30);
+
+    if (!error) setRequests((data as RunRequest[]) || []);
+  }
+
+  useEffect(() => {
+    setSeenAt(readSeen());
+    load();
+
+    const channel = supabase
+      .channel(`my-run-requests-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "run_requests",
+          filter: `requested_by=eq.${userId}`,
+        },
+        () => load()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
+  if (requests.length === 0) return null; // nothing to show until they request
+
+  const unseen = requests.filter(
+    (r) => r.status !== "pending" && r.reviewed_at && new Date(r.reviewed_at).getTime() > seenAt
+  );
+  const pending = requests.filter((r) => r.status === "pending").length;
+  const hasDecline = unseen.some((r) => r.status === "declined");
+
+  function openWindow() {
+    setHighlightSince(seenAt);
+    setOpen(true);
+    const now = Date.now();
+    writeSeen(now);
+    setSeenAt(now);
+  }
+
+  return (
+    <>
+      <button
+        onClick={openWindow}
+        title={
+          unseen.length
+            ? `${unseen.length} new answer${unseen.length === 1 ? "" : "s"} on your run requests`
+            : pending
+            ? `${pending} request${pending === 1 ? "" : "s"} waiting for approval`
+            : "My run requests"
+        }
+        style={{
+          ...floatBtn,
+          animation: unseen.length ? "rrPulse 2s ease-in-out infinite" : "none",
+        }}
+      >
+        📝
+        {unseen.length > 0 && (
+          <span style={{ ...badge, background: hasDecline ? "#ef4444" : "#22c55e" }}>
+            {unseen.length}
+          </span>
+        )}
+      </button>
+
+      <style>{`
+        @keyframes rrPulse {
+          0%, 100% { box-shadow: 0 0 18px rgba(250,204,21,.55); }
+          50%      { box-shadow: 0 0 34px rgba(250,204,21,.95); }
+        }
+      `}</style>
+
+      {open && (
+        <div style={overlay} onClick={() => setOpen(false)}>
+          <div style={{ ...panel, width: "min(1200px, 96vw)" }} onClick={(e) => e.stopPropagation()}>
+            <div style={head}>
+              <div>
+                <div style={headTitle}>📝 My Run Requests</div>
+                <div style={headSub}>
+                  {pending > 0
+                    ? `${pending} waiting for a Dreadlord`
+                    : "Your recent requests and their answers"}
+                </div>
+              </div>
+
+              <button onClick={() => setOpen(false)} style={closeBtn} aria-label="Close">
+                ✕
+              </button>
+            </div>
+
+            <div style={body}>
+              {requests.map((r) => (
+                <MyRequestCard
+                  key={r.id}
+                  request={r}
+                  isNew={
+                    r.status !== "pending" &&
+                    !!r.reviewed_at &&
+                    new Date(r.reviewed_at).getTime() > highlightSince
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function MyRequestCard({ request, isNew }: { request: RunRequest; isNew: boolean }) {
+  const runs = request.runs || [];
+  const first = runs[0];
+
+  const status =
+    request.status === "approved"
+      ? { label: "✅ Approved", color: "#4ade80", border: "rgba(34,197,94,.6)", bg: "rgba(5,46,22,.55)" }
+      : request.status === "declined"
+      ? { label: "❌ Declined", color: "#fca5a5", border: "rgba(239,68,68,.6)", bg: "rgba(69,10,10,.55)" }
+      : { label: "⏳ Waiting for approval", color: "#fde68a", border: "rgba(250,204,21,.55)", bg: "rgba(66,52,4,.45)" };
+
+  return (
+    <div
+      style={{
+        ...card,
+        borderColor: isNew ? status.border : "rgba(168,85,247,.35)",
+        boxShadow: isNew ? `0 0 22px ${status.border}` : card.boxShadow,
+      }}
+    >
+      <div style={{ ...cardHead, marginBottom: 12 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ ...reqName, fontSize: 24 }}>
+            <span style={runTitle}>{first?.title || "Run request"}</span>
+            {isNew && <span style={{ ...rolePill, color: "#fff", borderColor: "#fff" }}>NEW</span>}
+          </div>
+          <div style={reqMeta}>
+            Sent {timeAgo(request.created_at)} • {runs.length} run{runs.length === 1 ? "" : "s"}
+          </div>
+        </div>
+
+        <span
+          style={{
+            ...countPill,
+            color: status.color,
+            borderColor: status.border,
+            background: status.bg,
+          }}
+        >
+          {status.label}
+        </span>
+      </div>
+
+      {request.status === "declined" && (
+        <div style={reasonBox}>
+          <div style={infoLabel}>Reason</div>
+          <div style={{ ...infoValue, color: "#fecaca" }}>
+            {request.decline_reason?.trim() || "No reason given."}
+          </div>
+        </div>
+      )}
+
+      {request.status === "approved" && (
+        <div style={{ ...reasonBox, borderColor: "rgba(34,197,94,.4)", background: "rgba(5,46,22,.35)" }}>
+          <div style={{ ...infoValue, color: "#bbf7d0" }}>
+            {request.approved_count && request.approved_count < runs.length
+              ? `${request.approved_count} of ${runs.length} runs were approved and are now on the sign-up page.`
+              : "Your runs are now on the sign-up page."}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
+        {runs.map((run, i) => (
+          <div key={i} style={{ ...runRow, gridTemplateColumns: "70px 140px 150px 110px", cursor: "default" }}>
+            <span style={{ color: "#facc15", fontWeight: 900 }}>W{run.week}</span>
+            <span>{run.day}</span>
+            <span>{formatYmd(run.run_date)}</span>
+            <span style={{ color: "#facc15", fontWeight: 900 }}>{run.time}</span>
+          </div>
+        ))}
+      </div>
+
+      {request.status !== "pending" && request.reviewed_by && (
+        <div style={{ ...hint, marginTop: 10 }}>
+          {request.status === "approved" ? "Approved" : "Declined"} by {request.reviewed_by}
+          {request.reviewed_at ? ` • ${timeAgo(request.reviewed_at)}` : ""}
+        </div>
+      )}
     </div>
   );
 }
@@ -492,28 +739,29 @@ const overlay: React.CSSProperties = {
 };
 
 const panel: React.CSSProperties = {
-  width: "min(1100px, 96vw)",
+  width: "min(1500px, 96vw)",
   maxHeight: "92vh",
   display: "flex",
   flexDirection: "column",
-  borderRadius: 22,
+  borderRadius: 26,
   border: "1px solid rgba(250,204,21,.45)",
   background:
     "radial-gradient(circle at 50% 0%, rgba(250,204,21,.10), transparent 50%), linear-gradient(180deg, rgba(14,6,26,.99), rgba(4,0,12,.99))",
   boxShadow: "0 0 60px rgba(250,204,21,.22), 0 0 40px rgba(168,85,247,.25)",
   overflow: "hidden",
+  minHeight: "62vh",
 };
 
 const head: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  padding: "18px 26px",
+  padding: "26px 34px",
   borderBottom: "1px solid rgba(250,204,21,.2)",
 };
 
 const headTitle: React.CSSProperties = {
-  fontSize: 32,
+  fontSize: 44,
   fontWeight: 900,
   color: "#fff7cc",
   fontFamily: "Georgia, serif",
@@ -521,44 +769,44 @@ const headTitle: React.CSSProperties = {
 };
 
 const headSub: React.CSSProperties = {
-  marginTop: 4,
+  marginTop: 6,
   color: "#c4b5fd",
   fontWeight: 800,
-  fontSize: 15,
+  fontSize: 19,
 };
 
 const closeBtn: React.CSSProperties = {
-  width: 42,
-  height: 42,
-  borderRadius: 12,
+  width: 52,
+  height: 52,
+  borderRadius: 14,
   border: "1px solid rgba(239,68,68,.45)",
   background: "linear-gradient(180deg,#7f1d1d,#450a0a)",
   color: "#fff",
-  fontSize: 17,
+  fontSize: 22,
   fontWeight: 900,
   cursor: "pointer",
 };
 
 const body: React.CSSProperties = {
-  padding: "18px 26px 24px",
+  padding: "26px 34px 32px",
   overflowY: "auto",
   display: "grid",
-  gap: 18,
+  gap: 24,
 };
 
 const empty: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  gap: 8,
-  padding: "50px 0",
+  gap: 12,
+  padding: "90px 0",
   color: "#a99cc6",
-  fontSize: 15,
+  fontSize: 19,
 };
 
 const card: React.CSSProperties = {
-  padding: 20,
-  borderRadius: 16,
+  padding: 28,
+  borderRadius: 20,
   border: "1px solid rgba(168,85,247,.35)",
   background: "linear-gradient(180deg, rgba(40,14,70,.55), rgba(10,4,24,.75))",
   boxShadow: "inset 0 0 22px rgba(168,85,247,.08)",
@@ -567,13 +815,13 @@ const card: React.CSSProperties = {
 const cardHead: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 14,
-  marginBottom: 16,
+  gap: 18,
+  marginBottom: 20,
 };
 
 const avatar: React.CSSProperties = {
-  width: 52,
-  height: 52,
+  width: 68,
+  height: 68,
   borderRadius: "50%",
   objectFit: "cover",
   border: "2px solid rgba(168,85,247,.8)",
@@ -586,81 +834,81 @@ const reqName: React.CSSProperties = {
   alignItems: "center",
   gap: 10,
   color: "#f5d0fe",
-  fontSize: 20,
+  fontSize: 26,
   fontWeight: 900,
 };
 
 const rolePill: React.CSSProperties = {
-  padding: "3px 10px",
+  padding: "4px 12px",
   borderRadius: 999,
   border: "1px solid rgba(250,204,21,.55)",
   color: "#fde68a",
-  fontSize: 12,
+  fontSize: 14,
   fontWeight: 900,
   letterSpacing: 1,
   textTransform: "uppercase",
 };
 
 const reqMeta: React.CSSProperties = {
-  marginTop: 4,
+  marginTop: 6,
   color: "#a99cc6",
-  fontSize: 14,
+  fontSize: 17,
   fontWeight: 700,
 };
 
 const countPill: React.CSSProperties = {
-  padding: "8px 16px",
+  padding: "10px 20px",
   borderRadius: 999,
   background: "rgba(250,204,21,.12)",
   border: "1px solid rgba(250,204,21,.5)",
   color: "#facc15",
   fontWeight: 900,
-  fontSize: 16,
+  fontSize: 19,
   whiteSpace: "nowrap",
 };
 
 const infoGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: "12px 18px",
-  padding: 16,
-  marginBottom: 14,
-  borderRadius: 12,
+  gap: "18px 26px",
+  padding: 22,
+  marginBottom: 18,
+  borderRadius: 14,
   background: "rgba(0,0,0,.3)",
   border: "1px solid rgba(168,85,247,.2)",
 };
 
 const infoLabel: React.CSSProperties = {
   color: "#9d8ec2",
-  fontSize: 12,
+  fontSize: 14,
   fontWeight: 900,
   letterSpacing: 1,
   textTransform: "uppercase",
-  marginBottom: 4,
+  marginBottom: 6,
 };
 
 const infoValue: React.CSSProperties = {
   color: "#fff",
-  fontSize: 16,
+  fontSize: 20,
   fontWeight: 800,
   wordBreak: "break-word",
   whiteSpace: "pre-line",
 };
 
 const dot: React.CSSProperties = {
-  width: 12,
-  height: 12,
+  width: 15,
+  height: 15,
   borderRadius: "50%",
   display: "inline-block",
 };
 
 const tableHead: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "28px 56px 110px 120px 90px minmax(0, 1fr)",
-  gap: 10,
-  padding: "0 14px 6px",
+  gridTemplateColumns: "34px 70px 140px 150px 110px minmax(0, 1fr)",
+  gap: 14,
+  padding: "0 18px 8px",
   color: "#9d8ec2",
-  fontSize: 12,
+  fontSize: 14,
   fontWeight: 900,
   letterSpacing: 1,
   textTransform: "uppercase",
@@ -668,15 +916,15 @@ const tableHead: React.CSSProperties = {
 
 const runRow: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "28px 56px 110px 120px 90px minmax(0, 1fr)",
-  gap: 10,
+  gridTemplateColumns: "34px 70px 140px 150px 110px minmax(0, 1fr)",
+  gap: 14,
   alignItems: "center",
-  padding: "10px 14px",
-  borderRadius: 10,
+  padding: "14px 18px",
+  borderRadius: 12,
   background: "rgba(255,255,255,.04)",
   border: "1px solid rgba(168,85,247,.18)",
   color: "#e9d5ff",
-  fontSize: 15,
+  fontSize: 19,
   fontWeight: 700,
   cursor: "pointer",
 };
@@ -689,10 +937,17 @@ const runTitle: React.CSSProperties = {
 };
 
 const hint: React.CSSProperties = {
-  marginTop: 8,
+  marginTop: 10,
   color: "#8b7bb0",
-  fontSize: 13,
+  fontSize: 15,
   fontWeight: 700,
+};
+
+const reasonBox: React.CSSProperties = {
+  padding: "16px 18px",
+  borderRadius: 11,
+  border: "1px solid rgba(239,68,68,.45)",
+  background: "rgba(70,0,0,.35)",
 };
 
 const errorBox: React.CSSProperties = {
@@ -703,62 +958,63 @@ const errorBox: React.CSSProperties = {
   background: "rgba(70,0,0,.35)",
   color: "#fecaca",
   fontWeight: 700,
+  fontSize: 17,
 };
 
 const actions: React.CSSProperties = {
   display: "flex",
-  gap: 12,
+  gap: 14,
   justifyContent: "flex-end",
   alignItems: "center",
-  marginTop: 16,
+  marginTop: 22,
 };
 
 const reasonInput: React.CSSProperties = {
   flex: 1,
-  height: 46,
-  padding: "0 14px",
+  height: 56,
+  padding: "0 18px",
   borderRadius: 11,
   border: "1px solid rgba(239,68,68,.45)",
   background: "rgba(0,0,0,.5)",
   color: "#fff",
-  fontSize: 15,
+  fontSize: 18,
   fontWeight: 700,
   outline: "none",
 };
 
 const approveBtn: React.CSSProperties = {
-  height: 46,
-  padding: "0 26px",
+  height: 56,
+  padding: "0 34px",
   borderRadius: 11,
   border: "1px solid rgba(134,239,172,.6)",
   background: "linear-gradient(90deg,#15803d,#22c55e)",
   color: "#fff",
-  fontSize: 16,
+  fontSize: 19,
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "0 0 18px rgba(34,197,94,.45)",
 };
 
 const declineBtn: React.CSSProperties = {
-  height: 46,
-  padding: "0 22px",
+  height: 56,
+  padding: "0 28px",
   borderRadius: 11,
   border: "1px solid rgba(239,68,68,.6)",
   background: "rgba(80,8,8,.7)",
   color: "#fecaca",
-  fontSize: 16,
+  fontSize: 19,
   fontWeight: 900,
   cursor: "pointer",
 };
 
 const ghostBtn: React.CSSProperties = {
-  height: 46,
-  padding: "0 18px",
+  height: 56,
+  padding: "0 24px",
   borderRadius: 11,
   border: "1px solid rgba(255,255,255,.2)",
   background: "rgba(255,255,255,.06)",
   color: "#fff",
-  fontSize: 15,
+  fontSize: 18,
   fontWeight: 900,
   cursor: "pointer",
 };

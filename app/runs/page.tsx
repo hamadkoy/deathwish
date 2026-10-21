@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import SideNav from "../components/SideNav";
+import NavMenu from "../components/NavMenu";
 import CreateRunModal from "../components/CreateRunModal";
 import { RunRequestsButton } from "../components/RunRequests";
 import EditRunModal, { RAID_BOSSES } from "../components/EditRunModal";
@@ -1491,7 +1491,7 @@ paddingRight: 80,
 >
 {!isPhone && (
   <div style={sideNavFixed}>
-    <SideNav active="My Runs" />
+    <NavMenu active="My Runs" />
   </div>
 )}
 <div style={topRightTools}>
@@ -2365,33 +2365,48 @@ style={{
 
 {!isMobile && statsOpen && (
   <div
+    onClick={() => setStatsOpen(false)}
     style={{
       position: "fixed",
-      left: 20,
-      top: 120,
-      width: 400,
-      maxHeight: "72vh",
+      inset: 0,
+      zIndex: 99999,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16,
+      background: "rgba(0,0,0,.72)",
+      backdropFilter: "blur(8px)",
+    }}
+  >
+  <div
+    onClick={(e) => e.stopPropagation()}
+    style={{
+      position: "relative",
+      width: "min(1000px, 94vw)",
+      maxHeight: "88vh",
       display: "flex",
       flexDirection: "column",
-      padding: 18,
-      borderRadius: 18,
-      background: "rgba(8,0,20,.94)",
-      border: "1px solid rgba(168,85,247,.45)",
-      boxShadow: "0 0 30px rgba(168,85,247,.35)",
-      backdropFilter: "blur(12px)",
-      zIndex: 998,
+      padding: "28px 32px",
+      borderRadius: 22,
+      background:
+        "radial-gradient(circle at 50% 0%, rgba(168,85,247,.16), transparent 50%), linear-gradient(180deg, rgba(14,6,26,.99), rgba(4,0,12,.99))",
+      border: "1px solid rgba(168,85,247,.55)",
+      boxShadow: "0 0 60px rgba(168,85,247,.4)",
     }}
   >
     <button
       onClick={() => setStatsOpen(false)}
       style={{
         position: "absolute",
-        top: 10,
-        right: 12,
-        background: "transparent",
-        border: "none",
+        top: 18,
+        right: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        background: "linear-gradient(180deg,#7f1d1d,#450a0a)",
+        border: "1px solid rgba(239,68,68,.45)",
         color: "white",
-        fontSize: 22,
+        fontSize: 24,
         cursor: "pointer",
       }}
     >
@@ -2402,9 +2417,10 @@ style={{
       style={{
         color: "#c084fc",
         fontWeight: 900,
-        fontSize: 22,
+        fontSize: 36,
+        fontFamily: "Georgia, serif",
         textAlign: "center",
-        marginBottom: 4,
+        marginBottom: 6,
         textShadow: "0 0 14px rgba(168,85,247,.7)",
       }}
     >
@@ -2414,9 +2430,9 @@ style={{
     <div
       style={{
         color: "#9ca3af",
-        fontSize: 12,
+        fontSize: 17,
         textAlign: "center",
-        marginBottom: 14,
+        marginBottom: 20,
       }}
     >
       Week {selectedWeek} • {playerStats.length} players
@@ -2425,13 +2441,13 @@ style={{
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "1fr 70px 70px",
+        gridTemplateColumns: "1fr 150px 150px",
         gap: 8,
-        padding: "8px 10px",
+        padding: "14px 18px",
         borderRadius: 10,
         background: "rgba(168,85,247,.14)",
         border: "1px solid rgba(168,85,247,.3)",
-        fontSize: 12,
+        fontSize: 16,
         fontWeight: 900,
         letterSpacing: 1,
         color: "#d8b4fe",
@@ -2507,7 +2523,7 @@ style={{
             color: "#9ca3af",
             textAlign: "center",
             padding: 18,
-            fontSize: 14,
+            fontSize: 19,
           }}
         >
           No signups this week yet.
@@ -2519,10 +2535,10 @@ style={{
           key={p.key}
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 70px 70px",
+            gridTemplateColumns: "1fr 150px 150px",
             alignItems: "center",
             gap: 8,
-            padding: "9px 10px",
+            padding: "12px 18px",
             marginBottom: 6,
             borderRadius: 10,
             background: "rgba(0,0,0,.4)",
@@ -2533,7 +2549,7 @@ style={{
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
+              gap: 14,
               minWidth: 0,
             }}
           >
@@ -2544,8 +2560,8 @@ style={{
               }
               alt=""
               style={{
-                width: 26,
-                height: 26,
+                width: 40,
+                height: 40,
                 borderRadius: "50%",
                 objectFit: "cover",
                 border: "1px solid rgba(168,85,247,.5)",
@@ -2556,7 +2572,7 @@ style={{
               title={p.name}
               style={{
                 color: "white",
-                fontSize: 14,
+                fontSize: 19,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
@@ -2571,7 +2587,7 @@ style={{
               textAlign: "center",
               color: "#facc15",
               fontWeight: 900,
-              fontSize: 14,
+              fontSize: 19,
               textShadow: "0 0 10px rgba(250,204,21,.6)",
             }}
           >
@@ -2583,7 +2599,7 @@ style={{
               textAlign: "center",
               color: "#22c55e",
               fontWeight: 900,
-              fontSize: 14,
+              fontSize: 19,
               textShadow: "0 0 10px rgba(34,197,94,.6)",
             }}
           >
@@ -2592,6 +2608,7 @@ style={{
         </div>
       ))}
     </div>
+  </div>
   </div>
 )}
 {!isMobile && (
@@ -2623,9 +2640,11 @@ style={{
   }}
 />
 
-{/* Pending run requests — Dreadlords only, sits above 📊 and ❤️ */}
+{/* Run requests — Dreadlords review them, requesters see their answers. Sits above 📊 and ❤️ */}
 <RunRequestsButton
   isAdmin={isAdmin}
+  canRequest={canRequestRuns}
+  userId={user?.id}
   hidden={isMobile}
   onApproved={async () => {
     // A request can add a brand-new week, so refresh the week tabs too
@@ -5977,7 +5996,7 @@ const printButton: React.CSSProperties = {
 const topLeftTools: React.CSSProperties = {
   position: "absolute",
   top: 24,
-  left: 300, // just right of the 260px navigation
+  left: 104, // just right of the ☰ navigation button
   zIndex: 20,
   display: "flex",
   flexDirection: "column",
