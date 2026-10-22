@@ -48,9 +48,9 @@ export type RunRequest = {
 export const LEADER_EDIT_HOURS = 8;
 
 const THEME_LABEL: Record<string, { label: string; dot: string }> = {
-  "mythic-red": { label: "Mythic Red", dot: "#ef4444" },
-  "mythic-purple": { label: "Purple", dot: "#a855f7" },
-  "hc-gold": { label: "HC Blue", dot: "#3b82f6" },
+  "mythic-red": { label: "Holy Ground", dot: "#ef4444" },
+  "mythic-purple": { label: "Forge", dot: "#a855f7" },
+  "hc-gold": { label: "Nexus", dot: "#3b82f6" },
   void: { label: "Void", dot: "#60a5fa" },
   kithix: { label: "Kith'ix", dot: "#f97316" },
 };

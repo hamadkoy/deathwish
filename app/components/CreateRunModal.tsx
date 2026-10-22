@@ -17,20 +17,31 @@ const RAIDS = [
   "The Unbinding of Kith'ix",
   "Venomous Abyss",
   "Venomous & Tidebound",
+  "All Three",
 ];
+
+// "All Three" sells the full set of bosses across all raids.
+const ALL_THREE = "All Three";
+const ALL_THREE_BOSSES = 10;
 
 const DIFFICULTIES = ["Normal", "Heroic", "Mythic"] as const;
 // "None" prints nothing on the card — for titles that already say it all.
 const LOOT_TYPES = ["VIP", "Saved", "Solo", "Mythic Mount", "Lootshare", "None"] as const;
 const BOSS_COUNTS = ["1/9", "2/9", "3/9", "4/9", "5/9", "6/9", "7/9", "8/9", "9/9"];
 
+/** Boss counts offered for a raid — 1/10 … 10/10 for "All Three". */
+function bossCountsFor(raid: string) {
+  if (raid !== ALL_THREE) return BOSS_COUNTS;
+  return Array.from({ length: ALL_THREE_BOSSES }, (_, i) => `${i + 1}/${ALL_THREE_BOSSES}`);
+}
+
 // Blank means the title carries the detail instead — e.g. "Last 2 HC".
 const NO_BOSS_COUNT = "";
 
 const THEMES = [
-  { key: "mythic-red", label: "Mythic Red", dot: "#ef4444" },
-  { key: "mythic-purple", label: "Purple", dot: "#a855f7" },
-  { key: "hc-gold", label: "HC Blue", dot: "#3b82f6" },
+  { key: "mythic-red", label: "Holy Ground", dot: "#ef4444" },
+  { key: "mythic-purple", label: "Forge", dot: "#a855f7" },
+  { key: "hc-gold", label: "Nexus", dot: "#3b82f6" },
   { key: "void", label: "Void", dot: "#60a5fa" },
   { key: "kithix", label: "Kith'ix", dot: "#f97316" },
 ];
@@ -388,7 +399,16 @@ export default function CreateRunModal({
               <div style={fieldLabel}>Raid</div>
               <select
                 value={raid}
-                onChange={(e) => setRaid(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setRaid(next);
+
+                  // switching raid: jump to the matching full clear (9/9 or 10/10)
+                  const counts = bossCountsFor(next);
+                  if (bossCount && !counts.includes(bossCount)) {
+                    setBossCount(counts[counts.length - 1]);
+                  }
+                }}
                 style={input}
               >
                 {RAIDS.map((r) => (
@@ -416,7 +436,7 @@ export default function CreateRunModal({
                   None — title says it
                 </option>
 
-                {BOSS_COUNTS.map((b) => (
+                {bossCountsFor(raid).map((b) => (
                   <option key={b} value={b}>
                     {b}
                   </option>
