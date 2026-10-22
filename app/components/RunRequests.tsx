@@ -38,7 +38,14 @@ export type RunRequest = {
   reviewed_by?: string | null;
   reviewed_at?: string | null;
   approved_count?: number | null;
+  // "new" = new runs, "time_change" = leader wants to move an approved run
+  kind?: "new" | "time_change" | null;
+  run_id?: number | null;
+  previous?: { day?: string; time?: string; run_date?: string; week?: number } | null;
 };
+
+/** Leaders can move their own run freely for this long after it goes live. */
+export const LEADER_EDIT_HOURS = 8;
 
 const THEME_LABEL: Record<string, { label: string; dot: string }> = {
   "mythic-red": { label: "Mythic Red", dot: "#ef4444" },
@@ -183,9 +190,13 @@ function RunRequestsWindow({
               <span>New requests from Reapers and officers will show up here.</span>
             </div>
           ) : (
-            requests.map((r) => (
-              <RequestCard key={r.id} request={r} onChanged={onChanged} />
-            ))
+            requests.map((r) =>
+              r.kind === "time_change" ? (
+                <TimeChangeCard key={r.id} request={r} onChanged={onChanged} />
+              ) : (
+                <RequestCard key={r.id} request={r} onChanged={onChanged} />
+              )
+            )
           )}
         </div>
       </div>
@@ -442,6 +453,391 @@ function Info({ label, value, wide }: { label: string; value: React.ReactNode; w
 }
 
 /* ==============================
+   Admin: a leader asking to move an approved run
+============================== */
+function TimeChangeCard({
+  request,
+  onChanged,
+}: {
+  request: RunRequest;
+  onChanged: (approved: boolean) => void | Promise<void>;
+}) {
+  const next = (request.runs || [])[0];
+  const prev = request.previous || {};
+  const [busy, setBusy] = useState(false);
+  const [declining, setDeclining] = useState(false);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+
+  async function reviewer() {
+    const { data } = await supabase.auth.getUser();
+    const { data: p } = await supabase
+      .from("profiles")
+      .select("discord_name")
+      .eq("user_id", data.user?.id || "")
+      .single();
+    return p?.discord_name || data.user?.user_metadata?.full_name || "Admin";
+  }
+
+  async function approve() {
+    if (!next || !request.run_id) return;
+    setBusy(true);
+    setError("");
+
+    const { data, error: updError } = await supabase
+      .from("runs")
+      .update({
+        day: next.day,
+        time: next.time,
+        run_date: next.run_date,
+        week: next.week,
+        // moving a run restarts everyone's unsign grace window
+        time_changed_at: new Date().toISOString(),
+      })
+      .eq("id", request.run_id)
+      .select("id");
+
+    if (updError || !data || data.length === 0) {
+      setBusy(false);
+      setError(updError?.message || "That run no longer exists — decline this request instead.");
+      return;
+    }
+
+    await supabase
+      .from("run_requests")
+      .update({
+        status: "approved",
+        reviewed_by: await reviewer(),
+        reviewed_at: new Date().toISOString(),
+        approved_count: 1,
+      })
+      .eq("id", request.id);
+
+    setBusy(false);
+    await onChanged(true);
+  }
+
+  async function decline() {
+    setBusy(true);
+    setError("");
+
+    const { error: updError } = await supabase
+      .from("run_requests")
+      .update({
+        status: "declined",
+        decline_reason: reason.trim() || null,
+        reviewed_by: await reviewer(),
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", request.id);
+
+    setBusy(false);
+    if (updError) return setError(updError.message);
+    await onChanged(false);
+  }
+
+  return (
+    <div style={{ ...card, borderColor: "rgba(250,204,21,.45)" }}>
+      <div style={cardHead}>
+        <img
+          src={request.requester_avatar || DEFAULT_AVATAR}
+          onError={(e) => (e.currentTarget.src = DEFAULT_AVATAR)}
+          alt=""
+          style={avatar}
+        />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={reqName}>
+            {request.requester_name || "Unknown"}
+            {request.requester_role && <span style={rolePill}>{request.requester_role}</span>}
+          </div>
+          <div style={reqMeta}>Requested {timeAgo(request.created_at)}</div>
+        </div>
+        <div style={countPill}>⏰ Time change</div>
+      </div>
+
+      <div style={infoGrid}>
+        <Info label="Run" value={`#${request.run_id} — ${next?.title || ""}`} wide />
+        <Info
+          label="Current time"
+          value={
+            <span style={{ color: "#a99cc6", textDecoration: "line-through" }}>
+              {prev.day} • {formatYmd(prev.run_date)} • {prev.time}
+            </span>
+          }
+        />
+        <Info
+          label="New time"
+          value={
+            <span style={{ color: "#facc15" }}>
+              {next?.day} • {formatYmd(next?.run_date)} • {next?.time}
+            </span>
+          }
+        />
+        <Info label="Week" value={prev.week === next?.week ? `Week ${next?.week}` : `Week ${prev.week} → ${next?.week}`} />
+      </div>
+
+      <div style={hint}>Approving moves the run and restarts the unsign grace window for everyone signed.</div>
+
+      {error && <div style={errorBox}>{error}</div>}
+
+      {declining ? (
+        <div style={actions}>
+          <input
+            autoFocus
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason (optional) — e.g. too close to raid time"
+            style={reasonInput}
+          />
+          <button disabled={busy} onClick={() => setDeclining(false)} style={ghostBtn}>
+            Back
+          </button>
+          <button disabled={busy} onClick={decline} style={declineBtn}>
+            {busy ? "Declining…" : "Confirm decline"}
+          </button>
+        </div>
+      ) : (
+        <div style={actions}>
+          <button disabled={busy} onClick={() => setDeclining(true)} style={declineBtn}>
+            ❌ Decline
+          </button>
+          <button disabled={busy} onClick={approve} style={approveBtn}>
+            {busy ? "Approving…" : "✅ Approve new time"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ==============================
+   Leader: change the time of their own run
+   - within LEADER_EDIT_HOURS of the run going live → changes right away
+   - after that → sent to a Dreadlord as a request
+============================== */
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const SEASON_DAY_UTC = Date.UTC(2026, 7, 19); // Week 1 = Wed 19 Aug 2026 (keep in sync)
+
+function weekForYmd(ymd: string) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const days = Math.round((Date.UTC(y, m - 1, d) - SEASON_DAY_UTC) / 86400000);
+  return days < 0 ? 1 : Math.floor(days / 7) + 1;
+}
+
+function dayNameForYmd(ymd: string) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return WEEKDAY_NAMES[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+}
+
+export type LeaderRun = {
+  id: number;
+  title: string;
+  day: string;
+  time: string;
+  run_date?: string;
+  week?: number;
+  created_at?: string | null;
+  notes?: string;
+  background_key?: string;
+  ilvl_required?: number | null;
+  exp_required?: string | null;
+  healer_limit?: number;
+  dps_limit?: number;
+};
+
+export function LeaderTimeChangeModal({
+  run,
+  requesterRole,
+  onClose,
+  onDone,
+}: {
+  run: LeaderRun | null;
+  requesterRole?: string;
+  onClose: () => void;
+  onDone: (result: { changed: boolean; requested: boolean }) => void | Promise<void>;
+}) {
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (!run) return;
+    setDate((run.run_date || "").slice(0, 10));
+    setTime((run.time || "").replace(/\s*ST\s*$/i, "").trim().padStart(5, "0"));
+    setError("");
+  }, [run?.id]);
+
+  useEffect(() => {
+    if (!run) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [run?.id]);
+
+  if (!run) return null;
+
+  const createdMs = run.created_at ? new Date(run.created_at).getTime() : 0;
+  const deadline = createdMs + LEADER_EDIT_HOURS * 3600 * 1000;
+  const free = createdMs > 0 && now < deadline;
+  const left = Math.max(0, deadline - now);
+  const h = Math.floor(left / 3600000);
+  const m = Math.floor((left % 3600000) / 60000);
+
+  const unchanged =
+    date === (run.run_date || "").slice(0, 10) &&
+    `${time} ST` === run.time.replace(/^(\d):/, "0$1:");
+
+  async function submit() {
+    if (!run) return;
+    if (!date || !/^\d{2}:\d{2}$/.test(time)) {
+      setError("Pick a date and a time.");
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+
+    const next = {
+      day: dayNameForYmd(date),
+      time: `${time} ST`,
+      run_date: date,
+      week: weekForYmd(date),
+    };
+
+    if (free) {
+      const { error: rpcError } = await supabase.rpc("leader_change_run_time", {
+        p_run_id: run.id,
+        p_day: next.day,
+        p_time: next.time,
+        p_run_date: next.run_date,
+        p_week: next.week,
+      });
+
+      setBusy(false);
+
+      if (rpcError) {
+        setError(
+          rpcError.message.includes("WINDOW_CLOSED")
+            ? `The ${LEADER_EDIT_HOURS}-hour window just closed — press the button again to send it for approval.`
+            : rpcError.message.includes("NOT_LEADER")
+            ? "Only the run leader can change this run."
+            : rpcError.message
+        );
+        return;
+      }
+
+      await onDone({ changed: true, requested: false });
+      onClose();
+      return;
+    }
+
+    // Window passed: ask a Dreadlord
+    const { data: auth } = await supabase.auth.getUser();
+    const { data: me } = await supabase
+      .from("profiles")
+      .select("discord_name, avatar_url")
+      .eq("user_id", auth.user?.id || "")
+      .single();
+
+    const { error: insError } = await supabase.from("run_requests").insert({
+      requested_by: auth.user?.id,
+      requester_name: me?.discord_name || auth.user?.user_metadata?.full_name || "Unknown",
+      requester_avatar: me?.avatar_url || auth.user?.user_metadata?.avatar_url || "",
+      requester_role: requesterRole || null,
+      kind: "time_change",
+      run_id: run.id,
+      previous: { day: run.day, time: run.time, run_date: run.run_date, week: run.week },
+      runs: [
+        {
+          title: run.title,
+          notes: run.notes || "",
+          background_key: run.background_key || "",
+          ilvl_required: run.ilvl_required ?? null,
+          exp_required: run.exp_required ?? null,
+          healer_limit: run.healer_limit ?? 3,
+          dps_limit: run.dps_limit ?? 10,
+          ...next,
+        },
+      ],
+      signup_open_hours: 0,
+    });
+
+    setBusy(false);
+
+    if (insError) {
+      setError(insError.message);
+      return;
+    }
+
+    await onDone({ changed: false, requested: true });
+    onClose();
+  }
+
+  return (
+    <div style={overlay} onClick={onClose}>
+      <div style={{ ...panel, width: "min(720px, 94vw)", minHeight: 0 }} onClick={(e) => e.stopPropagation()}>
+        <div style={head}>
+          <div>
+            <div style={{ ...headTitle, fontSize: 36 }}>⏰ Change Run Time</div>
+            <div style={headSub}>
+              #{run.id} • {run.title}
+            </div>
+          </div>
+          <button onClick={onClose} style={closeBtn} aria-label="Close">
+            ✕
+          </button>
+        </div>
+
+        <div style={body}>
+          <div
+            style={{
+              ...reasonBox,
+              borderColor: free ? "rgba(34,197,94,.5)" : "rgba(250,204,21,.5)",
+              background: free ? "rgba(5,46,22,.4)" : "rgba(66,52,4,.35)",
+            }}
+          >
+            <div style={{ ...infoValue, fontSize: 18, color: free ? "#bbf7d0" : "#fde68a" }}>
+              {free
+                ? `You can change the time freely for ${h}h ${String(m).padStart(2, "0")}m more.`
+                : `The ${LEADER_EDIT_HOURS}-hour window has passed — your change will be sent to a Dreadlord for approval.`}
+            </div>
+          </div>
+
+          <div style={infoGrid}>
+            <Info label="Current" value={`${run.day} • ${formatYmd(run.run_date)} • ${run.time}`} wide />
+            <div>
+              <div style={infoLabel}>New date</div>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={dateInput} />
+            </div>
+            <div>
+              <div style={infoLabel}>New time (ST)</div>
+              <input type="time" step={300} value={time} onChange={(e) => setTime(e.target.value)} style={dateInput} />
+            </div>
+            <Info label="Becomes" value={date ? `${dayNameForYmd(date)} • Week ${weekForYmd(date)}` : "—"} />
+          </div>
+
+          {error && <div style={errorBox}>{error}</div>}
+
+          <div style={actions}>
+            <button disabled={busy} onClick={onClose} style={ghostBtn}>
+              Cancel
+            </button>
+            <button
+              disabled={busy || unchanged}
+              onClick={submit}
+              style={{ ...approveBtn, opacity: busy || unchanged ? 0.5 : 1, ...(free ? {} : { background: "linear-gradient(90deg,#a16207,#facc15)", color: "#1a1000", border: "1px solid #fde68a" }) }}
+            >
+              {busy ? "Saving…" : free ? "Save new time" : "Send for approval"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==============================
    Requester view: "My run requests"
    Badge = answers (approved / declined) they haven't opened yet.
    "Seen" is remembered per browser.
@@ -632,6 +1028,21 @@ function MyRequestCard({ request, isNew }: { request: RunRequest; isNew: boolean
         </span>
       </div>
 
+      {request.kind === "time_change" && first && (
+        <div style={{ ...reasonBox, borderColor: "rgba(250,204,21,.45)", background: "rgba(66,52,4,.3)", marginBottom: 12 }}>
+          <div style={infoLabel}>⏰ Time change for run #{request.run_id}</div>
+          <div style={{ ...infoValue, fontSize: 18 }}>
+            <span style={{ color: "#a99cc6", textDecoration: "line-through" }}>
+              {request.previous?.day} {formatYmd(request.previous?.run_date)} {request.previous?.time}
+            </span>
+            {"  →  "}
+            <span style={{ color: "#facc15" }}>
+              {first.day} {formatYmd(first.run_date)} {first.time}
+            </span>
+          </div>
+        </div>
+      )}
+
       {request.status === "declined" && (
         <div style={reasonBox}>
           <div style={infoLabel}>Reason</div>
@@ -646,6 +1057,8 @@ function MyRequestCard({ request, isNew }: { request: RunRequest; isNew: boolean
           <div style={{ ...infoValue, color: "#bbf7d0" }}>
             {request.approved_count && request.approved_count < runs.length
               ? `${request.approved_count} of ${runs.length} runs were approved and are now on the sign-up page.`
+              : request.kind === "time_change"
+              ? "The new time is now on the run."
               : "Your runs are now on the sign-up page."}
           </div>
         </div>
@@ -948,6 +1361,20 @@ const hint: React.CSSProperties = {
   color: "#8b7bb0",
   fontSize: 15,
   fontWeight: 700,
+};
+
+const dateInput: React.CSSProperties = {
+  width: "100%",
+  height: 52,
+  padding: "0 14px",
+  borderRadius: 11,
+  border: "1px solid rgba(168,85,247,.45)",
+  background: "rgba(0,0,0,.5)",
+  color: "#fff",
+  fontSize: 19,
+  fontWeight: 800,
+  outline: "none",
+  colorScheme: "dark",
 };
 
 const reasonBox: React.CSSProperties = {

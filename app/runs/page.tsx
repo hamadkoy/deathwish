@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import NavMenu from "../components/NavMenu";
 import CreateRunModal from "../components/CreateRunModal";
-import { RunRequestsButton } from "../components/RunRequests";
+import { RunRequestsButton, LeaderTimeChangeModal, LEADER_EDIT_HOURS } from "../components/RunRequests";
 import EditRunModal, { RAID_BOSSES } from "../components/EditRunModal";
 import {
   useHearts,
@@ -61,6 +61,7 @@ dps_limit?: number;
   created_by?: string | null;
   created_by_name?: string | null;
   created_by_avatar?: string | null;
+  created_at?: string | null;
 };
 
 type Signup = {
@@ -404,6 +405,17 @@ function getEffectiveSignupOpen(run: Run) {
 const canMarkAttendance =
   fixedRole === "Dreadlord" ||
   fixedRole === "Nightblade";
+
+/** The run leader (whoever created / requested it) manages that run's roster. */
+function isLeaderOf(runId?: number | null) {
+  if (!user || !runId) return false;
+  return runs.find((r) => r.id === runId)?.created_by === user.id;
+}
+
+/** Dreadlords and officers manage every run; leaders only their own. */
+function canManageRun(runId?: number | null) {
+  return isAdmin || isOfficer || isLeaderOf(runId);
+}
 
 const canUseRunCards =
   profile?.signup_approved === true;
@@ -1220,6 +1232,9 @@ async function sendChatMessage() {
 const [banishOpen, setBanishOpen] = useState(false);
 const [statsOpen, setStatsOpen] = useState(false);
 
+// Run leader changing the time of their own run
+const [leaderEditRun, setLeaderEditRun] = useState<Run | null>(null);
+
 // Current Discord name + avatar of each run leader (saved links can go stale)
 const [leaderProfiles, setLeaderProfiles] = useState<
   Record<string, { name?: string; avatar?: string }>
@@ -1268,6 +1283,21 @@ async function removeSignup(signupId: number) {
 
   if (!signup) return;
 
+  // A run leader removing someone else = a kick, not an unsign: no heart lost.
+  const isOwnSignup = !!discordId && signup.discord_id === discordId;
+  if (!isOwnSignup && !isAdmin && !isOfficer && isLeaderOf(signup.run_id)) {
+    const name = (signup.player || "").split(" - ")[0];
+    setPopup({
+      title: "Remove Player",
+      message: `Remove ${name} from this run?\nThey won't lose a heart.`,
+      type: "error",
+      confirmText: "REMOVE",
+      cancelText: "CANCEL",
+      onConfirm: () => deleteSignupRow(signupId),
+    });
+    return;
+  }
+
   if (
     FREE_ROLES.includes(signup.role) ||
     isFreeToUnsign({ week: run?.week })
@@ -1315,10 +1345,10 @@ async function confirmUnsign() {
   if (result.ban) setBannedUntil(result.ban.banned_until);
 }
 async function markAttendance(signupId: number, status: "present" | "missing") {
-  if (!isAdmin && !isOfficer) return;
-
   const signup = signups.find((s) => s.id === signupId);
   const run = runs.find((r) => r.id === signup?.run_id);
+
+  if (!canManageRun(signup?.run_id)) return;
 
   const { error } = await supabase
     .from("signups")
@@ -1390,6 +1420,14 @@ async function markAttendance(signupId: number, status: "present" | "missing") {
     const parts = dropId.replace("drop-", "").split("-");
     const newRunId = Number(parts[0]);
     const newRole = parts.slice(1).join("-");
+
+    const moving = signups.find((s) => s.id === signupId);
+    if (!moving) return;
+
+    if (!isAdmin && !isOfficer) {
+      // Leaders can shuffle roles (DPS → Bench, LB, …) but only inside their own run
+      if (!isLeaderOf(moving.run_id) || moving.run_id !== newRunId) return;
+    }
 
     moveSignup(signupId, newRunId, newRole);
   }
@@ -2673,6 +2711,29 @@ style={{
   }}
 />
 
+<LeaderTimeChangeModal
+  run={leaderEditRun}
+  requesterRole={fixedRole}
+  onClose={() => setLeaderEditRun(null)}
+  onDone={async ({ changed }) => {
+    if (changed) {
+      await loadRuns(selectedWeekRef.current);
+      await loadSignups();
+      setPopup({
+        title: "Time Changed",
+        message: "Your run has the new time.",
+        type: "success",
+      });
+    } else {
+      setPopup({
+        title: "Sent for Approval",
+        message: `The ${LEADER_EDIT_HOURS}-hour window had passed, so your time change was sent to a Dreadlord.\nYou'll see the answer in your 📝 button.`,
+        type: "success",
+      });
+    }
+  }}
+/>
+
 {/* Run requests — Dreadlords review them, requesters see their answers. Sits above 📊 and ❤️ */}
 <RunRequestsButton
   isAdmin={isAdmin}
@@ -3105,6 +3166,37 @@ right: 18,
     </button>
   )}
 
+  {!isAdmin && !!user && run.created_by === user.id && (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setLeaderEditRun(run);
+      }}
+      title={
+        run.created_at &&
+        Date.now() < new Date(run.created_at).getTime() + LEADER_EDIT_HOURS * 3600 * 1000
+          ? `Change time — free for ${LEADER_EDIT_HOURS}h after the run went live`
+          : "Request a time change (needs approval)"
+      }
+      style={{
+        ...editRunButton,
+        border: "1px solid rgba(250,204,21,.75)",
+        background: "rgba(50,35,0,.8)",
+        boxShadow: "0 0 14px rgba(250,204,21,.55)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-3px) scale(1.12)";
+        e.currentTarget.style.boxShadow = "0 0 26px rgba(250,204,21,.95)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0) scale(1)";
+        e.currentTarget.style.boxShadow = "0 0 14px rgba(250,204,21,.55)";
+      }}
+    >
+      ⏰
+    </button>
+  )}
+
   {isAdmin && (
     <>
 <button
@@ -3276,6 +3368,8 @@ right: 18,
                     adminAddSignup={adminAddSignup}
                     markAttendance={markAttendance}
                     setPlayerPopup={setPlayerPopup}
+                    canManage={canManageRun(run.id)}
+                    isAdminUser={isAdmin}
 setAdminAddOpen={setAdminAddOpen}
 setAdminAddRunId={setAdminAddRunId}
 setAdminAddRole={setAdminAddRole}
@@ -3298,6 +3392,8 @@ setAdminAddSpec={setAdminAddSpec}
                     adminAddSignup={adminAddSignup}
                     markAttendance={markAttendance}
                     setPlayerPopup={setPlayerPopup}
+                    canManage={canManageRun(run.id)}
+                    isAdminUser={isAdmin}
 setAdminAddOpen={setAdminAddOpen}
 setAdminAddRunId={setAdminAddRunId}
 setAdminAddRole={setAdminAddRole}
@@ -3321,6 +3417,8 @@ setAdminAddSpec={setAdminAddSpec}
                     markAttendance={markAttendance}
                     setAdminAddOpen={setAdminAddOpen}
                     setPlayerPopup={setPlayerPopup}
+                    canManage={canManageRun(run.id)}
+                    isAdminUser={isAdmin}
 setAdminAddRunId={setAdminAddRunId}
 setAdminAddRole={setAdminAddRole}
 setAdminAddName={setAdminAddName}
@@ -3343,6 +3441,8 @@ setAdminAddSpec={setAdminAddSpec}
                     markAttendance={markAttendance}
                     setAdminAddOpen={setAdminAddOpen}
                     setPlayerPopup={setPlayerPopup}
+                    canManage={canManageRun(run.id)}
+                    isAdminUser={isAdmin}
 setAdminAddRunId={setAdminAddRunId}
 setAdminAddRole={setAdminAddRole}
 setAdminAddName={setAdminAddName}
@@ -3365,6 +3465,8 @@ setAdminAddSpec={setAdminAddSpec}
                     markAttendance={markAttendance}
                     setAdminAddOpen={setAdminAddOpen}
                     setPlayerPopup={setPlayerPopup}
+                    canManage={canManageRun(run.id)}
+                    isAdminUser={isAdmin}
 setAdminAddRunId={setAdminAddRunId}
 setAdminAddRole={setAdminAddRole}
 setAdminAddName={setAdminAddName}
@@ -4288,7 +4390,12 @@ setAdminAddRole,
 setAdminAddName,
 setAdminAddClass,
 setAdminAddSpec,
+  canManage = false,
+  isAdminUser = false,
 }: {
+  // Dreadlord / officer / this run's leader: drag, remove, attendance
+  canManage?: boolean;
+  isAdminUser?: boolean;
   runId: number;
   role: string;
   color: string;
@@ -4334,11 +4441,9 @@ setPlayerPopup: (signup: Signup) => void;
     user?.user_metadata?.provider_id || user?.user_metadata?.sub;
 
 const isAdmin =
+  isAdminUser ||
   ADMIN_IDS.includes(discordId) ||
   user?.site_role === "admin";
-
-const isOfficer =
-  user?.site_role === "officer";
 
   const displayColor = full ? "#ef4444" : oneLeft ? "#facc15" : color;
 
@@ -4400,8 +4505,9 @@ const isOfficer =
 const canDelete =
   signup.discord_id === discordId ||
   signup.character_id === selectedCharacter?.id ||
-  isAdmin;
-const canMarkAttendance = isAdmin || isOfficer;
+  isAdmin ||
+  canManage;
+const canMarkAttendance = canManage;
 return (
   <DraggableSignup
   key={signup.id}
@@ -4409,7 +4515,7 @@ return (
   parsedName={parsed.character}
   color={color}
   canDelete={canDelete}
-  canDrag={isAdmin || isOfficer}
+  canDrag={canManage}
   canMarkAttendance={canMarkAttendance}
   removeSignup={removeSignup}
   markAttendance={markAttendance}
