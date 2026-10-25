@@ -99,34 +99,35 @@ function ExpansionBlock({
 
   return (
     <section
-      className="rw-xpac"
+      className={`rw-xpac${x.current ? " is-current" : ""}`}
       style={
         {
           "--accent": x.accent,
-          "--accent-soft": `rgba(${x.accentRgb},.45)`,
-          "--accent-faint": `rgba(${x.accentRgb},.14)`,
+          "--accent-rgb": x.accentRgb,
         } as React.CSSProperties
       }
     >
-      <div className="rw-xpac-head">
-        <div className="rw-xpac-icon">{x.icon}</div>
-        <div>
-          <h2 className="rw-xpac-name">{x.name}</h2>
-          <div className="rw-xpac-years">{x.years}</div>
+      <div className="rw-xpac-watermark">{x.icon}</div>
+
+      <div className="rw-crest">
+        <div className="rw-crest-icon">
+          <span>{x.icon}</span>
         </div>
+        {x.current && <div className="rw-current-tag">Current expansion</div>}
+        <h2 className="rw-crest-name">{x.name}</h2>
+        <div className="rw-crest-years">{x.years}</div>
       </div>
 
-      <div className="rw-season-grid">
-        {x.seasons.map((entry) =>
+      <div className="rw-season-row">
+        {x.seasons.map((entry, i) =>
           entry.lost || !entry.data ? (
-            <div key={entry.id} className="rw-scard is-lost" title="Records from this season were lost">
-              <div className="rw-scard-label">{entry.label}</div>
-              <div className="rw-lost-icon">📜</div>
+            <div key={entry.id} className="rw-scard is-lost">
+              <div className="rw-scard-num">S{i + 1}</div>
+              <div className="rw-lost-seal">🔒</div>
               <div className="rw-lost-title">Lost Data</div>
-              <div className="rw-lost-sub">Records from this season were lost to time.</div>
             </div>
           ) : (
-            <SeasonCard key={entry.id} entry={entry} onOpen={() => onOpen(entry)} />
+            <SeasonCard key={entry.id} entry={entry} index={i} onOpen={() => onOpen(entry)} />
           )
         )}
       </div>
@@ -134,41 +135,44 @@ function ExpansionBlock({
   );
 }
 
-function SeasonCard({ entry, onOpen }: { entry: SeasonEntry; onOpen: () => void }) {
+function SeasonCard({
+  entry,
+  index,
+  onOpen,
+}: {
+  entry: SeasonEntry;
+  index: number;
+  onOpen: () => void;
+}) {
   const d = entry.data!;
   const champ = d.rewards.find((w) => !w.disqualified);
   const live = d.status === "live";
 
   return (
     <button className={`rw-scard is-open${live ? " is-live" : ""}`} onClick={onOpen}>
-      <div className="rw-scard-label">
-        {entry.label}
-        {live && (
-          <span className="rw-live-pill">
-            <span className="rw-live-dot" /> LIVE
-          </span>
-        )}
-      </div>
+      <div className="rw-scard-num">S{index + 1}</div>
+      {live && (
+        <span className="rw-live-pill">
+          <span className="rw-live-dot" /> LIVE
+        </span>
+      )}
 
       {champ ? (
         <>
           <div className="rw-scard-crown">👑</div>
           <div className="rw-scard-champ">{champ.name}</div>
-          <div className="rw-scard-meta">Champion · {short(champ.generated)} gold</div>
+          {d.totalGenerated !== undefined && (
+            <div className="rw-scard-total">{short(d.totalGenerated)} gold</div>
+          )}
         </>
       ) : (
         <>
           <div className="rw-scard-crown">⏳</div>
           <div className="rw-scard-champ">In progress</div>
-          <div className="rw-scard-meta">Rewards when the season ends</div>
         </>
       )}
 
-      {d.totalGenerated !== undefined && (
-        <div className="rw-scard-total">{short(d.totalGenerated)} gold generated</div>
-      )}
-
-      <div className="rw-scard-cta">View season →</div>
+      <div className="rw-scard-cta">View →</div>
     </button>
   );
 }
@@ -526,75 +530,124 @@ const CSS = `
 .rw-empty { text-align: center; color: #a99cc6; padding: 60px; }
 
 /* ---------- expansion overview ---------- */
-.rw-timeline { max-width: 1200px; margin: 0 auto; display: grid; gap: 28px; }
-.rw-xpac {
-  position: relative; padding: 26px 28px 28px; border-radius: 24px;
-  border: 1px solid var(--accent-soft);
-  background:
-    radial-gradient(circle at 0% 0%, var(--accent-faint), transparent 45%),
-    linear-gradient(180deg, rgba(18,8,32,.92), rgba(6,2,16,.95));
-  box-shadow: 0 0 34px var(--accent-faint);
-}
-.rw-xpac-head { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
-.rw-xpac-icon {
-  width: 62px; height: 62px; border-radius: 18px; display: flex; align-items: center; justify-content: center;
-  font-size: 32px; border: 1px solid var(--accent-soft); background: var(--accent-faint);
-  box-shadow: 0 0 20px var(--accent-faint);
-}
-.rw-xpac-name {
-  margin: 0; font-family: Georgia, serif; font-size: 34px; color: var(--accent);
-  text-shadow: 0 0 18px var(--accent-soft);
-}
-.rw-xpac-years { margin-top: 2px; color: #a99cc6; font-weight: 800; letter-spacing: 1px; }
+.rw-timeline { max-width: 1240px; margin: 0 auto; display: grid; gap: 26px; }
 
-.rw-season-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.rw-xpac {
+  position: relative; overflow: hidden;
+  display: grid; grid-template-columns: 280px minmax(0, 1fr); align-items: center; gap: 28px;
+  min-height: 250px; padding: 28px 30px; border-radius: 26px;
+  border: 1px solid rgba(var(--accent-rgb), .45);
+  background:
+    radial-gradient(ellipse at 0% 50%, rgba(var(--accent-rgb), .32), transparent 55%),
+    radial-gradient(ellipse at 100% 0%, rgba(var(--accent-rgb), .12), transparent 45%),
+    linear-gradient(120deg, rgba(14,6,26,.94), rgba(4,1,12,.97));
+  box-shadow: 0 0 40px rgba(var(--accent-rgb), .16), inset 0 0 40px rgba(var(--accent-rgb), .06);
+  transition: box-shadow .25s ease, border-color .25s ease;
+}
+.rw-xpac:hover { border-color: rgba(var(--accent-rgb), .75); box-shadow: 0 0 56px rgba(var(--accent-rgb), .3), inset 0 0 40px rgba(var(--accent-rgb), .08); }
+.rw-xpac.is-current {
+  min-height: 290px; border-width: 2px;
+  border-color: rgba(var(--accent-rgb), .8);
+  box-shadow: 0 0 70px rgba(var(--accent-rgb), .35), inset 0 0 60px rgba(var(--accent-rgb), .1);
+}
+
+/* giant faded emblem behind everything */
+.rw-xpac-watermark {
+  position: absolute; right: -40px; bottom: -70px; font-size: 300px; line-height: 1;
+  opacity: .07; filter: grayscale(.3) blur(1px); pointer-events: none; user-select: none;
+}
+
+/* left side: the expansion crest */
+.rw-crest { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.rw-crest-icon {
+  position: relative; width: 104px; height: 104px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 52px;
+  background: radial-gradient(circle, rgba(var(--accent-rgb), .35), rgba(0,0,0,.6) 70%);
+  border: 2px solid rgba(var(--accent-rgb), .7);
+  box-shadow: 0 0 30px rgba(var(--accent-rgb), .55), inset 0 0 20px rgba(var(--accent-rgb), .35);
+}
+.rw-crest-icon::after {
+  content: ""; position: absolute; inset: -9px; border-radius: 50%;
+  border: 1px solid rgba(var(--accent-rgb), .35);
+}
+.rw-crest-icon span { filter: drop-shadow(0 0 12px rgba(var(--accent-rgb), .9)); }
+.rw-current-tag {
+  margin-top: 14px; padding: 4px 12px; border-radius: 999px;
+  font-size: 11px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;
+  color: #fff; background: rgba(var(--accent-rgb), .35); border: 1px solid rgba(var(--accent-rgb), .8);
+  box-shadow: 0 0 14px rgba(var(--accent-rgb), .5);
+}
+.rw-crest-name {
+  margin: 12px 0 0; font-family: Georgia, serif; font-size: 34px; font-weight: 900; line-height: 1.1;
+  color: #fff; text-shadow: 0 0 22px rgba(var(--accent-rgb), .9), 0 2px 6px rgba(0,0,0,.8);
+}
+.is-current .rw-crest-name { font-size: 42px; }
+.rw-crest-years { margin-top: 6px; color: rgba(var(--accent-rgb), 1); font-weight: 900; letter-spacing: 3px; font-size: 13px; }
+
+/* right side: season cards */
+.rw-season-row { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 
 .rw-scard {
-  position: relative; display: flex; flex-direction: column; align-items: center; text-align: center;
-  min-height: 210px; padding: 18px 14px; border-radius: 18px;
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 190px; padding: 18px 12px; border-radius: 20px; text-align: center;
   font-family: inherit; color: #fff;
 }
-.rw-scard-label {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 14px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #c4b5fd;
+.rw-scard-num {
+  position: absolute; top: 12px; left: 14px;
+  font-family: Georgia, serif; font-size: 20px; font-weight: 900; color: rgba(255,255,255,.35);
 }
 
+/* lost seasons: dark sealed tablets */
 .rw-scard.is-lost {
-  border: 1px dashed rgba(148,163,184,.35);
+  border: 1px solid rgba(255,255,255,.06);
   background:
-    repeating-linear-gradient(135deg, rgba(255,255,255,.025) 0 10px, transparent 10px 20px),
-    rgba(10,8,18,.75);
-  filter: grayscale(1);
-  opacity: .62;
+    radial-gradient(circle at 50% 40%, rgba(255,255,255,.04), transparent 60%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.018) 0 8px, transparent 8px 16px),
+    rgba(4,2,10,.72);
+  box-shadow: inset 0 0 30px rgba(0,0,0,.7);
 }
-.rw-lost-icon { margin-top: 18px; font-size: 38px; opacity: .7; }
+.rw-scard.is-lost .rw-scard-num { color: rgba(255,255,255,.18); }
+.rw-lost-seal { font-size: 30px; opacity: .35; filter: grayscale(1); }
 .rw-lost-title {
-  margin-top: 8px; font-family: Georgia, serif; font-size: 22px; font-weight: 900;
-  color: #9ca3af; letter-spacing: 1px;
+  margin-top: 10px; font-size: 12px; font-weight: 900; letter-spacing: 4px; text-transform: uppercase;
+  color: rgba(255,255,255,.28);
 }
-.rw-lost-sub { margin-top: 6px; color: #6b7280; font-size: 13px; font-weight: 700; font-style: italic; }
 
+/* seasons with data */
 .rw-scard.is-open {
-  cursor: pointer; border: 1px solid var(--accent-soft);
-  background: linear-gradient(180deg, var(--accent-faint), rgba(0,0,0,.4));
-  box-shadow: 0 0 22px var(--accent-faint);
-  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  cursor: pointer;
+  border: 1px solid rgba(var(--accent-rgb), .75);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(var(--accent-rgb), .45), transparent 65%),
+    linear-gradient(180deg, rgba(var(--accent-rgb), .16), rgba(0,0,0,.55));
+  box-shadow: 0 0 26px rgba(var(--accent-rgb), .35), inset 0 0 22px rgba(var(--accent-rgb), .15);
+  transition: transform .22s ease, box-shadow .22s ease;
 }
-.rw-scard.is-open:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 0 34px var(--accent-soft); }
+.rw-scard.is-open:hover { transform: translateY(-6px) scale(1.03); box-shadow: 0 0 44px rgba(var(--accent-rgb), .6), inset 0 0 26px rgba(var(--accent-rgb), .2); }
+.rw-scard.is-open .rw-scard-num { color: rgba(var(--accent-rgb), 1); text-shadow: 0 0 10px rgba(var(--accent-rgb), .8); }
 .rw-scard.is-live { animation: rwLivePulse 2.4s ease-in-out infinite; }
 @keyframes rwLivePulse {
-  0%, 100% { box-shadow: 0 0 18px var(--accent-faint); }
-  50%      { box-shadow: 0 0 36px var(--accent-soft); }
+  0%, 100% { box-shadow: 0 0 20px rgba(var(--accent-rgb), .3), inset 0 0 22px rgba(var(--accent-rgb), .15); }
+  50%      { box-shadow: 0 0 46px rgba(var(--accent-rgb), .7), inset 0 0 26px rgba(var(--accent-rgb), .25); }
 }
-.rw-scard-crown { margin-top: 14px; font-size: 38px; filter: drop-shadow(0 0 10px rgba(250,204,21,.7)); }
-.rw-scard-champ { margin-top: 6px; font-size: 22px; font-weight: 900; word-break: break-word; }
-.rw-scard-meta { margin-top: 4px; color: #d8c9a8; font-size: 14px; font-weight: 700; }
-.rw-scard-total { margin-top: 8px; color: #facc15; font-weight: 900; font-size: 15px; }
-.rw-scard-cta { margin-top: auto; padding-top: 14px; color: var(--accent); font-weight: 900; font-size: 14px; }
+.rw-scard-crown { font-size: 44px; filter: drop-shadow(0 0 14px rgba(250,204,21,.85)); }
+.rw-scard-champ { margin-top: 6px; font-size: 22px; font-weight: 900; word-break: break-word; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
+.rw-scard-total { margin-top: 4px; color: #facc15; font-weight: 900; font-size: 15px; text-shadow: 0 0 10px rgba(250,204,21,.5); }
+.rw-scard-cta {
+  margin-top: 14px; padding: 6px 16px; border-radius: 999px; font-weight: 900; font-size: 13px;
+  color: #fff; background: rgba(var(--accent-rgb), .35); border: 1px solid rgba(var(--accent-rgb), .8);
+}
 
 .rw-live-pill {
-  display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px;
-  border: 1px solid rgba(34,197,94,.6); background: rgba(5,46,22,.55); color: #4ade80; font-size: 11px;
+  position: absolute; top: 12px; right: 12px;
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+  border: 1px solid rgba(34,197,94,.7); background: rgba(5,46,22,.75); color: #4ade80;
+  font-size: 11px; font-weight: 900; letter-spacing: 1px;
+}
+
+@media (max-width: 1000px) {
+  .rw-xpac { grid-template-columns: 1fr; }
+  .rw-season-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* ---------- season detail: back bar ---------- */
@@ -634,7 +687,6 @@ const CSS = `
 .rw-rules ul { margin: 0; padding-left: 20px; color: #fed7aa; line-height: 1.6; font-weight: 600; }
 
 @media (max-width: 1000px) {
-  .rw-season-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rw-tiers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 

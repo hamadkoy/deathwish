@@ -2,7 +2,7 @@
    REWARDS DATA — edit this file to add or change seasons.
    Put it at: app/rewards/seasons.ts
 
-   - Expansions are listed oldest → newest (Shadowlands first).
+   - Expansions are listed newest → oldest (current expansion first).
    - A season with `lost: true` shows as "Lost Data".
    - To fill in a season, remove `lost: true` and add `data`.
    - gold / reward numbers are plain numbers (no commas).
@@ -55,36 +55,34 @@ export type Expansion = {
   icon: string;
   accent: string; // main colour
   accentRgb: string; // same colour as "r,g,b" for glows
+  current?: boolean; // shows the "Current expansion" tag
   seasons: SeasonEntry[];
 };
 
 export const EXPANSIONS: Expansion[] = [
   {
-    id: "shadowlands",
-    name: "Shadowlands",
-    years: "2020 – 2022",
-    icon: "💀",
-    accent: "#94a3b8",
-    accentRgb: "148,163,184",
+    id: "midnight",
+    name: "Midnight",
+    current: true,
+    years: "2026 –",
+    icon: "🌙",
+    accent: "#a855f7",
+    accentRgb: "168,85,247",
     seasons: [
-      { id: "sl-s1", label: "Season 1", lost: true },
-      { id: "sl-s2", label: "Season 2", lost: true },
-      { id: "sl-s3", label: "Season 3", lost: true },
-      { id: "sl-s4", label: "Season 4", lost: true },
-    ],
-  },
-  {
-    id: "dragonflight",
-    name: "Dragonflight",
-    years: "2022 – 2024",
-    icon: "🐉",
-    accent: "#f97316",
-    accentRgb: "249,115,22",
-    seasons: [
-      { id: "df-s1", label: "Season 1", lost: true },
-      { id: "df-s2", label: "Season 2", lost: true },
-      { id: "df-s3", label: "Season 3", lost: true },
-      { id: "df-s4", label: "Season 4", lost: true },
+      { id: "mn-s1", label: "Season 1", lost: true },
+      {
+        id: "mn-s2",
+        label: "Season 2",
+        data: {
+          title: "Midnight — Season 2",
+          subtitle: "Current season",
+          status: "live",
+          announcement:
+            "The season is still running. Winners and rewards will be posted here when it ends.",
+          rewards: [],
+          hiddenRewards: [],
+        },
+      },
     ],
   },
   {
@@ -108,18 +106,6 @@ export const EXPANSIONS: Expansion[] = [
           totalGenerated: 1716487953,
           bonusNote:
             "3,000,000g added to everyone for the off week (week 7). If you still fell short, that's on you.",
-          tiers: [
-            { threshold: 60000000, prizeGold: 5000000, prizeItem: "Metal Gear Solid Remake" },
-            { threshold: 55000000, prizeGold: 2500000, prizeItem: "Metal Gear Solid Remake" },
-            { threshold: 50000000, prizeGold: 1500000, prizeItem: "Metal Gear Solid Remake" },
-            { threshold: 45000000, prizeGold: 1000000 },
-            { threshold: 40000000, prizeGold: 500000 },
-          ],
-          tiersNote:
-            "Announced at the start of the season. Jdawee started with 5 characters, reached 9 around week 7–8, and generated 40,000,000g the season before.",
-          rules: [
-            "Joining with a garbage alt and underperforming on it: you still get paid for the run, but it won't count towards your total generated balance.",
-          ],
           rewards: [
             {
               name: "Jdawee",
@@ -162,29 +148,31 @@ export const EXPANSIONS: Expansion[] = [
     ],
   },
   {
-    id: "midnight",
-    name: "Midnight",
-    years: "2026 –",
-    icon: "🌙",
-    accent: "#a855f7",
-    accentRgb: "168,85,247",
+    id: "dragonflight",
+    name: "Dragonflight",
+    years: "2022 – 2024",
+    icon: "🐉",
+    accent: "#f97316",
+    accentRgb: "249,115,22",
     seasons: [
-      { id: "mn-s1", label: "Season 1", lost: true },
-      {
-        id: "mn-s2",
-        label: "Season 2",
-        data: {
-          title: "Midnight — Season 2",
-          subtitle: "Current season",
-          status: "live",
-          announcement:
-            "The season is still running. Winners and rewards will be posted here when it ends.",
-          // Add the reward ladder here when you announce it, e.g.
-          // tiers: [{ threshold: 60000000, prizeGold: 5000000 }],
-          rewards: [],
-          hiddenRewards: [],
-        },
-      },
+      { id: "df-s1", label: "Season 1", lost: true },
+      { id: "df-s2", label: "Season 2", lost: true },
+      { id: "df-s3", label: "Season 3", lost: true },
+      { id: "df-s4", label: "Season 4", lost: true },
+    ],
+  },
+  {
+    id: "shadowlands",
+    name: "Shadowlands",
+    years: "2020 – 2022",
+    icon: "💀",
+    accent: "#94a3b8",
+    accentRgb: "148,163,184",
+    seasons: [
+      { id: "sl-s1", label: "Season 1", lost: true },
+      { id: "sl-s2", label: "Season 2", lost: true },
+      { id: "sl-s3", label: "Season 3", lost: true },
+      { id: "sl-s4", label: "Season 4", lost: true },
     ],
   },
 ];
