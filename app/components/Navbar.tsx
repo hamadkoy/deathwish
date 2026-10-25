@@ -179,6 +179,10 @@ const [acceptedApplication, setAcceptedApplication] = useState(false);
               My runs
             </NavButton>
 
+            <NavButton href="/rewards" style={navLink}>
+              🏆 Rewards
+            </NavButton>
+
             {["Nightblade", "Dreadlord"].includes(profile?.site_role || "") && (
               <NavButton href="/booking" style={navLink}>
                 Booking
