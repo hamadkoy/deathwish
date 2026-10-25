@@ -1,7 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { SEASONS, type Season, type Winner } from "./seasons";
+import { useEffect, useState } from "react";
+import {
+  EXPANSIONS,
+  type Expansion,
+  type Season,
+  type SeasonEntry,
+  type Winner,
+} from "./seasons";
 
 /* ============================================================
    REWARDS PAGE — app/rewards/page.tsx
@@ -9,10 +15,32 @@ import { SEASONS, type Season, type Winner } from "./seasons";
 ============================================================ */
 
 const gold = (n?: number) => (n ?? 0).toLocaleString("en-US");
+// 1,716,487,953 → "1.72B", 62,054,500 → "62.1M"
+const short = (n: number) =>
+  n >= 1_000_000_000
+    ? `${(n / 1_000_000_000).toLocaleString("en-US", { maximumFractionDigits: 2 })}B`
+    : n >= 1_000_000
+    ? `${(n / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 1 })}M`
+    : gold(n);
+
+type Open = { expansion: Expansion; entry: SeasonEntry } | null;
 
 export default function RewardsPage() {
-  const [seasonId, setSeasonId] = useState(SEASONS[0]?.id);
-  const season = SEASONS.find((s) => s.id === seasonId) || SEASONS[0];
+  const [open, setOpen] = useState<Open>(null);
+
+  // Let the browser back button close a season
+  useEffect(() => {
+    if (!open) return;
+    window.history.pushState({ rw: open.entry.id }, "");
+    const onPop = () => setOpen(null);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [open?.entry.id]);
+
+  function close() {
+    if (window.history.state?.rw) window.history.back();
+    else setOpen(null);
+  }
 
   return (
     <main className="rw-page">
@@ -30,23 +58,118 @@ export default function RewardsPage() {
         <p className="rw-sub">The boosters who carried the guild — and what they took home.</p>
       </header>
 
-      {SEASONS.length > 1 && (
-        <nav className="rw-tabs">
-          {SEASONS.map((s) => (
-            <button
-              key={s.id}
-              className={`rw-tab${s.id === season?.id ? " is-active" : ""}`}
-              onClick={() => setSeasonId(s.id)}
-            >
-              {s.status === "live" && <span className="rw-live-dot" />}
-              {s.title}
+      {open && open.entry.data ? (
+        <>
+          <div className="rw-back-row">
+            <button className="rw-back" onClick={close}>
+              ← All expansions
             </button>
+            <span className="rw-crumb" style={{ color: open.expansion.accent }}>
+              {open.expansion.icon} {open.expansion.name} · {open.entry.label}
+            </span>
+          </div>
+          <SeasonView season={open.entry.data} />
+        </>
+      ) : (
+        <div className="rw-timeline">
+          {EXPANSIONS.map((x) => (
+            <ExpansionBlock
+              key={x.id}
+              expansion={x}
+              onOpen={(entry) => {
+                setOpen({ expansion: x, entry });
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            />
           ))}
-        </nav>
+        </div>
+      )}
+    </main>
+  );
+}
+
+function ExpansionBlock({
+  expansion,
+  onOpen,
+}: {
+  expansion: Expansion;
+  onOpen: (entry: SeasonEntry) => void;
+}) {
+  const x = expansion;
+
+  return (
+    <section
+      className="rw-xpac"
+      style={
+        {
+          "--accent": x.accent,
+          "--accent-soft": `rgba(${x.accentRgb},.45)`,
+          "--accent-faint": `rgba(${x.accentRgb},.14)`,
+        } as React.CSSProperties
+      }
+    >
+      <div className="rw-xpac-head">
+        <div className="rw-xpac-icon">{x.icon}</div>
+        <div>
+          <h2 className="rw-xpac-name">{x.name}</h2>
+          <div className="rw-xpac-years">{x.years}</div>
+        </div>
+      </div>
+
+      <div className="rw-season-grid">
+        {x.seasons.map((entry) =>
+          entry.lost || !entry.data ? (
+            <div key={entry.id} className="rw-scard is-lost" title="Records from this season were lost">
+              <div className="rw-scard-label">{entry.label}</div>
+              <div className="rw-lost-icon">📜</div>
+              <div className="rw-lost-title">Lost Data</div>
+              <div className="rw-lost-sub">Records from this season were lost to time.</div>
+            </div>
+          ) : (
+            <SeasonCard key={entry.id} entry={entry} onOpen={() => onOpen(entry)} />
+          )
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SeasonCard({ entry, onOpen }: { entry: SeasonEntry; onOpen: () => void }) {
+  const d = entry.data!;
+  const champ = d.rewards.find((w) => !w.disqualified);
+  const live = d.status === "live";
+
+  return (
+    <button className={`rw-scard is-open${live ? " is-live" : ""}`} onClick={onOpen}>
+      <div className="rw-scard-label">
+        {entry.label}
+        {live && (
+          <span className="rw-live-pill">
+            <span className="rw-live-dot" /> LIVE
+          </span>
+        )}
+      </div>
+
+      {champ ? (
+        <>
+          <div className="rw-scard-crown">👑</div>
+          <div className="rw-scard-champ">{champ.name}</div>
+          <div className="rw-scard-meta">Champion · {short(champ.generated)} gold</div>
+        </>
+      ) : (
+        <>
+          <div className="rw-scard-crown">⏳</div>
+          <div className="rw-scard-champ">In progress</div>
+          <div className="rw-scard-meta">Rewards when the season ends</div>
+        </>
       )}
 
-      {season ? <SeasonView season={season} /> : <div className="rw-empty">No seasons yet.</div>}
-    </main>
+      {d.totalGenerated !== undefined && (
+        <div className="rw-scard-total">{short(d.totalGenerated)} gold generated</div>
+      )}
+
+      <div className="rw-scard-cta">View season →</div>
+    </button>
   );
 }
 
@@ -87,12 +210,51 @@ function SeasonView({ season }: { season: Season }) {
         </div>
       )}
 
+      {/* ---------- Reward ladder ---------- */}
+      {season.tiers && season.tiers.length > 0 && (
+        <>
+          <h3 className="rw-section-title rw-tier-title">
+            <span>🎁</span> Exclusive Reward Tiers <span>🎁</span>
+          </h3>
+          {season.tiersNote && <div className="rw-requirement rw-tier-note">{season.tiersNote}</div>}
+          <div className="rw-tiers">
+            {[...season.tiers]
+              .sort((a, b) => b.threshold - a.threshold)
+              .map((t, i) => (
+                <div key={t.threshold} className={`rw-tier tier-${Math.min(i + 1, 5)}`}>
+                  <div className="rw-tier-rank">Tier {i + 1}</div>
+                  <div className="rw-tier-reach">
+                    <span>Reach</span>
+                    <b>{gold(t.threshold)}g</b>
+                  </div>
+                  <div className="rw-tier-arrow">▼</div>
+                  <div className="rw-prize-gold">+{gold(t.prizeGold)}g</div>
+                  {t.prizeItem && <div className="rw-prize-item">🎮 {t.prizeItem}</div>}
+                </div>
+              ))}
+          </div>
+        </>
+      )}
+
+      {season.rules && season.rules.length > 0 && (
+        <div className="rw-rules">
+          <div className="rw-rules-title">⚠️ Rules</div>
+          <ul>
+            {season.rules.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* ---------- Main rewards ---------- */}
+      {season.rewards.length > 0 && (
       <h3 className="rw-section-title">
         <span>🔥</span> Rewards <span>🔥</span>
       </h3>
+      )}
 
-      <div className="rw-podium">
+      <div className="rw-podium" style={{ display: podium.length ? undefined : "none" }}>
         {podiumOrder.map((w) => {
           const place = podium.indexOf(w) + 1;
           return <PodiumCard key={w.name} winner={w} place={place} />;
@@ -362,6 +524,119 @@ const CSS = `
 
 .rw-closing { margin-top: 34px; text-align: center; font-family: Georgia, serif; font-size: 26px; color: #fff7cc; }
 .rw-empty { text-align: center; color: #a99cc6; padding: 60px; }
+
+/* ---------- expansion overview ---------- */
+.rw-timeline { max-width: 1200px; margin: 0 auto; display: grid; gap: 28px; }
+.rw-xpac {
+  position: relative; padding: 26px 28px 28px; border-radius: 24px;
+  border: 1px solid var(--accent-soft);
+  background:
+    radial-gradient(circle at 0% 0%, var(--accent-faint), transparent 45%),
+    linear-gradient(180deg, rgba(18,8,32,.92), rgba(6,2,16,.95));
+  box-shadow: 0 0 34px var(--accent-faint);
+}
+.rw-xpac-head { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.rw-xpac-icon {
+  width: 62px; height: 62px; border-radius: 18px; display: flex; align-items: center; justify-content: center;
+  font-size: 32px; border: 1px solid var(--accent-soft); background: var(--accent-faint);
+  box-shadow: 0 0 20px var(--accent-faint);
+}
+.rw-xpac-name {
+  margin: 0; font-family: Georgia, serif; font-size: 34px; color: var(--accent);
+  text-shadow: 0 0 18px var(--accent-soft);
+}
+.rw-xpac-years { margin-top: 2px; color: #a99cc6; font-weight: 800; letter-spacing: 1px; }
+
+.rw-season-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+
+.rw-scard {
+  position: relative; display: flex; flex-direction: column; align-items: center; text-align: center;
+  min-height: 210px; padding: 18px 14px; border-radius: 18px;
+  font-family: inherit; color: #fff;
+}
+.rw-scard-label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #c4b5fd;
+}
+
+.rw-scard.is-lost {
+  border: 1px dashed rgba(148,163,184,.35);
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.025) 0 10px, transparent 10px 20px),
+    rgba(10,8,18,.75);
+  filter: grayscale(1);
+  opacity: .62;
+}
+.rw-lost-icon { margin-top: 18px; font-size: 38px; opacity: .7; }
+.rw-lost-title {
+  margin-top: 8px; font-family: Georgia, serif; font-size: 22px; font-weight: 900;
+  color: #9ca3af; letter-spacing: 1px;
+}
+.rw-lost-sub { margin-top: 6px; color: #6b7280; font-size: 13px; font-weight: 700; font-style: italic; }
+
+.rw-scard.is-open {
+  cursor: pointer; border: 1px solid var(--accent-soft);
+  background: linear-gradient(180deg, var(--accent-faint), rgba(0,0,0,.4));
+  box-shadow: 0 0 22px var(--accent-faint);
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.rw-scard.is-open:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 0 34px var(--accent-soft); }
+.rw-scard.is-live { animation: rwLivePulse 2.4s ease-in-out infinite; }
+@keyframes rwLivePulse {
+  0%, 100% { box-shadow: 0 0 18px var(--accent-faint); }
+  50%      { box-shadow: 0 0 36px var(--accent-soft); }
+}
+.rw-scard-crown { margin-top: 14px; font-size: 38px; filter: drop-shadow(0 0 10px rgba(250,204,21,.7)); }
+.rw-scard-champ { margin-top: 6px; font-size: 22px; font-weight: 900; word-break: break-word; }
+.rw-scard-meta { margin-top: 4px; color: #d8c9a8; font-size: 14px; font-weight: 700; }
+.rw-scard-total { margin-top: 8px; color: #facc15; font-weight: 900; font-size: 15px; }
+.rw-scard-cta { margin-top: auto; padding-top: 14px; color: var(--accent); font-weight: 900; font-size: 14px; }
+
+.rw-live-pill {
+  display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid rgba(34,197,94,.6); background: rgba(5,46,22,.55); color: #4ade80; font-size: 11px;
+}
+
+/* ---------- season detail: back bar ---------- */
+.rw-back-row { max-width: 1200px; margin: 0 auto 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.rw-back {
+  padding: 11px 20px; border-radius: 12px; cursor: pointer; font-weight: 900; font-size: 15px;
+  border: 1px solid rgba(250,204,21,.45); background: rgba(20,10,0,.75); color: #fde68a;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.rw-back:hover { transform: translateX(-3px); box-shadow: 0 0 18px rgba(250,204,21,.45); }
+.rw-crumb { font-weight: 900; font-size: 16px; letter-spacing: .5px; }
+
+/* ---------- reward tiers ---------- */
+.rw-tier-title { text-shadow: 0 0 18px rgba(250,204,21,.6); }
+.rw-tier-note { border-color: rgba(250,204,21,.45); background: rgba(66,52,4,.3); color: #fde68a; }
+.rw-tiers { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+.rw-tier {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px;
+  padding: 18px 12px; border-radius: 18px;
+  border: 1px solid rgba(250,204,21,.35); background: linear-gradient(180deg, rgba(250,204,21,.10), rgba(0,0,0,.4));
+}
+.rw-tier.tier-1 { border-color: rgba(250,204,21,.85); box-shadow: 0 0 26px rgba(250,204,21,.35); background: linear-gradient(180deg, rgba(250,204,21,.22), rgba(40,25,0,.55)); }
+.rw-tier.tier-2 { border-color: rgba(250,204,21,.6); }
+.rw-tier-rank { color: #c4b5fd; font-size: 12px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; }
+.rw-tier-reach { display: flex; flex-direction: column; }
+.rw-tier-reach span { color: #a99cc6; font-size: 12px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+.rw-tier-reach b { color: #facc15; font-size: 21px; text-shadow: 0 0 12px rgba(250,204,21,.5); }
+.rw-tier-arrow { color: rgba(250,204,21,.6); font-size: 12px; }
+.rw-tier .rw-prize-gold { font-size: 17px; }
+.rw-tier .rw-prize-item { font-size: 13px; }
+
+.rw-rules {
+  margin-top: 18px; padding: 16px 20px; border-radius: 14px;
+  border: 1px solid rgba(249,115,22,.45); background: rgba(60,20,0,.35);
+}
+.rw-rules-title { font-weight: 900; font-size: 18px; color: #fdba74; margin-bottom: 6px; }
+.rw-rules ul { margin: 0; padding-left: 20px; color: #fed7aa; line-height: 1.6; font-weight: 600; }
+
+@media (max-width: 1000px) {
+  .rw-season-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rw-tiers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* ---------- small screens ---------- */
 @media (max-width: 800px) {
