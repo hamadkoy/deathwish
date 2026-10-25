@@ -151,9 +151,6 @@ function SeasonView({ season }: { season: Season }) {
         </>
       )}
 
-      {/* ---------- Screenshots ---------- */}
-      {season.images && season.images.length > 0 && <Gallery images={season.images} />}
-
       {season.closingLine && <div className="rw-closing">{season.closingLine}</div>}
     </section>
   );
@@ -182,46 +179,6 @@ function PodiumCard({ winner, place }: { winner: Winner; place: number }) {
 
       <div className="rw-step">{place}</div>
     </div>
-  );
-}
-
-function Gallery({ images }: { images: { src: string; caption: string }[] }) {
-  // Only show screenshots that actually loaded — missing files stay hidden.
-  const [loaded, setLoaded] = useState<string[]>([]);
-  const [open, setOpen] = useState<string | null>(null);
-
-  return (
-    <>
-      <div className="rw-gallery" style={{ display: loaded.length ? undefined : "none" }}>
-        {images.map((img) => (
-          <figure
-            key={img.src}
-            className="rw-shot"
-            onClick={() => setOpen(img.src)}
-            style={{ display: loaded.includes(img.src) ? undefined : "none" }}
-          >
-            <img
-              src={img.src}
-              alt={img.caption}
-              ref={(el) => {
-                // already cached before React attached onLoad
-                if (el && el.complete && el.naturalWidth > 0 && !loaded.includes(img.src)) {
-                  setLoaded((l) => (l.includes(img.src) ? l : [...l, img.src]));
-                }
-              }}
-              onLoad={() => setLoaded((l) => (l.includes(img.src) ? l : [...l, img.src]))}
-            />
-            <figcaption>{img.caption}</figcaption>
-          </figure>
-        ))}
-      </div>
-
-      {open && (
-        <div className="rw-lightbox" onClick={() => setOpen(null)}>
-          <img src={open} alt="" />
-        </div>
-      )}
-    </>
   );
 }
 
@@ -402,22 +359,6 @@ const CSS = `
   margin-top: 12px; padding: 8px 16px; border-radius: 999px; font-weight: 900; font-size: 19px;
   border: 1px solid rgba(34,197,94,.6); background: rgba(5,46,22,.55); color: #4ade80;
 }
-
-/* ---------- screenshots ---------- */
-.rw-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; margin-top: 34px; }
-.rw-shot {
-  margin: 0; cursor: zoom-in; border-radius: 16px; overflow: hidden;
-  border: 1px solid rgba(250,204,21,.3); background: rgba(0,0,0,.4);
-  transition: transform .2s ease, box-shadow .2s ease;
-}
-.rw-shot:hover { transform: translateY(-4px); box-shadow: 0 0 26px rgba(250,204,21,.3); }
-.rw-shot img { width: 100%; display: block; }
-.rw-shot figcaption { padding: 10px 14px; color: #fde68a; font-weight: 900; }
-.rw-lightbox {
-  position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center;
-  padding: 20px; background: rgba(0,0,0,.85); backdrop-filter: blur(6px); cursor: zoom-out;
-}
-.rw-lightbox img { max-width: 96vw; max-height: 94vh; border-radius: 12px; box-shadow: 0 0 40px rgba(0,0,0,.8); }
 
 .rw-closing { margin-top: 34px; text-align: center; font-family: Georgia, serif; font-size: 26px; color: #fff7cc; }
 .rw-empty { text-align: center; color: #a99cc6; padding: 60px; }

@@ -4,8 +4,6 @@
 
    - Newest season goes FIRST in the list.
    - gold / reward numbers are plain numbers (no commas).
-   - images: drop the screenshots in /public/rewards/ and list
-     them here; leave the list empty if you don't have any.
 ============================================================ */
 
 export type Winner = {
@@ -30,7 +28,6 @@ export type Season = {
   hiddenRequirement?: string;
   hiddenRewards: Winner[];
   closingLine?: string;
-  images?: { src: string; caption: string }[];
 };
 
 export const SEASONS: Season[] = [
@@ -80,11 +77,5 @@ export const SEASONS: Season[] = [
       { name: "Metalic", generated: 34306500, prizeGold: 1000000 },
     ],
     closingLine: "Good job to all.",
-    images: [
-      // Save the two Discord screenshots into public/rewards/ with these names
-      // (or change the names here). Missing images are simply hidden.
-      { src: "/rewards/tww-s3-payment-history.png", caption: "Season 3 Payment History" },
-      { src: "/rewards/tww-s3-rewards.png", caption: "War-Within Season 3 Rewards" },
-    ],
   },
 ];
