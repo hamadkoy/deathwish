@@ -697,6 +697,10 @@ function getLockedCharacters(targetRunId?: number) {
 
   const target = runs.find((r) => r.id === targetRunId);
   if (!target) return locked;
+
+  // Saved runs use characters that are already saved, so every character is free to sign.
+  if (getRunCategory(target) === "Saved") return locked;
+
   const group = runLockGroup(target);
 
   signups.forEach((s) => {
@@ -706,6 +710,8 @@ function getLockedCharacters(targetRunId?: number) {
 
     const run = runs.find((r) => r.id === s.run_id);
     if (!run) return;
+    // Signing a Saved run doesn't use up the character's lockout either.
+    if (getRunCategory(run) === "Saved") return;
     if (run.week !== target.week) return;
     if (runLockGroup(run) !== group) return;
 
