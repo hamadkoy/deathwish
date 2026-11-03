@@ -11,6 +11,7 @@
 export type Winner = {
   name: string;
   generated: number; // gold this booster generated during the season
+  runs?: number; // runs boosted this season (shown next to the gold)
   prizeItem?: string; // e.g. "Deluxe Edition of Metal Gear Solid"
   prizeGold?: number; // gold reward
   note?: string; // shown in small text under the name
@@ -75,12 +76,39 @@ export const EXPANSIONS: Expansion[] = [
         label: "Season 2",
         data: {
           title: "Midnight — Season 2",
-          subtitle: "Current season",
-          status: "live",
-          announcement:
-            "The season is still running. Winners and rewards will be posted here when it ends.",
-          rewards: [],
+          subtitle: "Hall of Fame",
+          status: "ended",
+          weeks: 10,
+          totalGenerated: 366850246,
+          bonusNote:
+            "5,000g for every run to everyone who boosted 20+ runs this season. 22 boosters, 1,337 runs, 6,685,000g paid out.",
+          rules: ["Minimum 20 runs to qualify.", "Reward is 5,000g per run."],
+          rewards: [
+            { name: "Jdawes", runs: 110, generated: 24162765, prizeGold: 550000 },
+            { name: "Okashira", runs: 108, generated: 23731501, prizeGold: 540000 },
+            { name: "Linkinlight", runs: 105, generated: 23052991, prizeGold: 525000 },
+            { name: "Pyromonia", runs: 99, generated: 21862001, prizeGold: 495000 },
+            { name: "Neorin", runs: 98, generated: 21486000, prizeGold: 490000 },
+            { name: "Taykuma", runs: 96, generated: 21196001, prizeGold: 480000 },
+            { name: "Munchmilow", runs: 87, generated: 19146007, prizeGold: 435000 },
+            { name: "Cannibank", runs: 71, generated: 15530000, prizeGold: 355000 },
+            { name: "Viciholy", runs: 63, generated: 13912000, prizeGold: 315000 },
+            { name: "Heyaas", runs: 63, generated: 13859000, prizeGold: 315000 },
+            { name: "Eminencé", runs: 57, generated: 12466000, prizeGold: 285000 },
+            { name: "Athangur", runs: 54, generated: 11934997, prizeGold: 270000 },
+            { name: "Goldtheone", runs: 45, generated: 9857000, prizeGold: 225000 },
+            { name: "Merçedesax", runs: 43, generated: 9503000, prizeGold: 215000 },
+            { name: "Kebabtimez", runs: 42, generated: 9291000, prizeGold: 210000 },
+            { name: "Barburka", runs: 39, generated: 8558000, prizeGold: 195000 },
+            { name: "Yóruichí", runs: 34, generated: 7535000, prizeGold: 170000 },
+            { name: "Drkcookie", runs: 33, generated: 7253000, prizeGold: 165000 },
+            { name: "Gigachadge", runs: 27, generated: 5987000, prizeGold: 135000 },
+            { name: "Adriân", runs: 23, generated: 5169983, prizeGold: 115000 },
+            { name: "Cheesedance", runs: 20, generated: 4398000, prizeGold: 100000 },
+            { name: "Kigor", runs: 20, generated: 4360000, prizeGold: 100000 },
+          ],
           hiddenRewards: [],
+          closingLine: "Good job to all.",
         },
       },
     ],

@@ -275,6 +275,7 @@ function SeasonView({ season }: { season: Season }) {
               </div>
               <div className="rw-row-gen">
                 Generated <b>{gold(w.generated)}g</b>
+                {w.runs !== undefined && <> · <b>{w.runs}</b> runs</>}
               </div>
               <div className="rw-row-prize">
                 {w.disqualified ? (
@@ -336,6 +337,7 @@ function PodiumCard({ winner, place }: { winner: Winner; place: number }) {
       <div className="rw-gen">
         <span>Generated</span>
         <b>{gold(winner.generated)}g</b>
+        {winner.runs !== undefined && <span>{winner.runs} runs</span>}
       </div>
 
       <div className="rw-prize">
