@@ -80,8 +80,6 @@ export const EXPANSIONS: Expansion[] = [
           status: "ended",
           weeks: 10,
           totalGenerated: 366850246,
-          bonusNote:
-            "5,000g for every run to everyone who boosted 20+ runs this season. 22 boosters, 1,337 runs, 6,685,000g paid out.",
           rules: ["Minimum 20 runs to qualify.", "Reward is 5,000g per run."],
           rewards: [
             { name: "Jdawes", runs: 110, generated: 24162765, prizeGold: 550000 },
