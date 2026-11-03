@@ -25,6 +25,35 @@ const short = (n: number) =>
 
 type Open = { expansion: Expansion; entry: SeasonEntry } | null;
 
+/** Gold actually handed out in a season (main + hidden rewards, no DQs). */
+function seasonStats(d: Season) {
+  const paidOut = [...d.rewards, ...d.hiddenRewards].filter((w) => !w.disqualified && w.prizeGold);
+  return {
+    paid: paidOut.reduce((s, w) => s + (w.prizeGold ?? 0), 0),
+    rewarded: paidOut.length,
+  };
+}
+
+function expansionStats(x: Expansion) {
+  let paid = 0, rewarded = 0, generated = 0;
+  for (const s of x.seasons) {
+    if (!s.data) continue;
+    const st = seasonStats(s.data);
+    paid += st.paid;
+    rewarded += st.rewarded;
+    generated += s.data.totalGenerated ?? 0;
+  }
+  return { paid, rewarded, generated };
+}
+
+const ALL = EXPANSIONS.reduce(
+  (a, x) => {
+    const s = expansionStats(x);
+    return { paid: a.paid + s.paid, rewarded: a.rewarded + s.rewarded, generated: a.generated + s.generated };
+  },
+  { paid: 0, rewarded: 0, generated: 0 }
+);
+
 export default function RewardsPage() {
   const [open, setOpen] = useState<Open>(null);
 
@@ -56,6 +85,32 @@ export default function RewardsPage() {
           <span />
         </div>
         <p className="rw-sub">The boosters who carried the guild — and what they took home.</p>
+
+        {!open && (
+          <div className="rw-hero-stats">
+            <div className="rw-hstat is-main">
+              <div className="rw-hstat-icon">💰</div>
+              <div className="rw-hstat-label">Total rewards paid</div>
+              <div className="rw-hstat-value">
+                {gold(ALL.paid)}
+                <span>g</span>
+              </div>
+            </div>
+            <div className="rw-hstat">
+              <div className="rw-hstat-icon">🏅</div>
+              <div className="rw-hstat-label">Rewards handed out</div>
+              <div className="rw-hstat-value">{ALL.rewarded}</div>
+            </div>
+            <div className="rw-hstat">
+              <div className="rw-hstat-icon">⚔️</div>
+              <div className="rw-hstat-label">Gold generated</div>
+              <div className="rw-hstat-value">
+                {short(ALL.generated)}
+                <span>g</span>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       {open && open.entry.data ? (
@@ -96,6 +151,7 @@ function ExpansionBlock({
   onOpen: (entry: SeasonEntry) => void;
 }) {
   const x = expansion;
+  const xs = expansionStats(x);
 
   return (
     <section
@@ -116,6 +172,11 @@ function ExpansionBlock({
         {x.current && <div className="rw-current-tag">Current expansion</div>}
         <h2 className="rw-crest-name">{x.name}</h2>
         <div className="rw-crest-years">{x.years}</div>
+        {xs.paid > 0 && (
+          <div className="rw-crest-paid">
+            <span>Rewards</span> {short(xs.paid)} gold
+          </div>
+        )}
       </div>
 
       <div className="rw-season-row">
@@ -147,32 +208,53 @@ function SeasonCard({
   const d = entry.data!;
   const champ = d.rewards.find((w) => !w.disqualified);
   const live = d.status === "live";
+  const st = seasonStats(d);
 
   return (
-    <button className={`rw-scard is-open${live ? " is-live" : ""}`} onClick={onOpen}>
-      <div className="rw-scard-num">S{index + 1}</div>
-      {live && (
-        <span className="rw-live-pill">
-          <span className="rw-live-dot" /> LIVE
-        </span>
-      )}
+    <button className={`rw-scard is-open${live ? " is-live" : ""}${champ ? " has-data" : ""}`} onClick={onOpen}>
+      <div className="rw-scard-top">
+        <div className="rw-scard-num">S{index + 1}</div>
+        {live ? (
+          <span className="rw-live-pill">
+            <span className="rw-live-dot" /> LIVE
+          </span>
+        ) : (
+          <span className="rw-ended-pill">✓ Paid out</span>
+        )}
+      </div>
 
       {champ ? (
-        <>
-          <div className="rw-scard-crown">👑</div>
-          <div className="rw-scard-champ">{champ.name}</div>
-          {d.totalGenerated !== undefined && (
-            <div className="rw-scard-total">{short(d.totalGenerated)} gold</div>
-          )}
-        </>
+        <div className="rw-scard-body">
+          <div className="rw-scard-champbox">
+            <div className="rw-scard-crown">👑</div>
+            <div className="rw-scard-kicker">Champion</div>
+            <div className="rw-scard-champ">{champ.name}</div>
+            {champ.prizeGold ? <div className="rw-scard-champprize">+{gold(champ.prizeGold)}g</div> : null}
+          </div>
+
+          <div className="rw-scard-stats">
+            <div className="rw-scard-kicker">🎁 Rewards paid</div>
+            <div className="rw-scard-paid">
+              {gold(st.paid)}
+              <span>g</span>
+            </div>
+            <div className="rw-scard-chips">
+              <span className="rw-chip">🏅 {st.rewarded} rewarded</span>
+              {d.totalGenerated !== undefined && (
+                <span className="rw-chip">⚔️ {short(d.totalGenerated)} gold generated</span>
+              )}
+            </div>
+          </div>
+        </div>
       ) : (
-        <>
+        <div className="rw-scard-pending">
           <div className="rw-scard-crown">⏳</div>
           <div className="rw-scard-champ">In progress</div>
-        </>
+          <div className="rw-scard-kicker">Rewards posted when the season ends</div>
+        </div>
       )}
 
-      <div className="rw-scard-cta">View →</div>
+      <div className="rw-scard-cta">View rewards →</div>
     </button>
   );
 }
@@ -194,15 +276,26 @@ function SeasonView({ season }: { season: Season }) {
           {season.weeks && <div className="rw-season-meta">{season.weeks} weeks</div>}
         </div>
 
-        {season.totalGenerated !== undefined && (
-          <div className="rw-total">
-            <div className="rw-total-label">Total gold generated</div>
-            <div className="rw-total-value">
-              {gold(season.totalGenerated)}
-              <span>g</span>
+        <div className="rw-totals">
+          {seasonStats(season).paid > 0 && (
+            <div className="rw-total is-paid">
+              <div className="rw-total-label">🎁 Rewards paid</div>
+              <div className="rw-total-value">
+                {gold(seasonStats(season).paid)}
+                <span>g</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+          {season.totalGenerated !== undefined && (
+            <div className="rw-total">
+              <div className="rw-total-label">Total gold generated</div>
+              <div className="rw-total-value">
+                {gold(season.totalGenerated)}
+                <span>g</span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {season.announcement && <div className="rw-note">{season.announcement}</div>}
@@ -385,6 +478,37 @@ const CSS = `
 .rw-ornament b { width: 9px; height: 9px; transform: rotate(45deg); background: #facc15; box-shadow: 0 0 14px rgba(250,204,21,.9); }
 .rw-sub { position: relative; margin: 0; color: #d8c9a8; font-size: 17px; }
 
+/* hero stats strip */
+.rw-hero-stats {
+  position: relative; max-width: 900px; margin: 30px auto 0;
+  display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 14px;
+}
+.rw-hstat {
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 18px 16px; border-radius: 18px;
+  border: 1px solid rgba(168,85,247,.4);
+  background: linear-gradient(180deg, rgba(60,20,100,.45), rgba(10,4,24,.85));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 10px 30px rgba(0,0,0,.4);
+  backdrop-filter: blur(6px);
+}
+.rw-hstat::before {
+  content: ""; position: absolute; inset: 0 0 auto; height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(196,181,253,.9), transparent);
+}
+.rw-hstat.is-main {
+  border-color: rgba(250,204,21,.65);
+  background: linear-gradient(180deg, rgba(120,90,10,.45), rgba(20,12,0,.88));
+  box-shadow: 0 0 36px rgba(250,204,21,.25), inset 0 1px 0 rgba(255,255,255,.12);
+}
+.rw-hstat.is-main::before { background: linear-gradient(90deg, transparent, #facc15, transparent); }
+.rw-hstat-icon { font-size: 24px; filter: drop-shadow(0 0 10px rgba(250,204,21,.6)); }
+.rw-hstat-label { color: #c4b5fd; font-size: 11px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; }
+.is-main .rw-hstat-label { color: #fde68a; }
+.rw-hstat-value { font-size: 28px; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; }
+.rw-hstat-value span { font-size: 16px; margin-left: 2px; opacity: .7; }
+.is-main .rw-hstat-value { font-size: 34px; color: #facc15; text-shadow: 0 0 20px rgba(250,204,21,.55); }
+
 /* ---------- tabs ---------- */
 .rw-tabs { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-bottom: 26px; }
 .rw-tab {
@@ -411,7 +535,9 @@ const CSS = `
 .rw-season-title { margin: 6px 0 4px; font-family: Georgia, serif; font-size: 38px; color: #fff; }
 .rw-season-meta { color: #a99cc6; font-weight: 700; }
 
+.rw-totals { display: flex; gap: 28px; flex-wrap: wrap; justify-content: flex-end; }
 .rw-total { text-align: right; }
+.rw-total.is-paid .rw-total-value { color: #4ade80; text-shadow: 0 0 24px rgba(34,197,94,.55); }
 .rw-total-label { color: #c4b5fd; font-weight: 900; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; }
 .rw-total-value {
   font-size: 44px; font-weight: 900; color: #facc15;
@@ -585,6 +711,13 @@ const CSS = `
 }
 .is-current .rw-crest-name { font-size: 42px; }
 .rw-crest-years { margin-top: 6px; color: rgba(var(--accent-rgb), 1); font-weight: 900; letter-spacing: 3px; font-size: 13px; }
+.rw-crest-paid {
+  margin-top: 12px; padding: 5px 14px; border-radius: 999px;
+  font-weight: 900; font-size: 15px; color: #4ade80;
+  border: 1px solid rgba(34,197,94,.5); background: rgba(5,46,22,.6);
+  box-shadow: 0 0 14px rgba(34,197,94,.25);
+}
+.rw-crest-paid span { color: #bbf7d0; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-right: 4px; }
 
 /* right side: season cards */
 .rw-season-row { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
@@ -632,14 +765,48 @@ const CSS = `
   0%, 100% { box-shadow: 0 0 20px rgba(var(--accent-rgb), .3), inset 0 0 22px rgba(var(--accent-rgb), .15); }
   50%      { box-shadow: 0 0 46px rgba(var(--accent-rgb), .7), inset 0 0 26px rgba(var(--accent-rgb), .25); }
 }
-.rw-scard-crown { font-size: 44px; filter: drop-shadow(0 0 14px rgba(250,204,21,.85)); }
-.rw-scard-champ { margin-top: 6px; font-size: 22px; font-weight: 900; word-break: break-word; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
-.rw-scard-total { margin-top: 4px; color: #facc15; font-weight: 900; font-size: 15px; text-shadow: 0 0 10px rgba(250,204,21,.5); }
-.rw-scard-cta {
-  margin-top: 14px; padding: 6px 16px; border-radius: 999px; font-weight: 900; font-size: 13px;
-  color: #fff; background: rgba(var(--accent-rgb), .35); border: 1px solid rgba(var(--accent-rgb), .8);
+/* a season with results takes two slots so the rewards have room */
+.rw-scard.has-data { grid-column: span 2; justify-content: space-between; padding: 14px 18px 18px; }
+.rw-scard-top { align-self: stretch; display: flex; justify-content: space-between; align-items: center; min-height: 24px; }
+.rw-scard-top .rw-scard-num { position: static; }
+.rw-scard-body {
+  align-self: stretch; flex: 1;
+  display: grid; grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1.25fr); align-items: center; gap: 16px;
+  margin: 6px 0 4px;
 }
+.rw-scard-body::before {
+  content: ""; grid-column: 2; grid-row: 1; align-self: stretch;
+  background: linear-gradient(180deg, transparent, rgba(var(--accent-rgb), .6), transparent);
+}
+.rw-scard-champbox { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; align-items: center; }
+.rw-scard-stats { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.rw-scard-pending { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 10px 0; }
 
+.rw-scard-kicker { color: rgba(255,255,255,.6); font-size: 11px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; }
+.rw-scard-crown { font-size: 40px; line-height: 1; margin-bottom: 6px; filter: drop-shadow(0 0 14px rgba(250,204,21,.85)); }
+.rw-scard-champ { margin-top: 2px; font-size: 24px; font-weight: 900; word-break: break-word; color: #fff7cc; text-shadow: 0 0 14px rgba(250,204,21,.45), 0 2px 8px rgba(0,0,0,.8); }
+.rw-scard-champprize { margin-top: 4px; color: #4ade80; font-weight: 900; font-size: 14px; }
+.rw-scard-paid {
+  font-size: 30px; font-weight: 900; line-height: 1.1; color: #facc15; font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 18px rgba(250,204,21,.6);
+}
+.rw-scard-paid span { font-size: 18px; margin-left: 2px; opacity: .75; }
+.rw-scard-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 6px; }
+.rw-chip {
+  padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; white-space: nowrap;
+  color: #e9e3f7; background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.14);
+}
+.rw-scard-cta {
+  margin-top: 10px; padding: 7px 20px; border-radius: 999px; font-weight: 900; font-size: 13px;
+  color: #fff; background: rgba(var(--accent-rgb), .4); border: 1px solid rgba(var(--accent-rgb), .9);
+  transition: background .2s ease;
+}
+.rw-scard.is-open:hover .rw-scard-cta { background: rgba(var(--accent-rgb), .7); }
+
+.rw-ended-pill {
+  padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;
+  border: 1px solid rgba(34,197,94,.6); background: rgba(5,46,22,.7); color: #4ade80;
+}
 .rw-live-pill {
   position: absolute; top: 12px; right: 12px;
   display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
@@ -701,5 +868,19 @@ const CSS = `
   .rw-row { grid-template-columns: 1fr; }
   .rw-row-prize { justify-content: flex-start; }
   .rw-total { text-align: left; }
+  .rw-totals { justify-content: flex-start; }
+  .rw-hero-stats { grid-template-columns: 1fr 1fr; }
+  .rw-hstat.is-main { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  .rw-page { padding: 28px 16px 60px; }
+  .rw-xpac { padding: 22px 16px; }
+  .rw-season-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .rw-scard { min-height: 140px; }
+  .rw-scard-body { grid-template-columns: 1fr; gap: 12px; }
+  .rw-scard-body::before { display: none; }
+  .rw-scard-champbox, .rw-scard-stats { grid-column: 1; grid-row: auto; }
+  .rw-hstat-value { font-size: 22px; }
+  .is-main .rw-hstat-value { font-size: 28px; }
 }
 `;

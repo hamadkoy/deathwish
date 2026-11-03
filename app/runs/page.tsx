@@ -2761,6 +2761,7 @@ style={{
 
 <EditRunModal
   run={editingRun}
+  leaderMode={!isAdmin}
   dateForDay={getRunDateFromWeekAndDay}
   onClose={() => setEditingRun(null)}
   onSaved={async () => {
@@ -3169,6 +3170,27 @@ right: 18,
       }}
     >
       {run.finished ? "↩" : "⚑"}
+    </button>
+  )}
+
+  {!isAdmin && !!user && run.created_by === user.id && (
+    <button
+      title="Edit your run"
+      onClick={(e) => {
+        e.stopPropagation();
+        setEditingRun(run);
+      }}
+      style={editRunButton}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-3px) scale(1.12)";
+        e.currentTarget.style.boxShadow = "0 0 26px rgba(168,85,247,.95)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0) scale(1)";
+        e.currentTarget.style.boxShadow = "0 0 14px rgba(168,85,247,.55)";
+      }}
+    >
+      ✏️
     </button>
   )}
 

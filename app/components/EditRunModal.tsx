@@ -57,11 +57,14 @@ export default function EditRunModal({
   dateForDay,
   onClose,
   onSaved,
+  leaderMode = false,
 }: {
   run: EditableRun | null;
   dateForDay: (week: number, day: string) => string;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
+  /** Run creator (not admin): no day/date/time here — that goes through the ⏰ button. */
+  leaderMode?: boolean;
 }) {
   const [title, setTitle] = useState("");
   const [day, setDay] = useState("Wednesday");
@@ -136,6 +139,36 @@ export default function EditRunModal({
     setSaving(true);
     setError("");
 
+    if (leaderMode) {
+      // Leaders can't update runs directly; this function checks they created the run.
+      const { error: rpcError } = await supabase.rpc("leader_edit_run", {
+        p_run_id: run.id,
+        p_title: title.trim(),
+        p_notes: notes,
+        p_background_key: background,
+        p_ilvl_required: Number(ilvl) || null,
+        p_exp_required: exp || null,
+        p_healer_limit: healers,
+        p_dps_limit: dps,
+        p_signup_open_at:
+          signupMode === "scheduled" ? new Date(signupAt).toISOString() : null,
+      });
+
+      setSaving(false);
+
+      if (rpcError) {
+        setError(
+          rpcError.message.includes("NOT_LEADER")
+            ? "Only the leader who created this run can edit it."
+            : rpcError.message
+        );
+        return;
+      }
+
+      await onSaved();
+      return;
+    }
+
     const moved =
       day !== run.day ||
       time.trim() !== (run.time || "") ||
@@ -201,6 +234,12 @@ export default function EditRunModal({
               style={input}
             />
 
+            {leaderMode ? (
+              <div style={{ ...hint, color: "#fde68a", marginTop: 16 }}>
+                ⏰ {run.day} · {run.time} — use the ⏰ button on the run card to change the time.
+              </div>
+            ) : (
+            <>
             <div style={twoCol}>
               <div>
                 <div style={fieldLabel}>Run Day</div>
@@ -235,6 +274,8 @@ export default function EditRunModal({
               onChange={(e) => setTime(e.target.value)}
               style={input}
             />
+            </>
+            )}
           </div>
 
           {/* Requirements */}
