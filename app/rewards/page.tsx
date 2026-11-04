@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   EXPANSIONS,
+  LOST_SEASON_ESTIMATE,
   type Expansion,
   type Season,
   type SeasonEntry,
@@ -20,6 +21,15 @@ import {
 ============================================================ */
 
 const gold = (n?: number) => (n ?? 0).toLocaleString("en-US");
+
+/** Long names get a smaller size, and may break after an underscore. */
+function ChampName({ name }: { name: string }) {
+  return (
+    <span className={`rw-bn-champ${name.length > 11 ? " is-long" : ""}`}>
+      {name.replace(/_/g, "_\u200b")}
+    </span>
+  );
+}
 
 /** Gold actually handed out in a season (main + hidden rewards, no DQs). */
 function seasonStats(d: Season) {
@@ -197,7 +207,11 @@ function Banner({
       <div className="rw-banner is-lost" style={style}>
         <div className="rw-cloth">
           <span className="rw-bn-season">Season {n}</span>
-          <span className="rw-bn-lost">Records lost</span>
+          <span className="rw-bn-lost">Records lost with the old website</span>
+          <span className="rw-bn-est">
+            Est. payout
+            <b>{gold(entry.estimatedPayout ?? LOST_SEASON_ESTIMATE)} gold</b>
+          </span>
         </div>
       </div>
     );
@@ -220,7 +234,7 @@ function Banner({
 
         {champ ? (
           <>
-            <span className="rw-bn-champ">{champ.name}</span>
+            <ChampName name={champ.name} />
             <span className="rw-bn-caption">Season champion</span>
             <span className="rw-bn-rule" />
             <span className="rw-bn-paid">
@@ -345,7 +359,7 @@ function SeasonView({
               <div className="rw-cloth">
                 <span className="rw-bn-season">{PLACE[place]}</span>
                 {place === 0 ? <Crown size={64} /> : <span className="rw-bn-rank">{place + 1}</span>}
-                <span className="rw-bn-champ">{w.name}</span>
+                <ChampName name={w.name} />
                 {w.note && <span className="rw-bn-caption">{w.note}</span>}
                 <span className="rw-bn-rule" />
                 {w.prizeGold ? (
@@ -451,6 +465,7 @@ const CSS = `
   --gold: #e9c25b;
   --brass: #b8862c;
   --iron: #5b5466;
+  --reward: #4ade80;
   min-height: 100vh; overflow-x: hidden;
   padding: 56px 24px 96px;
   color: var(--parch);
@@ -472,7 +487,7 @@ const CSS = `
   text-shadow: 0 1px 0 #fff6, 0 -1px 0 #0009, 0 0 40px rgba(233,194,91,.25);
 }
 .rw-hero p { margin: 14px 0 0; max-width: 34em; font-size: 21px; color: var(--parch-dim); }
-.rw-hero p b { color: var(--gold); font-weight: 800; font-variant-numeric: tabular-nums; }
+.rw-hero p b { color: var(--reward); font-weight: 800; font-variant-numeric: tabular-nums; }
 
 /* ---------- hall ---------- */
 .rw-hall { margin-bottom: 56px; }
@@ -552,10 +567,13 @@ const CSS = `
 .rw-bn-caption { font-size: 15px; line-height: 1.35; color: rgba(239,226,194,.72); }
 .rw-bn-rule { width: 56%; height: 1px; margin: 12px 0 10px; background: linear-gradient(90deg, transparent, var(--gold), transparent); }
 .rw-bn-paid {
-  font-weight: 800; font-size: 27px; line-height: 1.1; color: var(--gold);
+  font-weight: 800; font-size: 27px; line-height: 1.1; color: var(--reward);
   font-variant-numeric: tabular-nums lining-nums; text-shadow: 0 2px 0 rgba(0,0,0,.5);
 }
-.rw-bn-paid small { font-size: 16px; font-weight: 700; color: rgba(233,194,91,.8); }
+.rw-bn-paid small { font-size: 16px; font-weight: 700; color: rgba(74,222,128,.8); }
+.rw-bn-champ.is-long { font-size: 18px; }
+.rw-banner.is-podium .rw-bn-champ.is-long { font-size: 20px; }
+.rw-banner.is-podium.place-1 .rw-bn-champ.is-long { font-size: 24px; }
 .rw-bn-item { margin: 4px 0 2px; font-weight: 700; font-size: 15px; color: #fff3cf; }
 .rw-bn-open {
   margin-top: auto; padding: 5px 16px; border-radius: 4px;
@@ -571,7 +589,7 @@ const CSS = `
 /* lost seasons: short, torn, faded */
 .rw-banner.is-lost { opacity: .62; filter: drop-shadow(0 10px 14px rgba(0,0,0,.5)) saturate(.35); }
 .rw-banner.is-lost .rw-cloth {
-  min-height: 170px; padding: 24px 16px 40px; justify-content: flex-start; gap: 8px;
+  min-height: 220px; padding: 24px 14px 44px; justify-content: flex-start; gap: 6px;
   clip-path: polygon(0 0,100% 0,100% 80%,93% 88%,85% 82%,76% 95%,66% 85%,55% 100%,45% 87%,34% 96%,24% 84%,14% 92%,6% 83%,0 90%);
   background:
     linear-gradient(90deg, rgba(0,0,0,.45), transparent 18%, transparent 82%, rgba(0,0,0,.45)),
@@ -579,13 +597,15 @@ const CSS = `
     #17131d;
   box-shadow: inset 3px 0 0 var(--iron), inset -3px 0 0 var(--iron), inset 0 3px 0 var(--iron);
 }
-.rw-bn-lost { font-size: 15px; color: rgba(239,226,194,.7); }
+.rw-bn-lost { font-size: 15px; line-height: 1.3; color: rgba(239,226,194,.75); }
+.rw-bn-est { margin-top: 4px; font-size: 14px; color: rgba(239,226,194,.6); }
+.rw-bn-est b { display: block; font-size: 17px; font-weight: 800; color: rgba(74,222,128,.85); font-variant-numeric: tabular-nums lining-nums; }
 
 /* archive halls (nothing recorded) are smaller */
 .rw-hall.is-archive { margin-bottom: 40px; }
 .rw-hall.is-archive .rw-hall-head h2 { font-size: 26px; }
 .rw-hall.is-archive .rw-banner { width: 168px; }
-.rw-hall.is-archive .rw-cloth { min-height: 128px; }
+.rw-hall.is-archive .rw-cloth { min-height: 210px; }
 
 /* ---------- season view ---------- */
 .rw-back {
@@ -651,7 +671,7 @@ const CSS = `
 .rw-ledger .rank { width: 44px; color: var(--parch-dim); }
 .rw-l-name { display: block; font-weight: 700; font-size: 18px; }
 .rw-l-note { display: block; font-size: 15px; color: var(--parch-dim); font-style: italic; }
-.rw-l-reward { display: block; font-weight: 800; color: var(--gold); }
+.rw-l-reward { display: block; font-weight: 800; color: var(--reward); }
 .rw-l-item { display: block; font-size: 15px; color: var(--parch); white-space: normal; }
 .rw-l-sub { font-size: 14px; color: var(--parch-dim); }
 .rw-l-dq { font-weight: 800; color: #f87171; }
@@ -672,7 +692,7 @@ const CSS = `
   .rw-cloth { min-height: 310px; padding: 22px 12px 58px; }
   .rw-bn-champ { font-size: 20px; }
   .rw-bn-paid { font-size: 23px; }
-  .rw-hall.is-archive .rw-banner { width: 140px; }
+  .rw-hall.is-archive .rw-banner { width: 156px; }
 
   .rw-podium { flex-direction: column; align-items: center; gap: 22px; padding: 0; }
   .rw-podium .rw-rod { display: none; }

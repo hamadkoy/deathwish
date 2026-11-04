@@ -46,8 +46,12 @@ export type SeasonEntry = {
   id: string;
   label: string; // "Season 3"
   lost?: boolean; // records lost
+  estimatedPayout?: number; // lost seasons: rough payout, defaults to LOST_SEASON_ESTIMATE
   data?: Season;
 };
+
+/** Rough payout shown on seasons whose records were lost with the old website. */
+export const LOST_SEASON_ESTIMATE = 15_000_000;
 
 export type Expansion = {
   id: string;
